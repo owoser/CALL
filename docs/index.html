@@ -1,30 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 
 <head>
   <meta charset="UTF-8">
-  <title>Document</title>
+  <title>CALL 建造助手 · 文档</title>
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
-  <meta name="description" content="Description">
+  <meta name="description" content="CALL 建造助手 —— 面向 LeviLamina（LL3）与 LegacyScriptEngine 的基岩版服务器建造辅助插件文档">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/css/theme-simple.css">
+  <!-- 全部本地化：不再依赖 jsdelivr / unpkg，国内访问也不会白屏 -->
+  <link rel="stylesheet" href="./vendor/theme-simple.css">
   <link rel="shortcut icon" href="./image/CALL_light_ico.ico" type="image/x-icon">
-  <!-- <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.css"> -->
 </head>
 
 <body>
-  <div id="app"></div>
+  <div id="app">加载中…</div>
   <script>
     window.$docsify = {
+      name: 'CALL 建造助手',
+      repo: 'https://github.com/owoser/CALL',
       loadSidebar: true,
       coverpage: true,
       loadNavbar: true,
       onlyCover: true,
       subMaxLevel: 2,
       maxLevel: 3,
-      // sidebarDisplayLevel: 2,
-      name: '',
-      repo: 'https://github.com/superx101/CALL',
+      notFoundPage: true,
+      formatUpdated: '{YYYY}-{MM}-{DD}',
+      search: {
+        placeholder: '搜索文档…',
+        noData: '没有找到相关内容',
+        depth: 2
+      },
       count: {
         countable: true,
         fontsize: '0.9em',
@@ -33,33 +39,22 @@
       },
       copyCode: {
         buttonText: '复制',
-        errorText: 'Error',
+        errorText: '复制失败',
         successText: '已复制'
       },
-      // markdown: {
-      //   renderer: {
-      //     code: function (code, lang) {
-      //       if (lang === "mermaid") {
-      //         return (
-      //           '<div class="mermaid">' + mermaid.render('mermaid-svg-' + num++, code) + "</div>"
-      //         );
-      //       }
-      //       return this.origin.code.apply(this, arguments);
-      //     }
-      //   }
-      // }
-    }
-
-    // var num = 0;
-    // mermaid.initialize({ startOnLoad: false });
-
+      pagination: {
+        previousText: '上一页',
+        nextText: '下一页',
+        crossChapter: true
+      }
+    };
   </script>
-  <!-- Docsify v4 -->
-  <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
-  <script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
-  <script src="//unpkg.com/docsify-count/dist/countable.js"></script>
-  <script src="//cdn.jsdelivr.net/npm/docsify-pagination/dist/docsify-pagination.min.js"></script>
-  <!-- <script src="//cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script> -->
+  <!-- Docsify v4 + 插件（均为本地文件，见 ./vendor） -->
+  <script src="./vendor/docsify.min.js"></script>
+  <script src="./vendor/search.min.js"></script>
+  <script src="./vendor/copy-code.min.js"></script>
+  <script src="./vendor/countable.js"></script>
+  <script src="./vendor/pagination.min.js"></script>
 </body>
 
 </html>

@@ -1,97 +1,106 @@
-# 配置
+# 配置参考
 
-?> 若您**不是**服务器后台管理者，可**跳过**本节文档
+?> 如果你不是服务器管理员，可以跳过本节。
 
-## 全局配置
-### 介绍
-&emsp;&emsp;在`CALL/config/configs.json`文件中存放有本插件的全局配置，全局配置决定了所有玩家的操作方式和默认设置。您可根据下面的[说明](#配置项解析)修改配置项。 
+## 配置文件在哪
 
-### 须知
-- 配置文件仅在**插件启动时加载**，当插件启动后修改配置将不会生效。此时您可以在后台使用命令`/call reload`重载插件使配置文件生效，或等下次服务器重启后自动生效。
-- 配置文件为**json格式**，请遵循该格式语法，否则将无法读取配置。
+配置文件的真实路径是：
 
-### 配置项解析
-灰底字表示配置的项，区块内容表示项的值，值后面的文件为对值的解释
-#### `enable` 是否启用插件
-关闭后CALL则不会加载，所有玩家都不可使用
-> true&emsp;&emsp;启用插件CALL  
-> false&emsp;&emsp;关闭插件CALL
+~~~text
+plugins/CALL/userdata/config/configs.json
+~~~
 
-#### `permission` 使用权限
-定义哪些玩家可以使用CALL
-> "all"&emsp;&emsp;所有玩家都可以使用CALL  
-> "op"&emsp;&emsp;仅OP可以使用CALL  
-> "customize"&emsp;&emsp;自定义可使用CALL的玩家，详见[权限列表](#权限列表)
+Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`。启动日志里也会打印一次这个绝对路径（`[CALL] config: ...`），不确定时直接看日志。
 
-#### `autoUpdate` 开启自动更新
-开启后检测到新版则会自动更新插件和数据
-> true&emsp;&emsp;开启  
-> false&emsp;&emsp;关闭
+!> **原版文档写的 `CALL/config/configs.json` 是笔误。**
+原作者 1.6.1 的代码里配置一直写在 `userdata/config` 下；`plugins/CALL/config/` 只放只读资源（`check.json`、`help.json`、`icons.json`、`item_texture.json`、`url.json`、`lang/*.lang`），**不要**去那里找。
 
-#### `updateFrom` 自动更新地址
-用于自动更新时联网下载最新版本，若无法访问请改备用
-> "github"&emsp;&emsp;从github更新  
-> "minebbs"&emsp;&emsp;从minebbs更新
+## 目录职责
 
-#### `debugMod` 是否启用调试模式
-形状包开发者可开启调试模式查看报错情况，默认情况下CALL不输出插件报错内容
-> true&emsp;&emsp;开启  
-> false&emsp;&emsp;关闭
+| 目录 | 内容 | 是否可改 |
+|---|---|---|
+| `plugins/CALL/config/` | 内置资源：校验规则、图标、贴图索引、语言包 | ❌ 只读 |
+| `plugins/CALL/userdata/config/` | **configs.json**（本文档）、userlist.json（白名单） | ✅ 你的配置 |
+| `plugins/CALL/userdata/data/` | nbt/（结构切片）、settings.json、structures.json | ✅ 玩家数据 |
+| `plugins/CALL/userdata/plugins/` | 第三方形状包 | ✅ |
 
-#### `displayLogo` 加载CALL时是否显示字符Logo
+## 生效方式
 
-> true&emsp;&emsp;显示  
-> false&emsp;&emsp;不显示
+- 配置**只在插件启动时读取**；
+- 改完用 `/ca reload`（简写 `/ca r`）重载，或重启服务器；
+- 文件是**带注释的 JSON**，语法写错会读取失败，建议改完立刻 `/ca reload` 看日志。
 
-#### `outputCmd` 是否显示玩家执行的指令到控制台
+## 配置项
 
-> true&emsp;&emsp;显示  
-> false&emsp;&emsp;不显示
+### 基础
 
-#### `oldCommandType` 1.19.50以下版本中启用旧指令格式
-1.19.50后自动强制采用新版指令，可忽略此选项     
-1.19.50前的部分版本下的实验模式中的指令也为新版指令，即部分实验模式下需将此项设为false
+| 键 | 默认值 | 可选值 | 说明 |
+|---|---|---|---|
+| `enable` | `true` | true / false | 总开关，关闭后 CALL 不加载任何功能 |
+| `permission` | `"op"` | `all` / `op` / `customize` | 谁能用；`customize` 时配合 `userdata/config/userlist.json` 白名单 |
+| `consoleLanguage` | `"zh_CN"` | zh_CN / zh_TW / en_US / ru_RU | 控制台语言 |
+| `debugMod` | `false` | true / false | 输出调试日志（形状包开发时用） |
+| `displayLogo` | `true` | true / false | 启动时打印字符 Logo |
+| `suvivalModeActive` | `true` | true / false | 生存模式相关限制（键名沿用原版拼写） |
 
-> true 采用  
-> false 不采用
+### 选区显示
 
-#### `maxSaveStructure` 一个玩家最多可以保存的结构数量
-推荐取值：30
-> 整数数字&emsp;&emsp;范围：0--200
+| 键 | 默认值 | 可选值 | 说明 |
+|---|---|---|---|
+| `areaDisplayMode` | `"structure_block"` | `structure_block` / `particle` / `text` / `off` | 选区显示方式。`structure_block` 会在选区上方放一个临时结构方块，只占空气块、写世界前落盘、退出必还原；`particle` 尚未确认能渲染 |
+| `areaTextTipInterval` | `1000` | 250 – 10000 | 选区尺寸文字提示的刷新间隔（毫秒） |
 
-#### `maxUndoStep` 最大撤销与恢复步数
-推荐取值：10以内
-> 整数数字&emsp;&emsp;范围：0--100
+### 数量与上限
 
-#### `viewMaxDistance` 视野选取方块的最大距离
-用于[视野选区]()，定义视线最大距离  
-推荐取值：150以内
-> 整数数字&emsp;&emsp;范围：1--300
+| 键 | 默认值 | 范围 | 说明 |
+|---|---|---|---|
+| `maxSaveStructure` | `30` | 0 – 200 | 每个玩家最多保存多少个结构 |
+| `maxUndoStep` | `5` | 0 – 100 | 撤销 / 重做的最大步数 |
+| `maxPlaceBlocks` | `40000` | 1000 – 200000 | **形状生成**单次最大方块数 |
+| `maxRestoreBlocks` | `2000000` | 40000 – 20000000 | **撤销 / 重做 / 粘贴 / 载入**单次最大方块数（恢复类操作通常远大于形状生成） |
+| `placeBatchBlocks` | `2000` | 50 – 5000 | 逐块写回时每批多少块后让出主线程；调小更平滑、调大更快 |
+| `viewMaxDistance` | `150` | 1 – 300 | 视野选区的最远距离 |
 
-#### `maxLoadCheckNum` 最大区块加载次数
-当处理大区域时需要等待区块加载，若超过加载次数则退出执行  
-推荐取值：5
-> 整数数字&emsp;&emsp;范围：1--50
+### 区块加载与指令节奏
 
-#### `traversalWaitTime` 遍历等待时间
-该选项决定了粘贴、填充、加载等操作的间隔时间（毫秒）, 若出现加载结构不完全时需将此项数值调大  
-推荐取值：300
-> 整数数字&emsp;&emsp;范围：0--10000
+| 键 | 默认值 | 可选值 / 范围 | 说明 |
+|---|---|---|---|
+| `chunkLoader` | `"tickingarea"` | `tickingarea` / `none` | 用 `/tickingarea` 常加载区块（**不会移动玩家**）。设成 `none` 后远程大选区会失败 |
+| `chunkLoadTimeout` | `15000` | 500 – 60000 | 等待区块加载 / 生成的超时（毫秒）。大选区首次需要生成新区块，太小时会失败 |
+| `traversalWaitTime` | `300` | 0 – 10000 | 每个分片之间的间隔（毫秒） |
+| `fillWaitTime` | `40` | 0 – 1000 | 填充时每条指令之间的间隔（毫秒） |
 
-#### `fillWaitTime` 单填充等待时间
-该选项决定了执行单个填充指令后等待时间（毫秒）, 若出现填充不完全时需将此项数值调大
-推荐取值：40
-> 整数数字&emsp;&emsp;范围：0--1000
+### 新玩家默认设置（`default` 对象）
 
-#### `default` 默认设置
-定义了玩家第一次使用CALL时的默认设置，在此定义默认的快捷键等设置  
-若您没有json语法基础，*不建议您对其修改*，以免产生一些错误导致系统瘫痪  
-若您为开发者，该对象格式请见[开发文档]()
-> json对象&emsp;&emsp;  
+`default` 决定新玩家第一次进服时的个人设置；进服后玩家可在菜单里自行修改（存于 `userdata/data/settings.json`）。
 
+| 子键 | 默认值 | 说明 |
+|---|---|---|
+| `enable` | `true` | 是否启用该玩家的 CALL |
+| `saveArea` | `false` | 复制时是否同时保存选区 |
+| `saveUndo` | `true` | 是否保存撤销快照 |
+| `saveCopy` | `false` | 是否保存复制内容 |
+| `saveEntity` | `true` | 是否保存实体 |
+| `areaTextShow` | `true` | 是否显示选区尺寸文字 |
+| `displayArea` | `true` | 是否显示选区 |
+| `displayProgressBar` | `true` | 是否显示进度信息（3.x 是文字提示，不再是 boss 条） |
+| `loadChuckTip` | `true` | 加载区块时是否提示 |
+| `textureSelectorMode` | `false` | 材质选区模式 |
+| `barReplace` / `barReplaced` | `0` / `1` | 填充时的"替换前 / 后"行为（0–10） |
 
-## 权限列表
-- `CALL/config/userlist.json`文件中存有玩家名字的白名单，处于白名单内的玩家可以使用CALL。  
-注：当配置项[`permission`](#permission-使用权限)为`"customize"`时，才开启白名单。
+## 已废弃的键
 
-?> 不建议您直接修改`userlist.json`文件，CALL提供了后台命令帮助您快速[添加和移除](user/function/console)白名单内玩家
+下列键**仍存在于配置文件中**（兼容 1.x 旧文件），但 **3.x 代码不会读取**，改了没有效果；可以保留也可以自行删除。
+
+| 键 | 原用途 | 现状 |
+|---|---|---|
+| `autoUpdate` | 自动更新插件 | 2.0 起移除自动更新 |
+| `updateFrom` | 自动更新的下载源（github / minebbs） | 同上 |
+| `maxLoadCheckNum` | 旧的区块加载重试次数 | 已由 `chunkLoadTimeout` 取代 |
+
+?> 原版文档还提到 `oldCommandType`、`outputCmd` —— 这两个键在 3.x 里完全不存在，写进去会被忽略。
+
+## 改错了怎么办
+
+- 只是值写错：按上表填回默认值，然后 `/ca reload`；
+- 文件解析不了：删掉 `plugins/CALL/userdata/config/configs.json` 后重启，插件会从内置模板重新生成默认配置（覆盖配置项本身，玩家数据与结构文件不受影响）。

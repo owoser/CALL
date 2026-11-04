@@ -21,12 +21,15 @@
 &emsp;&emsp;若要引入第三方库，您需要在 shape 目录下创建一个：与js文件同名的文件夹，将库文件放入其中（*此方式是为了防止文件重名的情况，非必须*）
 ```
 └─┬─CALL
-    └─┬─plugins
-      └─┬─shape
-        ├───superx101.myShape_1.0.0.js
-        └─┬─superx101.myShape_1.0.0
+    └─┬─userdata
+      └─┬─plugins            ← 形状包放这里（3.x）
+        ├───call.作者名.包名_1.0.0.js
+        └─┬─call.作者名.包名_1.0.0
           └───lib
 ```
+
+> 3.x 的形状包目录是 `plugins/CALL/userdata/plugins`（1.x 是 `CALL/plugins/shape`）。
+> 内置示例包会以 `call.superx101.basicShape.js` 的形式出现在这里。
 
 - **其他语言**  
 &emsp;&emsp;若您需要使用其他语言开发，可在js文件中使用ll.export与ll.import与另一语言插件交互
@@ -92,7 +95,7 @@ SHP.export_form((player, index, intPos)=>{
     <https://blog.csdn.net/zkl99999/article/details/44627911>
 
 ### 示例
-该示例为 `plugins/CALL/plugins/shape/call.superx101.basicShape_2.0.0.js` 中的部分代码，用体素的方法生成了一个可自由旋转的立方体
+该示例为 `plugins/CALL/userdata/plugins/call.superx101.basicShape.js` 中的部分代码，用体素的方法生成了一个可自由旋转的立方体
 
 ?> 该代码已过期，具体实现请参考形状包
 

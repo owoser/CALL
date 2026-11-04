@@ -134,6 +134,38 @@ async function runSuite() {
     });
     check("config.versions", () => "plugin=" + M.Config.PLUGIN_VERSION + " bds=" + M.Config.SERVER_VERSION + " lse=" + M.Config.LSE_VERSION);
 
+    // The upstream docs point at CALL/config/configs.json, which never existed. Make sure
+    // the real file is present, non-empty (i.e. the annotated template rather than a bare
+    // "{}") and that its location is printed at startup so users can find it.
+    check("config.path", () => {
+        const fs = require("fs");
+        const file = M.Config.GLOBAL_FILE;
+        assert(fs.existsSync(file), "config file missing: " + file);
+        const size = fs.statSync(file).size;
+        assert(size > 1000, "config file looks like an empty fallback (" + size + " bytes)");
+        return file;
+    });
+
+    check("config.templateShipped", () => {
+        const fs = require("fs");
+        const p = path.join(M.root, "config", "configs.default.json");
+        assert(fs.existsSync(p), "missing read-only template used for self-heal: " + p);
+        return p;
+    });
+
+    await checkAsync("config.pathLogged", async () => {
+        const Cmd = require(path.join(M.root, "core", "src", "game", "Cmd.js"));
+        void Cmd;
+        // read the server log we are running inside of
+        const fs = require("fs");
+        const logs = path.join(M.root, "..", "..", "logs");
+        const file = path.join(logs, "latest.log");
+        assert(fs.existsSync(file), "no latest.log to inspect");
+        const text = fs.readFileSync(file, "utf8");
+        assert(/\[CALL\] config: .*configs\.json/.test(text), "startup log does not print the config path");
+        return "startup log prints the config path";
+    });
+
     // --- pure geometry ------------------------------------------------------
     check("slicing.1x1", () => {
         const st = new M.Structure(new M.Area3(new M.Pos3(0, 0, 0, DIM), new M.Pos3(10, 5, 10, DIM)));

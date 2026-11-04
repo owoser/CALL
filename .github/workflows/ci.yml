@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The LSE type declarations are vendored under types/, so no network fetch is needed.
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Validate config schema
+        run: npm run check:config
+
+      - name: Validate documentation
+        run: npm run check:docs
+
+      - name: Build (tsc output is required by the unit tests)
+        run: npm run build:fast
+
+      - name: Unit tests
+        run: npm run test:unit

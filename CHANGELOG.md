@@ -11,6 +11,51 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.0.7] - 2026-11-04
+
+### Documentation site
+
+**https://owoser.github.io/CALL/** is now the official documentation, published from
+`docs/` with GitHub Pages (the same docsify setup the upstream project used).
+
+- **Rebranded** for this fork: LL3 / LSE versions, the real GitHub URLs, current version and
+  licence, no more links to the upstream repository or its (1.x) docs site.
+- **Dependencies vendored**: docsify, the theme and all four plugins are now served from
+  `docs/vendor/` instead of jsdelivr/unpkg. A blocked CDN used to leave the whole site
+  blank; jsdelivr is unreachable from mainland China, so this is not a theoretical concern.
+- **Search enabled** (docsify search plugin) and `notFoundPage` turned on.
+
+### Documentation corrected
+
+- **`user/config.md` rewritten.** It repeated the upstream mistake of
+  `CALL/config/configs.json`; the real path is
+  `plugins/CALL/userdata/config/configs.json` (verified against upstream 1.6.1's own
+  `USER_CONFIG_PATH`). It now documents all 22 keys with defaults, ranges and which
+  version added them, plus the three keys that still ship but are **no longer read**
+  (`autoUpdate`, `updateFrom`, `maxLoadCheckNum`).
+- **`user/install.md` rewritten** for LL3 + LSE (was LiteLoaderBDS + minebbs), including
+  the "folder name must equal manifest name" requirement and how to confirm the plugin
+  loaded.
+- **`user/introduction.md`**, **`other/update.md`**, **`other/debug.md`** rewritten:
+  no auto-update, no QQ group, correct command names and paths.
+- **`other/question.md`**: removed the auto-update answer, fixed the import/export paths,
+  added a 3.x FAQ (large regions, "outside the loaded chunks", partial undo, block entities).
+- **`user/function/console.md`**: `call update` replaced by `call reload`.
+- **`dev/plugin.md`**: shape packs live in `plugins/CALL/userdata/plugins`, not
+  `CALL/plugins/shape`.
+
+### Added
+
+- `docs/user/migrate.md` - upgrading from 1.x / 2.0 (data is compatible, behaviour is not).
+- `docs/other/limitations.md` - block entity contents, waterlogged blocks, size caps,
+  ticking-area limits.
+- `docs/dev/architecture.md` - the platform traps (banned `mc.setStructure`, the ZYX index
+  order, the boss-bar enum, chunk leases, why `/structure load` cannot be used).
+- **`npm run check:docs`** - fails when a sidebar/navbar link is dead, when a page links to
+  the upstream project again, or when a config key is undocumented. Wired into CI.
+- **`.github/workflows/ci.yml`** replaces the inherited 1.x workflow (which called a
+  `gulp` build that no longer exists): typecheck, config schema, docs, build, unit tests.
+
 ## [3.0.6] - 2026-11-04
 
 ### Fixed

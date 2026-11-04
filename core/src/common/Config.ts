@@ -22,6 +22,41 @@ const PLAYERS_SETTINGS_PATH = path.join(Paths.DATA, "settings.json");
 const STRUCTURES_PATH = path.join(Paths.DATA, "structures.json");
 const DATA_VERSION_PATH = path.join(Paths.USERDATA, "version");
 
+/**
+ * Pristine copy of the shipped defaults, kept in the read-only config folder.
+ *
+ * Why this exists: LSE's JsonConfigFile creates an EMPTY file when the path is missing,
+ * so a user who deletes configs.json ends up with `{}` - every key silently falls back to
+ * the code defaults and there is nothing to read or edit. Restore the annotated template
+ * instead, before the handles below are opened.
+ */
+const CONFIG_TEMPLATE_PATH = path.join(Paths.CONFIG, "configs.default.json");
+
+function healGlobalConfig(): void {
+    try {
+        fs.mkdirSync(Paths.USER_CONFIG, { recursive: true });
+        let missing = true;
+        try {
+            const st = fs.statSync(GLOBAL_PATH);
+            missing = !st.isFile() || st.size < 3;
+        } catch {
+            missing = true;
+        }
+        if (!missing) return;
+        if (!fs.existsSync(CONFIG_TEMPLATE_PATH)) return;
+        fs.copyFileSync(CONFIG_TEMPLATE_PATH, GLOBAL_PATH);
+        logger.warn("[CALL] " + GLOBAL_PATH + " was missing or empty - restored the default template");
+    } catch (e) {
+        try {
+            logger.warn("[CALL] cannot restore the default config: " + (e && (e as any).message ? (e as any).message : e));
+        } catch {
+            // logger may not be ready yet
+        }
+    }
+}
+
+healGlobalConfig();
+
 // LegacyScriptEngine's own file APIs take paths relative to the BDS root.
 const URL_LSE = Paths.lse(URL_PATH);
 const CHECK_LSE = Paths.lse(CHECK_PATH);
@@ -93,6 +128,9 @@ function detectLseVersion(): Version {
 export default class Config {
     /** Kept for backwards compatibility with 1.x call sites. */
     static A = GLOBAL_PATH;
+
+    /** Absolute path of the user-editable global config (printed at startup). */
+    public static readonly GLOBAL_FILE = GLOBAL_PATH;
 
     // ---- versions ---------------------------------------------------------
     /** Oldest BDS this build supports. */

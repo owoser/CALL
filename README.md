@@ -1,7 +1,17 @@
 # CALL
 
+[![CI](https://github.com/owoser/CALL/actions/workflows/ci.yml/badge.svg)](https://github.com/owoser/CALL/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-owoser.github.io%2FCALL-2ea44f)](https://owoser.github.io/CALL/)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](./LICENSE)
+[![Release](https://img.shields.io/github/v/release/owoser/CALL?label=release)](https://github.com/owoser/CALL/releases/latest)
+
 **Construct Assistant for LeviLamina** - a building / region tool for Bedrock Dedicated
 Server, ported to **LeviLamina 26.51.x** + **LegacyScriptEngine (nodejs) 0.22.4**.
+
+📖 **文档 / Documentation: <https://owoser.github.io/CALL/>**
+（[安装](https://owoser.github.io/CALL/#/user/install) ·
+[配置](https://owoser.github.io/CALL/#/user/config) ·
+[更新日志](https://owoser.github.io/CALL/#/other/update)）
 
 This is a maintained community fork of [superx101/CALL](https://github.com/superx101/CALL)
 (GPL-3.0). Upstream is unmaintained; the 2.0.0 line is the LL3 port. See
@@ -82,7 +92,14 @@ Everything is available as `/call ...` and `/ca ...`.
 
 ## Configuration
 
-`plugins/CALL/userdata/config/configs.json` (JSON with comments). Keys added in 2.0.0:
+Full reference: **<https://owoser.github.io/CALL/#/user/config>**
+
+`plugins/CALL/userdata/config/configs.json` (JSON with comments) - note that the original
+project's documentation claims `CALL/config/configs.json`, which is a **documentation
+error**: upstream's own code has always written it under `userdata/config`. The shipped
+`config/` folder holds read-only resources only.
+
+Keys added in 2.0.0 / 3.x:
 
 | Key | Default | Meaning |
 |---|---|---|

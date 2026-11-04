@@ -258,7 +258,10 @@ async function main() {
   compile();
 
   await copyIfPresent(join(ROOT, 'config'), join(OUT, 'config'));
+  // Pristine copy of the defaults in the READ-ONLY folder: the plugin restores from it when
+  // the user's configs.json is missing or empty (LSE would create an empty file instead).
   await copyIfPresent(join(ROOT, 'data', 'config'), join(USERDATA, 'config'));
+  await copyIfPresent(join(ROOT, 'data', 'config', 'configs.json'), join(OUT, 'config', 'configs.default.json'));
   await copyIfPresent(join(ROOT, 'data', 'data'), join(USERDATA, 'data'));
   await copyIfPresent(join(ROOT, 'data', 'version'), join(USERDATA, 'version'));
   await copyIfPresent(join(ROOT, 'bin'), join(OUT, 'bin'));

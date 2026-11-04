@@ -249,6 +249,9 @@ function init(): boolean {
         ListenerHandler.init(); //init listener
         CACommand.register(); //register command
         logger.info("[CALL] " + Config.PLUGIN_VERSION.toString() + " ready (root: " + Paths.toPosix(Paths.ROOT) + ")");
+    // Print the config location: the upstream docs point at a path that never existed and
+    // users could not find the file at all.
+    logger.info("[CALL] config: " + Paths.toPosix(Config.GLOBAL_FILE));
     } catch (e) {
         logger.error("[CALL] init failed: " + describeError(e) + "\nstack:" + (e && e.stack ? e.stack : ""));
         return false;
