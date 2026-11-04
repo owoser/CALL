@@ -344,7 +344,7 @@ dynamic.AreaDisplayerManager.set.cannotDisplay=可用显示位置已满,无法�
 dynamic.AreaDisplayerManager.areaTextTip.str0=选区: %s
 dynamic.AreaDisplayerManager.areaTextTip.str1=长度: %s
 dynamic.FillManager.ergod.fill=填充中 %s
-dynamic.FillManager.soildFill.warn=警告: 检测到 %d 次填充失败\n原因: 填充区域与被填充区域相同, 或填充执行失败\n前者可忽略。若为后者, 可在配置文件中增加等待时间(fillWaitTime)来避免错误
+dynamic.FillManager.soildFill.warn=警告: 共有 %d 个分片填充失败
 dynamic.ShapeManager.run.cantFind=无法找到包路径为%s的形状包, 请检查拼写或是否装入该包
 dynamic.ShapeManager.run.wrongIndex=请输入正确的形状序号, 当前形状包内序号范围: 0~%d
 dynamic.ShapeManager.run.creating=正在生成形状
@@ -742,3 +742,5 @@ word.noName=无名称
 word.public=公开
 word.unpublic=不公开
 
+dynamic.FillManager.reason.notLoaded=区域超出已加载范围（区块未加载）\n请靠近该区域，或把 configs.json 里的 chunkLoadTimeout 调大后重试
+dynamic.FillManager.reason.invalidBlock=无效的方块名或选区

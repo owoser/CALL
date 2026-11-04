@@ -134,6 +134,6 @@
         "chunkLoadTimeout": {
             "type": "number",
             "min": 500,
-            "max": 30000
+            "max": 60000
         }
 }

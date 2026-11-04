@@ -14,7 +14,8 @@ import Tr from "./util/Translator";
 import CACommand from "./CACommand";
 
 import { MsgType, tell } from "./util/Msg";
-import { every, describeError, safeCall, stopEverything } from "./util/Safe";
+import { every, describeError, logFailure, safeCall, stopEverything } from "./util/Safe";
+import * as Chunks from "./game/Chunks";
 
 /**
  * A temp namespace for listener handler
@@ -268,6 +269,11 @@ export default function main() {
 
     Other.setClock();
     Other.displayLogo(Config.get(Config.GLOBAL, "displayLogo"));
+
+    // A previously killed process may have left ticking areas behind, and BDS only allows
+    // 10 of them - clean up before anything else can need a slot.
+    Chunks.sweepStaleAreas().catch((e) => logFailure("app.sweepStaleAreas", e));
+
     loadPlugins();
 
     // Make sure hot-unload (ll reload CALL) does not leave timers behind.
@@ -276,6 +282,8 @@ export default function main() {
             safeCall("onUnload", () => {
                 stopEverything();
                 AreaDisplayerService.releaseAll();
+                // Never leave a call_* ticking area behind: BDS allows only 10 in total.
+                Chunks.releaseAll();
                 Players.dataMap.clear();
             });
         });

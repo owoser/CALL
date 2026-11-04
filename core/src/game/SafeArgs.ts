@@ -104,6 +104,38 @@ export function isBlockStates(value: any): boolean {
 /** Volume guard for a single /fill or /clone command (BDS limit). */
 export const MAX_FILL_VOLUME = 32768;
 
+/** What we actually aim for per command: 32768 is the hard ceiling, so keep a margin. */
+export const SAFE_FILL_VOLUME = 30000;
+
+/**
+ * How tall a fill slab may be before it risks hitting MAX_FILL_VOLUME.
+ *
+ * `/fill` is capped at 32768 blocks per command. A full 64x64 slice with the old fixed
+ * height of 8 produced exactly 32768, i.e. zero margin.
+ */
+export type CmdErrorClass = "not-loaded" | "noop" | "other";
+
+/**
+ * Classify a command result.
+ *
+ * BDS reports UNLOADED CHUNKS as "无法在世界外放置方块" / "Cannot place blocks outside of the
+ * world" (verified: the same /fill succeeds once a ticking area covers the region), and it
+ * reports a fill that changed nothing as a failure too. Neither is a real error.
+ */
+export function classifyCmdError(out: string, ok: boolean): CmdErrorClass {
+    if (ok) return "other";
+    const text = String(out ?? "");
+    if (/无法在世界外|outside of the world|超出世界/i.test(text)) return "not-loaded";
+    if (/(^|\s)0\s*(个|blocks?\b)/i.test(text)) return "noop";
+    return "other";
+}
+
+export function slabHeight(xSpan: number, zSpan: number, maxHeight = 8): number {
+    const perLayer = Math.max(1, Math.trunc(xSpan) || 1) * Math.max(1, Math.trunc(zSpan) || 1);
+    const fit = Math.floor(SAFE_FILL_VOLUME / perLayer);
+    return Math.max(1, Math.min(Math.max(1, maxHeight), fit || 1));
+}
+
 export function volumeOf(sx: number, sy: number, sz: number): number {
     return Math.max(0, Math.trunc(sx)) * Math.max(0, Math.trunc(sy)) * Math.max(0, Math.trunc(sz));
 }

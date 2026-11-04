@@ -13,6 +13,7 @@ import AreaOperation from "./AreaOperation";
 import StructureOperation from "./StructureOperation";
 import Tr from "../util/Translator";
 import { fillCommand, runNow } from "../game/Cmd";
+import { classifyCmdError } from "../game/Chunks";
 import { MsgType, online, tell } from "../util/Msg";
 
 export default class BasicTranslOperation {
@@ -34,13 +35,17 @@ export default class BasicTranslOperation {
                     "minecraft:air",
                     ""
                 );
-                if (cmd == null) return false;
-                return runNow(cmd).ok;
-            }, (warn: number, slabs: number) => {
-                if (warn != 0) {
-                    tell(online(caPlayer.xuid), StrFactory.cmdWarn(
-                        Tr._(caPlayer.$?.langCode ?? "en_US", "dynamic.FillManager.soildFill.warn", String(warn))
-                    ), MsgType.RAW);
+                if (cmd == null) return "invalid";
+                const res = runNow(cmd);
+                if (res.ok) return "ok";
+                return classifyCmdError(res.out, res.ok) === "not-loaded" ? "not-loaded" : "failed";
+            }, (outcome) => {
+                if (!outcome.ok) {
+                    const lang = caPlayer.$?.langCode ?? "en_US";
+                    const msg = outcome.notLoaded > 0
+                        ? Tr._(lang, "dynamic.FillManager.reason.notLoaded")
+                        : Tr._(lang, "dynamic.FillManager.soildFill.warn", String(outcome.failed));
+                    tell(online(caPlayer.xuid), StrFactory.cmdWarn(msg), MsgType.RAW);
                 }
 
                 //粘贴

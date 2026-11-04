@@ -11,7 +11,7 @@ import { Matrix3D, Transform3 } from "../util/SimpleMatrix";
 import Tr from "../util/Translator";
 import { MsgType, online, tell } from "../util/Msg";
 import { describeError, logFailure, sleep } from "../util/Safe";
-import { ensureLoaded, isLoaded } from "../game/Chunks";
+import { acquire, isLoaded, waitLoaded } from "../game/Chunks";
 
 
 /**
@@ -67,35 +67,20 @@ export default class StructureService {
     /**
      * Wait until both corners of `area` are readable.
      *
-     * The player is NEVER moved for this any more: 1.x/2.0 teleported them every 400ms
-     * (and every 50ms in Players.tpAsync) to force chunks in. `Chunks.ensureLoaded` uses
-     * a named /tickingarea instead and cleans it up again.
+     * The player is NEVER moved for this any more. `Chunks.acquire` takes a ticking-area
+     * LEASE that must outlive the whole slice (both the undo capture and the /fill), so the
+     * lease is taken by traversal() around the slice callback - see below.
      */
     private static async loadChunk(caPlayer: CAPlayer, area: Area3): Promise<boolean> {
         if (isLoaded(area)) return true;
 
         const lang = StructureService.langOf(caPlayer);
-        const tip = !!caPlayer.settings.loadChuckTip;
-        if (tip) {
+        if (caPlayer.settings.loadChuckTip) {
             StructureService.tip(caPlayer, StrFactory.cmdMsg(
                 Tr._(lang, "dynamic.StructureManager.loadChunk.overRange", area.toString())
             ));
         }
-
-        const ok = await ensureLoaded(area);
-
-        if (ok) {
-            if (tip) {
-                StructureService.tip(caPlayer, StrFactory.cmdTip(
-                    Tr._(lang, "dynamic.StructureManager.loadChunk.success", area.toString())
-                ));
-            }
-        } else if (tip) {
-            StructureService.tip(caPlayer, StrFactory.cmdErr(
-                Tr._(lang, "dynamic.StructureManager.loadChunk.cancel", area.toString(), "timeout")
-            ));
-        }
-        return ok;
+        return waitLoaded(area);
     }
 
     // -------------------------------------------------------------- storage
@@ -183,23 +168,36 @@ export default class StructureService {
 
             for (let x = 0; x < mx; x++) {
                 for (let z = 0; z < mz; z++) {
-                    const loaded = await StructureService.loadChunk(caPlayer, areas[x][z]);
+                    const slice = areas[x][z];
+                    // The lease must live until AFTER the slice work: /fill and
+                    // mc.getStructure both fail on unloaded chunks, and BDS reports that
+                    // as "cannot place blocks outside of the world".
+                    const lease = await acquire(slice, "slice " + x + "," + z);
                     let stepOk = false;
-                    if (loaded) {
-                        try {
-                            stepOk = await successCallback(x, z);
-                        } catch (e) {
-                            logFailure("StructureService.slice " + x + "," + z, e);
-                            stepOk = false;
+                    try {
+                        const loaded = await StructureService.loadChunk(caPlayer, slice);
+                        if (loaded) {
+                            try {
+                                stepOk = await successCallback(x, z);
+                            } catch (e) {
+                                logFailure("StructureService.slice " + x + "," + z, e);
+                                stepOk = false;
+                            }
                         }
+                    } finally {
+                        lease.release();
                     }
                     if (!stepOk) {
+                        // DO NOT abort the whole operation here. A 96x96 selection is 4
+                        // slices; giving up on the first bad one left every later slice
+                        // untouched while the player was told nothing at all (the early
+                        // `return` also skipped overCallback). Keep going and report.
                         try {
                             failCallback(x, z);
                         } catch (e) {
                             logFailure("StructureService.failCallback", e);
                         }
-                        return;
+                        continue;
                     }
                     reportProgress(((x * mz + z + 1) * 100) / total);
                     await sleep(waitTime);

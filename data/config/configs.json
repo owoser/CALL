@@ -440,10 +440,10 @@
 
     /*
     *   ###等待区块加载的超时(毫秒)###   (3.0 新增)
-    *   [说明] 使用 /tickingarea 强制加载，玩家不会被传送。
-    *   [范围] 500--30000   [建议] 4000
+    *   [说明] 使用 /tickingarea 强制加载，玩家不会被传送。大选区需要生成新区块，等待会更久。
+    *   [范围] 500--60000   [建议] 15000
     *
-    * ###Chunk load timeout in milliseconds###  [Range] 500--30000  [Recommended] 4000
+    * ###Chunk load timeout in milliseconds###  [Range] 500--60000  [Recommended] 15000
     */
-    "chunkLoadTimeout": 4000
+    "chunkLoadTimeout": 15000
 }

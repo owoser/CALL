@@ -370,6 +370,104 @@ async function runSuite() {
         return "placed at y+" + (foundAt - t.y) + " and restored";
     });
 
+    // --- chunk lease: must actually hold a ticking area, and free it -----------
+    await checkAsync("chunks.lease", async () => {
+        const Chunks = require(path.join(M.root, "core", "src", "game", "Chunks.js"));
+        const Cmd = require(path.join(M.root, "core", "src", "game", "Cmd.js"));
+        // far from the player, so nothing is loaded by accident
+        const far = new M.Area3(new M.Pos3(BX + 900, 120, BZ + 900, DIM), new M.Pos3(BX + 960, 127, BZ + 960, DIM));
+
+        const lease = await Chunks.acquire(far, "calltest");
+        await Chunks.waitLoaded(far, 45000);
+        assert(lease.name != null, "acquire() did not create a ticking area for an unloaded region");
+
+        const list = Cmd.runNow("/tickingarea list all-dimensions");
+        assert(String(list.out).indexOf(lease.name) >= 0, "the ticking area is not listed while held");
+        assert(Chunks.isLoaded(far), "the region still does not read back after acquire()");
+
+        lease.release();
+        lease.release(); // must be idempotent
+
+        const after = Cmd.runNow("/tickingarea list all-dimensions");
+        assert(String(after.out).indexOf(lease.name) < 0, "the ticking area was not removed on release()");
+        return lease.name + " created, listed, released";
+    });
+
+    // --- LARGE region clear (the reported bug: 92x108x113 failed) --------------
+    await checkAsync("ca.clearLargeRegion", async () => {
+        const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;
+        const Cmd = require(path.join(M.root, "core", "src", "game", "Cmd.js"));
+        const Chunks = require(path.join(M.root, "core", "src", "game", "Chunks.js"));
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+        // 96 x 8 x 96 = 6x6 chunks, 400 blocks away from the simulated player
+        const x0 = BX + 400;
+        const y0 = BY;
+        const z0 = BZ + 400;
+
+        // seed with stone; the HARNESS loads the chunks itself so the seed cannot be
+        // confused with the behaviour under test
+        const seedRegion = new M.Area3(
+            new M.Pos3(x0, y0, z0, DIM), new M.Pos3(x0 + 95, y0 + 7, z0 + 95, DIM));
+        const seedLease = await Chunks.acquire(seedRegion, "seed");
+        // Generating a 6x6 chunk region can take a while on a busy machine: wait
+        // explicitly so a slow world does not read as a CALL failure.
+        const seeded = await Chunks.waitLoaded(seedRegion, 60000);
+        assert(seeded, "seed region still not loaded after 60s (ticking area " + seedLease.name + ")");
+        for (const dy of [0, 2, 4, 6]) {
+            const res = Cmd.runNow("/fill " + x0 + " " + (y0 + dy) + " " + z0 + " " +
+                (x0 + 95) + " " + (y0 + dy + 1) + " " + (z0 + 95) + " minecraft:stone");
+            assert(res.ok, "seed fill failed at dy=" + dy + ": " + res.out);
+        }
+        assert(blockTypeAt(x0, y0, z0) === "minecraft:stone", "seed did not take");
+        seedLease.release();
+
+        const cap = fakePlayer(sim);
+        cap.settings.area = {
+            start: { x: x0, y: y0, z: z0, dimid: DIM },
+            end: { x: x0 + 95, y: y0 + 7, z: z0 + 95, dimid: DIM },
+        };
+        cap.hasSetArea = true;
+
+        const hasCallArea = () => /call_[A-Za-z0-9_]+/.test(String(Cmd.runNow("/tickingarea list all-dimensions").out));
+
+        FillOperation.clear(null, cap);
+
+        // Wait for CALL's own ticking area to appear and then disappear: that is the
+        // operation finishing. Nothing is held by the harness during this, so the chunks
+        // really are CALL's responsibility.
+        const appeared = Date.now() + 90000;
+        let sawLease = false;
+        while (Date.now() < appeared) {
+            await sleep(1000);
+            if (hasCallArea()) { sawLease = true; break; }
+        }
+        assert(sawLease, "CALL never created a ticking area for the large region");
+
+        const finished = Date.now() + 180000;
+        while (Date.now() < finished) {
+            await sleep(1500);
+            if (!hasCallArea()) break;
+        }
+        assert(!hasCallArea(), "CALL did not release its ticking area (leak)");
+
+        // The chunks unload again once CALL releases them, so re-load JUST for reading:
+        // this must not be confused with the behaviour under test.
+        const verifyLease = await Chunks.acquire(new M.Area3(
+            new M.Pos3(x0, y0, z0, DIM), new M.Pos3(x0 + 95, y0 + 7, z0 + 95, DIM)), "verify");
+        const near = blockTypeAt(x0, y0, z0);
+        const far = blockTypeAt(x0 + 95, y0 + 7, z0 + 95);
+        const mid = blockTypeAt(x0 + 48, y0 + 4, z0 + 48);
+        verifyLease.release();
+
+        assert(near === "minecraft:air" && far === "minecraft:air" && mid === "minecraft:air",
+            "large clear left blocks: near=" + near + " far=" + far + " mid=" + mid);
+
+        assert(!/call_[A-Za-z0-9_]+/.test(String(Cmd.runNow("/tickingarea list all-dimensions").out)),
+            "ticking areas leaked after verification");
+        return "96x8x96 (6x6 chunks) cleared, lease created and released";
+    });
+
     // --- /ca clear really clears (regression: "invalid block or region: air") ---
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;

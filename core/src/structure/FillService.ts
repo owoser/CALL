@@ -1,7 +1,6 @@
 import { Areas } from "../temp/Data";
 import CAPlayer from "../user/CAPlayer";
 import StructureService from "./StructureService";
-import Constant from "../temp/Constant";
 import Config from "../common/Config";
 import Area3 from "../common/Area3";
 import { Structure } from "../common/Structure";
@@ -11,40 +10,65 @@ import BlockType from "../common/BlockType";
 import Tr from "../util/Translator";
 import { logFailure, sleep } from "../util/Safe";
 import { fillCommand, runNow } from "../game/Cmd";
+import { classifyCmdError } from "../game/Chunks";
+import { slabHeight } from "../game/SafeArgs";
 import { MsgType, online, tell } from "../util/Msg";
 
 /**
  * Fill / clear / replace / hollow / outline.
  *
- * Rewritten in 3.0 because the 2.0 path was the one that dropped players:
- *  - it passed boss-bar colour `11` (out of range 0..7) for every fill, which made the
- *    CLIENT disconnect while the server stayed up;
- *  - it teleported the player to the region centre, then ran the fills with
- *    `/execute at "<name>"`, then teleported back;
- *  - `BlockType.toString()` emitted trailing empty arguments ("minecraft:stone " plus
- *    an empty mode/replace pair), producing commands the parser rejects.
- *
- * Chunks are now guaranteed loaded by StructureService.traversal (ticking area), the
- * player is never moved, and every /fill goes through Cmd.fillCommand's validation.
+ * Design notes for this file (each one is a bug that used to bite):
+ *  - fill runs at CONSOLE level: every coordinate is absolute and CALL already checked the
+ *    player's permission, so routing through the player only made it depend on vanilla
+ *    command permissions;
+ *  - slab height is derived from the slice footprint (see SafeArgs.slabHeight) so a 64x64
+ *    slice never lands exactly on the 32768-block ceiling;
+ *  - failures are collected and reported ONCE per operation. 3.0.2 sent one identical
+ *    toast per slab, e.g. fourteen "cannot place blocks outside of the world" in a row;
+ *  - "cannot place blocks outside of the world" is BDS' message for UNLOADED CHUNKS, and
+ *    it is surfaced as such (see Chunks.classifyCmdError) instead of being passed through.
  */
-export default class FillService {
-    private static readonly SLAB_HEIGHT = Constant.FILL.MAX_HIGHT; // keeps 64x64x8 <= 32768
 
+/** Result of one /fill command. */
+export type FillStep = "ok" | "noop" | "not-loaded" | "invalid" | "failed";
+
+/** Aggregated result of a whole operation. */
+export interface FillOutcome {
+    ok: boolean;
+    slabs: number;
+    failed: number;
+    notLoaded: number;
+    invalidBlock: boolean;
+}
+
+function emptyOutcome(): FillOutcome {
+    return { ok: true, slabs: 0, failed: 0, notLoaded: 0, invalidBlock: false };
+}
+
+function mergeInto(into: FillOutcome, step: FillStep): void {
+    into.slabs++;
+    if (step === "ok" || step === "noop") return;
+    into.failed++;
+    into.ok = false;
+    if (step === "not-loaded") into.notLoaded++;
+    if (step === "invalid") into.invalidBlock = true;
+}
+
+export default class FillService {
     /**
-     * Walk every slice of `areas` and run `cmdCallback` for each horizontal slab.
+     * Walk every slice and run `cmdCallback` for each horizontal slab.
      */
     public static async ergod(
         caPlayer: CAPlayer,
         areas: Areas,
         index: number,
         total: number,
-        cmdCallback: (yBottom: number, yTop: number, area: Area3) => boolean,
-        overCallback: (warn: number, slabs: number) => void
+        cmdCallback: (yBottom: number, yTop: number, area: Area3) => FillStep,
+        overCallback: (outcome: FillOutcome) => void
     ): Promise<void> {
         const fillWaitTime = Number(Config.get(Config.GLOBAL, "fillWaitTime", 0)) || 0;
         const lang = caPlayer.$?.langCode ?? "en_US";
-        let warn = 0;
-        let slabs = 0;
+        const outcome = emptyOutcome();
 
         await StructureService.traversal(
             caPlayer,
@@ -52,22 +76,28 @@ export default class FillService {
             Tr._(lang, "dynamic.FillManager.ergod.fill", `${index + 1}/${total}`),
             async (x: number, z: number) => {
                 const area = areas[x][z];
-                for (let y = area.start.y; y <= area.end.y; y += FillService.SLAB_HEIGHT) {
-                    const yTop = Math.min(y + FillService.SLAB_HEIGHT - 1, area.end.y);
-                    let ok = false;
+                const step = slabHeight(area.end.x - area.start.x + 1, area.end.z - area.start.z + 1);
+                for (let y = area.start.y; y <= area.end.y; y += step) {
+                    const yTop = Math.min(y + step - 1, area.end.y);
+                    let result: FillStep;
                     try {
-                        ok = cmdCallback(y, yTop, area);
-                    } catch {
-                        ok = false;
+                        result = cmdCallback(y, yTop, area);
+                    } catch (e) {
+                        logFailure("FillService.slab", e);
+                        result = "failed";
                     }
-                    slabs++;
-                    if (!ok) warn++;
+                    mergeInto(outcome, result);
+                    if (result !== "ok" && result !== "noop") {
+                        FillService.logOnce("step:" + area + ":" + y + ":" + result,
+                            " slab " + area.start.x + "," + y + "," + area.start.z
+                            + " -> " + area.end.x + "," + yTop + "," + area.end.z);
+                    }
                     if (fillWaitTime > 0) await sleep(fillWaitTime);
                 }
                 return true;
             },
-            () => overCallback(warn, slabs),
-            () => { }
+            () => overCallback(outcome),
+            () => overCallback(outcome)
         );
     }
 
@@ -78,7 +108,7 @@ export default class FillService {
         blockTypeA: BlockType,
         blockTypeB: BlockType,
         mod: string,
-        overCallback: (ok: boolean, warn: number) => void
+        overCallback: (outcome: FillOutcome) => void
     ): void {
         const structure = new Structure(Area3.fromArea3D(targetArea));
         StructureService.undoSave(caPlayer, [structure], () => {
@@ -101,29 +131,25 @@ export default class FillService {
                     );
                     if (cmd == null) {
                         FillService.reportInvalid(caPlayer, blockTypeA);
-                        return false;
+                        return "invalid";
                     }
-                    return FillService.exec(caPlayer, cmd);
+                    return FillService.exec(cmd);
                 },
-                (warn, slabTotal) => {
-                    overCallback(warn < slabTotal, warn);
-                }
+                overCallback
             ).catch((e) => {
                 logFailure("FillService.soildFill", e);
-                overCallback(false, 1);
+                overCallback({ ok: false, slabs: 1, failed: 1, notLoaded: 0, invalidBlock: false });
             });
         });
     }
 
-    /**
-     * Hollow / outline: fill the six faces, then clear the inside for "hollow".
-     */
+    /** Hollow / outline: fill the six faces, then clear the inside for "hollow". */
     public static fillOutside(
         caPlayer: CAPlayer,
         tArea: Area3,
         blockTypeA: BlockType,
         isHollow: boolean,
-        overCallback: (ok: boolean, warn: number) => void
+        overCallback: (outcome: FillOutcome) => void
     ): void {
         const a = Area3.fromArea3D(tArea);
         const s = a.start;
@@ -149,90 +175,73 @@ export default class FillService {
         }
 
         StructureService.undoSave(caPlayer, structs, () => {
-            FillService.runFaces(caPlayer, structs, interior, blockTypeA, overCallback).catch((e) => {
+            FillService.runPasses(caPlayer, structs, interior, blockTypeA, overCallback).catch((e) => {
                 logFailure("FillService.fillOutside", e);
-                overCallback(false, 1);
+                overCallback({ ok: false, slabs: 1, failed: 1, notLoaded: 0, invalidBlock: false });
             });
         });
     }
 
-    private static async runFaces(
+    private static async runPasses(
         caPlayer: CAPlayer,
         structs: Structure[],
         interior: Area3 | null,
         blockTypeA: BlockType,
-        overCallback: (ok: boolean, warn: number) => void
+        overCallback: (outcome: FillOutcome) => void
     ): Promise<void> {
-        {
-            let warn = 0;
-            let slabs = 0;
-            for (let i = 0; i < structs.length; i++) {
-                const isInterior = interior != null && i === structs.length - 1;
-                const bt = isInterior ? new BlockType("minecraft:air", "") : blockTypeA;
-                await FillService.ergod(
-                    caPlayer,
-                    structs[i].getAreas(),
-                    i,
-                    structs.length,
-                    (yBottom, yTop, area) => {
-                        const from = new Pos3(area.start.x, yBottom, area.start.z, area.start.dimid);
-                        const to = new Pos3(area.end.x, yTop, area.end.z, area.end.dimid);
-                        const cmd = fillCommand(from, to, bt.type, bt.states);
-                        if (cmd == null) return false;
-                        return FillService.exec(caPlayer, cmd);
-                    },
-                    (w, s) => {
-                        warn += w;
-                        slabs += s;
-                    }
-                );
-            }
-            overCallback(warn < slabs, warn);
+        const outcome = emptyOutcome();
+        for (let i = 0; i < structs.length; i++) {
+            const isInterior = interior != null && i === structs.length - 1;
+            const bt = isInterior ? new BlockType("minecraft:air", "") : blockTypeA;
+            await FillService.ergod(
+                caPlayer,
+                structs[i].getAreas(),
+                i,
+                structs.length,
+                (yBottom, yTop, area) => {
+                    const from = new Pos3(area.start.x, yBottom, area.start.z, area.start.dimid);
+                    const to = new Pos3(area.end.x, yTop, area.end.z, area.end.dimid);
+                    const cmd = fillCommand(from, to, bt.type, bt.states);
+                    if (cmd == null) return "invalid";
+                    return FillService.exec(cmd);
+                },
+                (pass) => {
+                    outcome.slabs += pass.slabs;
+                    outcome.failed += pass.failed;
+                    outcome.notLoaded += pass.notLoaded;
+                    outcome.invalidBlock = outcome.invalidBlock || pass.invalidBlock;
+                    outcome.ok = outcome.ok && pass.ok;
+                }
+            );
         }
+        overCallback(outcome);
     }
 
-    /**
-     * Execute one fill command.
-     *
-     * Runs at CONSOLE level on purpose: every coordinate CALL emits is absolute, so no
-     * player origin is needed, and running as the player made the operation depend on
-     * the player's vanilla command permission (which failed outright for simulated
-     * players and silently for anyone below the fill permission level). CALL's own
-     * `Players.hasPermission` gate is what decides whether a player may fill.
-     */
-    private static exec(caPlayer: CAPlayer, cmd: string): boolean {
+    /** Execute one fill command (console level) and classify the result. */
+    private static exec(cmd: string): FillStep {
         const res = runNow(cmd);
-        if (res.ok) return true;
-        // BDS reports "0 blocks filled" as a FAILED command. Filling air with air is a
-        // perfectly normal outcome (e.g. /ca clear over an empty region), so it must not
-        // be counted as an error.
-        if (FillService.isNoopResult(res.out)) return true;
-        FillService.warnOnce(caPlayer, cmd, res.out);
-        return false;
+        if (res.ok) return "ok";
+        const kind = classifyCmdError(res.out, res.ok);
+        if (kind === "noop") return "noop";
+        if (kind === "not-loaded") return "not-loaded";
+        FillService.logOnce(cmd, res.out);
+        return "failed";
     }
 
-    /** True when the engine merely reported "nothing changed". */
-    private static isNoopResult(out: string): boolean {
-        const text = String(out ?? "");
-        if (text === "") return false;
-        return /(^|\s)0\s*(个|blocks?\b)/i.test(text);
-    }
+    private static logged = new Set<string>();
 
-    private static warned = new Set<string>();
-
-    private static warnOnce(caPlayer: CAPlayer, cmd: string, out: string): void {
-        const key = caPlayer.xuid + "|" + cmd;
-        if (FillService.warned.has(key)) return;
-        FillService.warned.add(key);
-        if (FillService.warned.size > 200) FillService.warned.clear();
+    private static logOnce(cmd: string, out: string): void {
+        if (FillService.logged.has(cmd)) return;
+        FillService.logged.add(cmd);
+        if (FillService.logged.size > 200) FillService.logged.clear();
         logFailure("FillService.fill", new Error(cmd + " -> " + (out || "rejected")));
-        tell(online(caPlayer.xuid), StrFactory.cmdErr("fill failed: " + (out || "command rejected")), MsgType.RAW);
     }
 
     private static reportInvalid(caPlayer: CAPlayer, blockType: BlockType): void {
         const lang = caPlayer.$?.langCode ?? "en_US";
+        FillService.logOnce("invalid:" + blockType?.type, blockType?.type ?? "");
         tell(online(caPlayer.xuid), StrFactory.cmdErr(
-            "invalid block or region: " + (blockType?.toString() || "(empty)")
+            Tr._(lang, "dynamic.FillManager.reason.invalidBlock") + " " + (blockType?.toString() || "(empty)")
         ), MsgType.RAW);
     }
 }

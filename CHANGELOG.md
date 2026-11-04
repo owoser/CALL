@@ -11,6 +11,74 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.0.3] - 2026-11-04
+
+### Fixed
+
+**Large selections failed with "无法在世界外放置方块" / "Cannot place blocks outside of the world".**
+
+That is BDS' message for **unloaded chunks**, not for a size problem. Verified on a live
+server with no player nearby:
+
+| Command | Result |
+|---|---|
+| `fill 0 120 0 63 127 63 minecraft:stone` | fails - "cannot place blocks outside of the world" |
+| `tickingarea add 0 120 0 63 127 63 callprobe` | ok |
+| `fill 0 120 0 63 127 63 minecraft:stone` | ok - 32656 blocks filled |
+
+1. **The ticking area was released before the work started.**
+   `Chunks.ensureLoaded` removed its ticking area in a `finally` block, i.e. **before** the
+   caller ran `/fill`. Small selections worked only because the player was standing in
+   those chunks anyway. Replaced with a reference-counted **lease**:
+   `Chunks.acquire(area)` → `lease.release()`, held by `StructureService.traversal` for the
+   whole slice, so the undo capture (`mc.getStructure`) and the fill both run inside it.
+
+2. **`acquire()` returned without waiting for the chunks.**
+   The create path issued `tickingarea add` (deferred!) and returned immediately. It now
+   adds synchronously and waits until the region reads back.
+
+3. **"readable" does not mean "/fill accepts it".**
+   `mc.getBlock` loads a chunk on demand, so `isLoaded()` returned true for regions the
+   command layer still refused. `acquire` therefore always takes a ticking area instead of
+   trusting that check.
+
+4. **`isLoaded()` sampled a 5x5 grid, which skipped chunk columns.**
+   A 96-wide region was sampled at x = 0, 24, 48, 71, 95 - chunk columns 0,1,3,4,5, so
+   column 2 was never checked. It now probes every chunk column covered by the area.
+
+5. **One failing slice aborted the entire operation - silently.**
+   `traversal` did `return` on the first failure, so every later slice was skipped *and*
+   `overCallback` never ran: a 96x96 clear could process one slice, leave the rest untouched
+   and report nothing at all. It now continues, records the failure and always reports.
+
+6. **Failure reporting.** One aggregated message per operation instead of one identical
+   toast per slab (the reported screenshot had fourteen). A not-loaded failure is now shown
+   as "the area is outside the loaded chunks" with an actionable hint, and every failing
+   slab is logged with its coordinates.
+
+**Slab sizing.** The fixed height of 8 made a full 64x64 slice exactly **32768** blocks -
+the `/fill` ceiling, with zero margin. Slab height is now derived from the slice footprint
+(`SafeArgs.slabHeight`, target 30000), so it is 7 for a full slice and still 8 for small
+ones.
+
+**`chunkLoadTimeout`** defaults to 15000ms (was 4000) with a 15000ms floor and a 60000ms
+configurable maximum: generating a 6x6 chunk region at distance takes seconds.
+
+**Ticking area hygiene.** BDS allows only 10 ticking areas: leases are reference counted
+per region, at most one is held at a time, release is idempotent, `ll.onUnload` releases
+everything, and startup sweeps any `call_*` area a killed process left behind.
+
+### Tests
+
+- Live (`npm run test:live`): 27 assertions.
+  - `chunks.lease` - a lease really creates a listed ticking area, the region reads back,
+    and releasing (twice) removes it.
+  - `ca.clearLargeRegion` - a **96x8x96 (6x6 chunks)** region 400 blocks away from the
+    player is seeded, cleared through the real `FillOperation.clear` path, and verified
+    empty at three points; CALL must create its own lease and release it (no leak).
+- Unit (`npm run test:unit`): 22. Adds `tests/unit/fill-sizing.test.mjs`
+  (slab heights stay under the command limit, and BDS message classification).
+
 ## [3.0.2] - 2026-11-04
 
 ### Fixed
