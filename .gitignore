@@ -1,9 +1,27 @@
+# dependencies
 /node_modules
 
+# build output
+/dist/**
+
+# local dev scratch
+todo.md
+start.bat
+
+# C# helper tool (CALL-CLI) build artefacts
 cli/.idea
 cli/CALL-CLI/obj
 cli/CALL-CLI/bin
+cli/**/bin/Release
+cli/**/bin/Debug
 
-/dist/**
-todo.md
-start.bat
+# local test server copy (npm run deploy uses build.json instead)
+/.testserver/
+
+# runtime noise
+*.log
+*.dmp
+
+# NOTE: types/lse/ IS tracked on purpose — the official "@levimc-lse/types"
+# package is not published to npm, so the declarations are vendored.
+# Regenerate with: npm run fetch-types

@@ -1,0 +1,17 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "noEmit": false,
+        "rootDir": ".",
+        "outDir": "dist/call",
+        "removeComments": true,
+        "sourceMap": false,
+        "declaration": false,
+        "importHelpers": false
+    },
+    "exclude": [
+        "node_modules",
+        "dist",
+        "core/test/**"
+    ]
+}

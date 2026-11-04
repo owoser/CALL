@@ -1,40 +1,50 @@
 {
-    "$schema": "https://json-schema.org/draft-07/schema#",
-    "format_version": 3,
-    "format_uuid": "289f771f-2c9a-4d73-9f3f-8492495a924d",
-    "tooth": "github.com/superx101/CALL",
-    "version": "{{VERSION}}",
-    "info": {
-        "name": "CALL",
-        "description": "A simple building tool",
-        "author": "superx101",
-        "avatar_url": "https://github.com/superx101/CALL/blob/main/docs/image/CALL_dark.png",
-        "tags": [
-            "building",
-            "lse",
-            "plugin"
-        ]
-    },
-    "variants": [
-        {
-            "dependencies": {
-                "github.com/LiteLDev/LeviLamina": ">=1.1.1",
-                "github.com/LiteLDev/LegacyScriptEngine#nodejs": ">=0.10.3"
-            },
-            "assets": [
-                {
-                    "urls": [
-                        "https://github.com/superx101/CALL/releases/download/v{{VERSION}}/CALL-{{VERSION}}.zip"
-                    ],
-                    "placements": [
-                        {
-                            "type": "dir",
-                            "src": "call/",
-                            "dest": "plugins/call"
-                        }
-                    ]
-                }
-            ]
-        }
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "format_version": 3,
+  "format_uuid": "289f771f-2c9a-4d73-9f3f-8492495a924d",
+  "tooth": "github.com/owoser/CALL",
+  "version": "{{VERSION}}",
+  "info": {
+    "name": "CALL",
+    "description": "Construct Assistant for LeviLamina — building/region tool (LL3 port of superx101/CALL)",
+    "author": "superx101 / owoser",
+    "avatar_url": "https://github.com/owoser/CALL/blob/main/docs/image/CALL_dark.png",
+    "tags": [
+      "building",
+      "lse",
+      "plugin",
+      "levilamina"
     ]
+  },
+  "variants": [
+    {
+      "label": "",
+      "platform": "win-x64",
+      "dependencies": {
+        "github.com/LiteLDev/LeviLamina": ">=26.51.9 <26.61.0",
+        "github.com/LiteLDev/LegacyScriptEngine#nodejs": ">=0.22.4 <0.24.0"
+      },
+      "assets": [
+        {
+          "type": "zip",
+          "urls": [
+            "https://github.com/owoser/CALL/releases/download/v{{VERSION}}/CALL-{{VERSION}}.zip"
+          ],
+          "placements": [
+            {
+              "type": "dir",
+              "src": "call/",
+              "dest": "plugins/call"
+            }
+          ]
+        }
+      ],
+      "preserve_files": [
+        "config/configs.json",
+        "userdata/config/**",
+        "userdata/data/**"
+      ],
+      "remove_files": []
+    }
+  ]
 }

@@ -1,23 +1,36 @@
 {
+    // Base configuration: used by editors and by `npm run typecheck` (no emit).
+    // The emitting configuration is tsconfig.build.json.
     "compilerOptions": {
-        "rootDir": "./",
-        "outDir": "./dist",
-        "target": "ES6",
+        "target": "ES2020",
         "lib": ["ES2021"],
-        "resolveJsonModule": true,
-        "noImplicitAny": true,
         "module": "CommonJS",
-        "removeComments": true,
-        "esModuleInterop": true
-    },
-    "ts-node": {
-        "compilerOptions": {
-            "esModuleInterop": true,
-            "module": "CommonJS"
-        }
+        "moduleResolution": "Node",
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "resolveJsonModule": true,
+        "forceConsistentCasingInFileNames": true,
+        "skipLibCheck": true,
+        "noEmit": true,
+
+        // --- migration state -------------------------------------------------
+        // CALL was written for a much older toolchain and relies on patterns that
+        // do not survive `strict`. Tightening these is tracked in
+        // docs/MIGRATION-2.0.md; flip them one at a time, never all at once.
+        "strict": false,
+        "noImplicitAny": false,
+        "noImplicitOverride": false,
+        "useUnknownInCatchVariables": false
     },
     "include": [
-        "./core/**/*.ts",
-        "./data/plugins/*.ts"
-, "core/index.ts"    ]
+        "core/**/*.ts",
+        "data/plugins/*.ts",
+        "types/**/*.d.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist",
+        // Legacy scratch tests, not part of the shipped plugin.
+        "core/test/**"
+    ]
 }

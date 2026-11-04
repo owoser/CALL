@@ -1,4 +1,5 @@
 {
-    "bdsDir": "",
-    "libDir": ""
+  "_comment": "Local deploy target used by `npm run deploy`. Leave bdsDir empty to disable.",
+  "bdsDir": "",
+  "pluginDir": "call"
 }

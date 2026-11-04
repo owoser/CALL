@@ -1,0 +1,9 @@
+repo:   https://github.com/LiteLDev/legacy-script-engine-api
+commit: 4a6ea7b1c804f2fb4d12346f5b89bf0df388c352
+branch: develop
+files:  64
+date:   2026-11-04T03:35:54.972Z
+
+These declarations are vendored copies of platforms/javascript/src from
+LiteLDev/legacy-script-engine-api (LGPL-3.0-or-later).
+Regenerate with: node scripts/fetch-types.mjs
