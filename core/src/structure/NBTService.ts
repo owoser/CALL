@@ -1,61 +1,138 @@
-import Config from "../common/Config";
+import * as fs from "fs";
+import * as path from "path";
 import Area3 from "../common/Area3";
+import Paths from "../common/Paths";
 import CAPlayer from "../user/CAPlayer";
 import { Pos3 } from "../common/Pos3";
 import { FileMode } from "../temp/Common";
+import { Warn } from "../util/Error";
+import { describeError } from "../util/Safe";
+import { placeStructure } from "./StructurePlacement";
 
-type e = 0 | 1 | 2 | 3;
-
+/**
+ * Reads and writes `.mcstructure` files (`userdata/data/nbt/<id>_<x>_<z>.mcstructure`).
+ *
+ * Fixed in 2.0.0:
+ *  - the output directory was never created, so every write threw
+ *    ("cannot open file for write") and copy/save/undo were dead;
+ *  - `save()` used the *asynchronous* `File.write(...)` but reported success
+ *    immediately, so `paste` could read a half-written (or missing) file;
+ *  - `load()` compensated for the setStructure +1 offset and then teleported the
+ *    player as a side effect, which is both surprising and wrong.
+ */
 export default class NBTService {
-    public static PATH = Config.DATA_PATH + "/nbt";
-    // static LOADPOOL = [];
-    // static SAVEPOOL = [];
+    public static readonly PATH = Paths.NBT;
 
-    public static save(saveid: string, area: Area3, ignoreBlocks = false, ignoreEntities = false) {
-        const start = mc.newIntPos(area.start.x, area.start.y, area.start.z, area.start.dimid);
-        const end = mc.newIntPos(area.end.x, area.end.y, area.end.z, area.end.dimid);
-        const comp = mc.getStructure(start, end, ignoreBlocks, ignoreEntities);
+    private static filePath(saveid: string): string {
+        return path.join(NBTService.PATH, saveid + ".mcstructure");
+    }
 
-        const file = new File(NBTService.PATH + `/${saveid}.mcstructure`, FileMode.WriteMode, true);
-        file.write(comp.toBinaryNBT(), () => {
-            file.close();
-        });
+    private static ensureDir(): void {
+        fs.mkdirSync(NBTService.PATH, { recursive: true });
+    }
+
+    private static write(saveid: string, comp: NbtCompound): void {
+        if (comp == null) throw new Error("NBTService.write: empty nbt for " + saveid);
+        NBTService.ensureDir();
+        const file = new File(NBTService.filePath(saveid), FileMode.WriteMode, true);
+        let ok = false;
+        try {
+            ok = file.writeSync(comp.toBinaryNBT());
+        } finally {
+            try {
+                file.close();
+            } catch {
+                // ignore
+            }
+        }
+        if (!ok) throw new Error("NBTService.write: failed to write " + saveid);
+    }
+
+    /** Capture a region into a structure file. Throws when the engine cannot read it. */
+    public static save(saveid: string, area: Area3, ignoreBlocks = false, ignoreEntities = false): void {
+        const start = new IntPos(area.start.x, area.start.y, area.start.z, area.start.dimid);
+        const end = new IntPos(area.end.x, area.end.y, area.end.z, area.end.dimid);
+
+        let comp: NbtCompound | null = null;
+        try {
+            comp = mc.getStructure(start, end, ignoreBlocks, ignoreEntities);
+        } catch (e) {
+            throw new Error("getStructure failed for " + area.toString() + ": " + describeError(e));
+        }
+        if (comp == null) {
+            throw new Error("getStructure returned nothing for " + area.toString() + " (is the area loaded?)");
+        }
+        NBTService.write(saveid, comp);
     }
 
     public static saveFromNBT(saveid: string, comp: NbtCompound): boolean {
-        const file = new File(NBTService.PATH + `/${saveid}.mcstructure`, FileMode.WriteMode, true);
-        const res = file.writeSync(comp.toBinaryNBT());
-        file.close();
-        return res;
-    }
-
-    public static load(caPlayer: CAPlayer, saveid: string, pos: Pos3, mirror = "None", rataion = 0) {
-        const file = new File(NBTService.PATH + `/${saveid}.mcstructure`, FileMode.ReadMode, true);
-        const bnbt = file.readAllSync();
-        //@ts-ignore
-        const nbtObj = NBT.parseBinaryNBT(bnbt);
-        // TOFIX: pos.y - 1 is a compromise to setStructure's error
-        const intPos = mc.newIntPos(pos.x, pos.y - 1, pos.z, pos.dimid);
-        let mir: e = 0;
-        file.close();
-        switch (mirror) {
-            case "x":
-                mir = 1;
-                break;
-            case "z":
-                mir = 2;
-                break;
-            case "xz":
-                mir = 3;
-                break;
+        try {
+            NBTService.write(saveid, comp);
+            return true;
+        } catch {
+            return false;
         }
-        caPlayer.$.teleport(intPos);
-        return mc.setStructure(nbtObj, intPos, mir, (rataion / 90) as e);
     }
 
-    public static del(saveid: string) {
-        return File.delete(NBTService.PATH + `/${saveid}.mcstructure`);
+    public static exists(saveid: string): boolean {
+        try {
+            return fs.statSync(NBTService.filePath(saveid)).isFile();
+        } catch {
+            return false;
+        }
+    }
+
+    public static read(saveid: string): NbtCompound {
+        const file = NBTService.filePath(saveid);
+        let exists = false;
+        try {
+            exists = fs.statSync(file).isFile();
+        } catch {
+            exists = false;
+        }
+        if (!exists) {
+            throw new Warn("dynamic.StructureManager.load.missingFile");
+        }
+
+        let raw: string | ByteBuffer | undefined;
+        const handle = new File(file, FileMode.ReadMode, true);
+        try {
+            raw = handle.readAllSync();
+        } finally {
+            try {
+                handle.close();
+            } catch {
+                // ignore
+            }
+        }
+        if (raw == null) throw new Error("cannot read " + saveid);
+
+        const parsed = NBT.parseBinaryNBT(raw as ArrayBuffer);
+        if (parsed == null) throw new Error("cannot parse " + saveid);
+        return parsed;
+    }
+
+    /**
+     * Place a stored structure so its corner sits exactly on `pos`.
+     * No teleporting, no off-by-one.
+     */
+    public static load(
+        caPlayer: CAPlayer,
+        saveid: string,
+        pos: Pos3,
+        mirror: string | number = "none",
+        rotation: number = 0
+    ): boolean {
+        const nbtObj = NBTService.read(saveid);
+        return placeStructure(nbtObj, pos, mirror, rotation);
+    }
+
+    public static del(saveid: string): boolean {
+        try {
+            fs.unlinkSync(NBTService.filePath(saveid));
+            return true;
+        } catch {
+            return false;
+        }
     }
 }
-
-Object.freeze(NBTService.PATH);

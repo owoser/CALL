@@ -9,6 +9,8 @@ import StrFactory from "../util/StrFactory";
 import AreaOperation from "./AreaOperation";
 import { Pos } from "../temp/Pos";
 import Tr from "../util/Translator";
+import { MsgType, online, tell } from "../util/Msg";
+import { describeError } from "../util/Safe";
 
 export default class StructureOperation {
     private static setDimid(complex: any, distDimid: number): void {
@@ -109,19 +111,19 @@ export default class StructureOperation {
                 data.saveList[`${structid}`] = st;
                 Config.set(Config.STRUCTURES, `private.${player.xuid}`, data);
                 StructureService.tp(caPlayer);
-                player.sendText(
-                    StrFactory.cmdSuccess(
-                        Tr._(
-                            player.langCode,
-                            "dynamic.StructureOperation.save.s4",
-                            Area3.fromArea3D(data.saveList[structid].area),
-                            structid,
-                            name
-                        )
+                tell(online(player.xuid), StrFactory.cmdSuccess(
+                    Tr._(
+                        player.langCode,
+                        "dynamic.StructureOperation.save.s4",
+                        Area3.fromArea3D(data.saveList[structid].area),
+                        structid,
+                        name
                     )
-                );
+                ), MsgType.RAW);
             }
-        );
+        ).catch((e) => {
+            tell(online(player.xuid), StrFactory.cmdErr(describeError(e)), MsgType.RAW);
+        });
     }
 
     public static load(
@@ -175,21 +177,20 @@ export default class StructureOperation {
                 res.Integrity,
                 res.Seed,
                 () => {
-                    StructureService.tp(caPlayer);
-                    player.sendText(
-                        StrFactory.cmdSuccess(
-                            Tr._(
-                                player.langCode,
-                                "dynamic.StructureOperation.load.s5",
-                                st.name,
-                                pos,
-                                r.structid,
-                                targetArea
-                            )
+                    tell(online(player.xuid), StrFactory.cmdSuccess(
+                        Tr._(
+                            player.langCode,
+                            "dynamic.StructureOperation.load.s5",
+                            st.name,
+                            pos,
+                            r.structid,
+                            targetArea
                         )
-                    );
+                    ), MsgType.RAW);
                 }
-            );
+            ).catch((e) => {
+                tell(online(player.xuid), StrFactory.cmdErr(describeError(e)), MsgType.RAW);
+            });
         });
     }
 
@@ -208,12 +209,7 @@ export default class StructureOperation {
                 Tr._(player.langCode, "dynamic.StructureOperation.delete.s6")
             );
         }
-        //删除 public
-        if (st.isPublic) {
-            let puArr = Config.get(Config.STRUCTURES, `public.${player.xuid}`);
-            delete puArr[puArr.indexOf(sid)];
-            Config.set(Config.STRUCTURES, `public.${player.xuid}`, puArr);
-        }
+        // StructureService.delete() removes the file slices AND the public entry.
         StructureService.delete(caPlayer, sid, st);
         let tempSt = saveList[sid];
         //删除 savelist
@@ -512,16 +508,15 @@ export default class StructureOperation {
             StructureService.getTargetStructs(data.copy, pos),
             () => {
                 StructureService.paste(caPlayer, pos, data, () => {
-                    StructureService.tp(caPlayer);
-                    player.sendText(
-                        StrFactory.cmdSuccess(
-                            Tr._(
-                                player.langCode,
-                                "dynamic.StructureOperation.paste.s22",
-                                pos.floor()
-                            )
+                    tell(online(player.xuid), StrFactory.cmdSuccess(
+                        Tr._(
+                            player.langCode,
+                            "dynamic.StructureOperation.paste.s22",
+                            pos.floor()
                         )
-                    );
+                    ), MsgType.RAW);
+                }).catch((e) => {
+                    tell(online(player.xuid), StrFactory.cmdErr(describeError(e)), MsgType.RAW);
                 });
             }
         );
@@ -535,7 +530,7 @@ export default class StructureOperation {
         return StructureService.getData(xuid).redoList.length;
     }
 
-    public static getSaveList(mod: number, caPlayer: CAPlayer): [] {
+    public static getSaveList(mod: number, caPlayer: CAPlayer): any[] {
         if (mod == 0) {
             return StructureService.getPrivateArr(caPlayer);
         } else {

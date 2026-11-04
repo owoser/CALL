@@ -7,7 +7,8 @@ export interface Complex {
 }
 
 export interface Data {
-    pid: number,
+    /** Legacy "player id" slot; older data files store a number, CALL writes a string. */
+    pid: number | string,
     copy: Complex,
     undoList: Array<Complex>,
     redoList: Array<Complex>,
