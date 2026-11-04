@@ -62,11 +62,29 @@ export function clampY(value: any): number {
 }
 
 /**
- * A block name is only safe to interpolate into a command when it looks like
- * `namespace:path`. Anything else is rejected before it reaches the parser.
+ * Normalise a block identifier the way the game does.
+ *
+ * The command parser accepts a bare name and assumes the `minecraft:` namespace, and CALL
+ * itself writes bare names: `/ca clear` builds `new BlockType("air")`, and Lua/JS shape
+ * packs commonly use `stone`. 3.0.1 rejected those with "invalid block or region: air"
+ * and silently cleared nothing.
+ *
+ * @returns the canonical `namespace:path`, or null when it cannot be a block name
  */
+export function normaliseBlockName(value: any): string | null {
+    if (typeof value !== "string") return null;
+    let name = value.trim().toLowerCase();
+    if (name === "") return null;
+    if (!name.includes(":")) name = "minecraft:" + name;
+    // namespace and path are dot-separated segments; this rejects "..", leading or
+    // trailing dots/slashes, and anything else that could smuggle extra arguments into
+    // the command line.
+    return /^[a-z0-9_-]+(?:\.[a-z0-9_-]+)*:[a-z0-9_-]+(?:\.[a-z0-9_-]+)*$/.test(name) ? name : null;
+}
+
+/** A block name is only safe to interpolate into a command when it resolves. */
 export function isBlockName(value: any): boolean {
-    return typeof value === "string" && /^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(value);
+    return normaliseBlockName(value) != null;
 }
 
 /**
@@ -77,7 +95,8 @@ export function isBlockName(value: any): boolean {
 export function isBlockStates(value: any): boolean {
     if (typeof value !== "string") return false;
     const s = value.trim();
-    if (s === "") return false;
+    // "" and "[]" are the same thing: there are no states, so nothing must be emitted.
+    if (s === "" || s === "[]") return false;
     if (!s.startsWith("[") || !s.endsWith("]")) return false;
     return !/[\r\n]/.test(s);
 }

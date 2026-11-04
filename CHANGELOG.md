@@ -11,6 +11,45 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.0.2] - 2026-11-04
+
+### Fixed
+
+**`/ca clear` did nothing and reported "invalid block or region: air".**
+`FillOperation.clear` builds `new BlockType("air")`, and the validator added in 3.0.0
+required a `namespace:path` form, so the bare name was rejected before it reached the
+command parser. The command parser itself accepts bare names and assumes `minecraft:`.
+Bare names are now normalised (in `BlockType`, in `SafeArgs.normaliseBlockName` and in
+`Cmd.blockArg`), which also un-breaks third-party shape packs that use `stone` etc.
+
+**The operation reported success even when every slab failed.**
+`FillService.ergod` counted failures but never told the caller, so `/ca clear` printed
+"已清空区域" after doing nothing. `ergod`/`soildFill`/`fillOutside` now return
+`(ok, warn)` and `FillOperation` prints the success message only when the fill actually ran;
+otherwise it reports the failure count.
+
+**`fillCommand` could emit a stray replace block.**
+The empty `BlockType` used as a "no second block" sentinel is now kept empty (it must not
+be normalised to `minecraft:air`) and `fillCommand` only appends a replace filter when one
+was really supplied - otherwise the command became
+`/fill ... minecraft:stone minecraft:air`, which is invalid.
+
+**Validator hardening** (found while writing the tests for the above):
+
+- `normaliseBlockName` rejected nothing for names like `../evil` (now: namespace and path
+  are dot-separated `[a-z0-9_-]` segments, so `..`, stray slashes and extra colons fail);
+- `isBlockStates("[]")` returned true; an empty states list now reports "no states" so it
+  is never emitted.
+
+### Tests
+
+- Unit (offline, `npm run test:unit`): 19 tests. Adds `tests/unit/safe-args.test.mjs`
+  (bare-name normalisation, rejection of malformed names, block-state syntax, clamping of
+  boss-bar colour/percent, message type, dimension and Y).
+- Live (`npm run test:live`): 25 assertions. Adds `ca.clearRegion`, which runs
+  `/ca clear` through `FillOperation` on a 4x3x4 stone block and asserts every cell becomes
+  air.
+
 ## [3.0.1] - 2026-11-04
 
 ### Fixed

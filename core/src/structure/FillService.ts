@@ -39,11 +39,12 @@ export default class FillService {
         index: number,
         total: number,
         cmdCallback: (yBottom: number, yTop: number, area: Area3) => boolean,
-        overCallback: (warn: number) => void
+        overCallback: (warn: number, slabs: number) => void
     ): Promise<void> {
         const fillWaitTime = Number(Config.get(Config.GLOBAL, "fillWaitTime", 0)) || 0;
         const lang = caPlayer.$?.langCode ?? "en_US";
         let warn = 0;
+        let slabs = 0;
 
         await StructureService.traversal(
             caPlayer,
@@ -59,12 +60,13 @@ export default class FillService {
                     } catch {
                         ok = false;
                     }
+                    slabs++;
                     if (!ok) warn++;
                     if (fillWaitTime > 0) await sleep(fillWaitTime);
                 }
                 return true;
             },
-            () => overCallback(warn),
+            () => overCallback(warn, slabs),
             () => { }
         );
     }
@@ -76,7 +78,7 @@ export default class FillService {
         blockTypeA: BlockType,
         blockTypeB: BlockType,
         mod: string,
-        overCallback: () => void
+        overCallback: (ok: boolean, warn: number) => void
     ): void {
         const structure = new Structure(Area3.fromArea3D(targetArea));
         StructureService.undoSave(caPlayer, [structure], () => {
@@ -103,17 +105,12 @@ export default class FillService {
                     }
                     return FillService.exec(caPlayer, cmd);
                 },
-                (warn) => {
-                    if (warn > 0) {
-                        tell(online(caPlayer.xuid), StrFactory.cmdWarn(
-                            Tr._(caPlayer.$?.langCode ?? "en_US", "dynamic.FillManager.soildFill.warn", String(warn))
-                        ), MsgType.RAW);
-                    }
-                    overCallback();
+                (warn, slabTotal) => {
+                    overCallback(warn < slabTotal, warn);
                 }
             ).catch((e) => {
                 logFailure("FillService.soildFill", e);
-                overCallback();
+                overCallback(false, 1);
             });
         });
     }
@@ -126,7 +123,7 @@ export default class FillService {
         tArea: Area3,
         blockTypeA: BlockType,
         isHollow: boolean,
-        overCallback: Function
+        overCallback: (ok: boolean, warn: number) => void
     ): void {
         const a = Area3.fromArea3D(tArea);
         const s = a.start;
@@ -154,7 +151,7 @@ export default class FillService {
         StructureService.undoSave(caPlayer, structs, () => {
             FillService.runFaces(caPlayer, structs, interior, blockTypeA, overCallback).catch((e) => {
                 logFailure("FillService.fillOutside", e);
-                overCallback();
+                overCallback(false, 1);
             });
         });
     }
@@ -164,10 +161,11 @@ export default class FillService {
         structs: Structure[],
         interior: Area3 | null,
         blockTypeA: BlockType,
-        overCallback: Function
+        overCallback: (ok: boolean, warn: number) => void
     ): Promise<void> {
         {
             let warn = 0;
+            let slabs = 0;
             for (let i = 0; i < structs.length; i++) {
                 const isInterior = interior != null && i === structs.length - 1;
                 const bt = isInterior ? new BlockType("minecraft:air", "") : blockTypeA;
@@ -183,17 +181,13 @@ export default class FillService {
                         if (cmd == null) return false;
                         return FillService.exec(caPlayer, cmd);
                     },
-                    (w) => {
+                    (w, s) => {
                         warn += w;
+                        slabs += s;
                     }
                 );
             }
-            if (warn > 0) {
-                tell(online(caPlayer.xuid), StrFactory.cmdWarn(
-                    Tr._(caPlayer.$?.langCode ?? "en_US", "dynamic.FillManager.soildFill.warn", String(warn))
-                ), MsgType.RAW);
-            }
-            overCallback();
+            overCallback(warn < slabs, warn);
         }
     }
 

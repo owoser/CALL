@@ -1,59 +1,93 @@
 import Config from "../common/Config";
 import FillService from "./FillService";
-import StructureService from "./StructureService";
 import Area3 from "../common/Area3";
 import BlockType from "../common/BlockType";
 import CAPlayer from "../user/CAPlayer";
 import StrFactory from "../util/StrFactory";
 import Tr from "../util/Translator";
 import AreaOperation from "./AreaOperation";
-
+import { MsgType, online, tell } from "../util/Msg";
 
 export default class FillOperation {
     public static fill(output: CommandOutput, caPlayer: CAPlayer, res: { block: LLSE_Block; States: string; FillMode: string; }) {
-        const player = caPlayer.$;
         //检查参数
         AreaOperation.hasArea(caPlayer);
-        let blockType = new BlockType(res.block.type, res.States);
+        const blockType = new BlockType(res.block.type, res.States);
+        const area = Area3.fromArea3D(caPlayer.settings.area);
+
+        const done = (key: string) => (ok: boolean, warn: number) => {
+            const player = online(caPlayer.xuid);
+            if (player == null) return;
+            if (ok) {
+                tell(player, StrFactory.cmdSuccess(Tr._(player.langCode, key, `${area}`)), MsgType.RAW);
+            } else {
+                tell(player, StrFactory.cmdErr(
+                    Tr._(player.langCode, "dynamic.FillManager.soildFill.warn", String(warn))
+                ), MsgType.RAW);
+            }
+        };
+
         switch (res.FillMode) {
             case undefined:
             case "null":
             case "nu":
-                FillService.soildFill(caPlayer, caPlayer.settings.area, blockType, new BlockType("", ""), "", () => {
-                    player.sendText(StrFactory.cmdSuccess(Tr._(player.langCode, "dynamic.FillOperation.fill.fill", `${Area3.fromArea3D(caPlayer.settings.area)}`)));
-                });
+                FillService.soildFill(caPlayer, caPlayer.settings.area, blockType, new BlockType("", ""), "", done("dynamic.FillOperation.fill.fill"));
                 break;
             case "hollow":
             case "ho":
-                //空心-清空
-                FillService.fillOutside(caPlayer, caPlayer.settings.area, blockType, true, () => {
-                    player.sendText(StrFactory.cmdSuccess(Tr._(player.langCode, "dynamic.FillOperation.fill.hollow", `${Area3.fromArea3D(caPlayer.settings.area)}`)));
-                });
+                FillService.fillOutside(caPlayer, caPlayer.settings.area, blockType, true, done("dynamic.FillOperation.fill.hollow"));
                 break;
             case "outline":
             case "ou":
-                FillService.fillOutside(caPlayer, caPlayer.settings.area, blockType, false, () => {
-                    player.sendText(StrFactory.cmdSuccess(Tr._(player.langCode, "dynamic.FillOperation.fill.outline", `${Area3.fromArea3D(caPlayer.settings.area)}`)));
-                });
+                FillService.fillOutside(caPlayer, caPlayer.settings.area, blockType, false, done("dynamic.FillOperation.fill.outline"));
                 break;
+            default:
+                throw new Error("unknown fill mode: " + res.FillMode);
         }
     }
 
     public static clear(output: CommandOutput, caPlayer: CAPlayer) {
-        const player = caPlayer.$;
         AreaOperation.hasArea(caPlayer);
-        FillService.soildFill(caPlayer, caPlayer.settings.area, new BlockType("air", ""), new BlockType("", ""), "", () => {
-            player.sendText(StrFactory.cmdSuccess(Tr._(player.langCode, "dynamic.FillOperation.fill.clear", `${Area3.fromArea3D(caPlayer.settings.area)}`)));
-        });
+        const area = Area3.fromArea3D(caPlayer.settings.area);
+        FillService.soildFill(
+            caPlayer,
+            caPlayer.settings.area,
+            new BlockType("minecraft:air", ""),
+            new BlockType("", ""),
+            "",
+            (ok, warn) => {
+                const player = online(caPlayer.xuid);
+                if (player == null) return;
+                if (ok) {
+                    tell(player, StrFactory.cmdSuccess(
+                        Tr._(player.langCode, "dynamic.FillOperation.fill.clear", `${area}`)
+                    ), MsgType.RAW);
+                } else {
+                    tell(player, StrFactory.cmdErr(
+                        Tr._(player.langCode, "dynamic.FillManager.soildFill.warn", String(warn))
+                    ), MsgType.RAW);
+                }
+            }
+        );
     }
 
     public static replace(output: CommandOutput, caPlayer: CAPlayer, res: { states2: string; block: LLSE_Block; block2: LLSE_Block; states: string; }) {
-        const player = caPlayer.$;
-        let blockType1 = new BlockType(res.block.type, res.states);
-        let blockType2 = new BlockType(res.block2.type, res.states2);
         AreaOperation.hasArea(caPlayer);
-        FillService.soildFill(caPlayer, caPlayer.settings.area, blockType1, blockType2, "replace", () => {
-            player.sendText(StrFactory.cmdSuccess(Tr._(player.langCode, "dynamic.FillOperation.fill.replace", `${Area3.fromArea3D(caPlayer.settings.area)}`)));
+        const blockType1 = new BlockType(res.block.type, res.states);
+        const blockType2 = new BlockType(res.block2.type, res.states2);
+        const area = Area3.fromArea3D(caPlayer.settings.area);
+        FillService.soildFill(caPlayer, caPlayer.settings.area, blockType1, blockType2, "replace", (ok, warn) => {
+            const player = online(caPlayer.xuid);
+            if (player == null) return;
+            if (ok) {
+                tell(player, StrFactory.cmdSuccess(
+                    Tr._(player.langCode, "dynamic.FillOperation.fill.replace", `${area}`)
+                ), MsgType.RAW);
+            } else {
+                tell(player, StrFactory.cmdErr(
+                    Tr._(player.langCode, "dynamic.FillManager.soildFill.warn", String(warn))
+                ), MsgType.RAW);
+            }
         });
     }
 }

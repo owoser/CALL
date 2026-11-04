@@ -1,6 +1,6 @@
 import Config from "../common/Config";
 import { Pos3 } from "../common/Pos3";
-import { isBlockName, isBlockStates, clampY, dimensionId, MAX_FILL_VOLUME, volumeOf } from "./SafeArgs";
+import { normaliseBlockName, isBlockStates, clampY, dimensionId, MAX_FILL_VOLUME, volumeOf } from "./SafeArgs";
 import { describeError, logFailure, sleep } from "../util/Safe";
 
 /**
@@ -113,10 +113,11 @@ export async function runAt(pos: Pos3, cmd: string): Promise<CmdResult> {
 
 /** Validate and render a block argument for a command. */
 export function blockArg(type: string, states: string): string | null {
-    if (!isBlockName(type)) return null;
-    if (states == null || String(states).trim() === "" || String(states).trim() === "[]") return type;
+    const name = normaliseBlockName(type);
+    if (name == null) return null;
+    if (states == null || String(states).trim() === "" || String(states).trim() === "[]") return name;
     if (!isBlockStates(states)) return null;
-    return type + " " + String(states).trim();
+    return name + " " + String(states).trim();
 }
 
 /**
@@ -135,7 +136,10 @@ export function fillCommand(a: Pos3, b: Pos3, type: string, states: string, mode
 
     let out = `/fill ${a.x} ${a.y} ${a.z} ${b.x} ${b.y} ${b.z} ${block}`;
     if (mode) out += " " + mode;
-    if (replaceType) {
+    // An empty replaceType is the "no second block" sentinel used by fill/clear, not a
+    // filter - appending it would produce "... minecraft:stone minecraft:air", which the
+    // parser rejects (the replace block only exists after a mode).
+    if (replaceType != null && String(replaceType).trim() !== "") {
         const replace = blockArg(replaceType, replaceStates);
         if (replace == null) return null;
         out += " " + replace;

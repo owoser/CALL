@@ -370,6 +370,35 @@ async function runSuite() {
         return "placed at y+" + (foundAt - t.y) + " and restored";
     });
 
+    // --- /ca clear really clears (regression: "invalid block or region: air") ---
+    await checkAsync("ca.clearRegion", async () => {
+        const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;
+        const t = spot(19);
+        fillBox(t.x, t.y, t.z, 4, 3, 4, "minecraft:stone");
+
+        const cap = fakePlayer(sim);
+        cap.settings.area = {
+            start: { x: t.x, y: t.y, z: t.z, dimid: DIM },
+            end: { x: t.x + 3, y: t.y + 2, z: t.z + 3, dimid: DIM },
+        };
+        cap.hasSetArea = true;
+
+        const before = sim.pos;
+        FillOperation.clear(null, cap);
+
+        const deadline = Date.now() + 40000;
+        let cleared = false;
+        while (Date.now() < deadline) {
+            await new Promise((r) => setTimeout(r, 500));
+            if (blockTypeAt(t.x, t.y, t.z) === "minecraft:air"
+                && blockTypeAt(t.x + 3, t.y + 2, t.z + 3) === "minecraft:air") { cleared = true; break; }
+        }
+        assert(cleared, "clear left blocks behind: corner=" + blockTypeAt(t.x, t.y, t.z));
+        const drift = Math.hypot(sim.pos.x - before.x, sim.pos.z - before.z);
+        assert(drift < 1.5, "clear teleported the player " + drift.toFixed(2) + " blocks");
+        return "4x3x4 cleared through the /ca clear path";
+    });
+
     // --- ASYMMETRIC round trip: the test that would have caught the 3.0.0
     //     transposition. The old copy/paste case used 4x2x4 (sx === sz) with markers
     //     only on the first and last index, both of which survive any axis permutation.

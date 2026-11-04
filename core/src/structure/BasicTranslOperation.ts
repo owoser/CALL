@@ -36,8 +36,12 @@ export default class BasicTranslOperation {
                 );
                 if (cmd == null) return false;
                 return runNow(cmd).ok;
-            }, (warn: number) => {
-                if (warn != 0) tell(online(caPlayer.xuid), StrFactory.cmdWarn(Tr._(caPlayer.$?.langCode ?? "en_US", "dynamic.FillManager.soildFill.warn")), MsgType.RAW);
+            }, (warn: number, slabs: number) => {
+                if (warn != 0) {
+                    tell(online(caPlayer.xuid), StrFactory.cmdWarn(
+                        Tr._(caPlayer.$?.langCode ?? "en_US", "dynamic.FillManager.soildFill.warn", String(warn))
+                    ), MsgType.RAW);
+                }
 
                 //粘贴
                 StructureService.load(caPlayer, st1, st1id, st2.area.start, 0, 1, mirror, degrees, true, true, false, 100, "", () => {

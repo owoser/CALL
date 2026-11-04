@@ -3,8 +3,17 @@ export default class BlockType {
     public type: string;
     
     constructor(type: string, states: string = "") {
-        if(type == null) this.type = "minecraft:air";
-        else this.type = type;
+        // Block names reach the command parser, which assumes the minecraft: namespace
+        // for a bare name. Canonicalising here means every caller (and every third-party
+        // shape pack) can keep writing "air"/"stone".
+        if (type == null) {
+            this.type = "minecraft:air";
+        } else {
+            const trimmed = String(type).trim().toLowerCase();
+            // NOTE: "" means "no block here" for fill modes (see FillOperation) and must
+            // stay empty; only real names get the default namespace.
+            this.type = trimmed === "" ? "" : (trimmed.includes(":") ? trimmed : "minecraft:" + trimmed);
+        }
         
         if(states == null) this.states = "";
         else this.states = states;
@@ -74,6 +83,11 @@ export default class BlockType {
         const type = (this.type ?? "").trim();
         if (type === "") return false;
         return /^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(type);
+    }
+
+    /** True when this instance means "no second block" (used for fill modes). */
+    public isEmpty(): boolean {
+        return (this.type ?? "").trim() === "";
     }
 
     public toFormatString(): string {
