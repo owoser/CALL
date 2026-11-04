@@ -107,4 +107,28 @@
             "type": "boolean"
         }
     }
+,
+        "areaDisplayMode": {
+            "type": "enum",
+            "values": ["particle", "text", "structure_block", "off"]
+        },
+        "areaTextTipInterval": {
+            "type": "number",
+            "min": 250,
+            "max": 10000
+        },
+        "maxPlaceBlocks": {
+            "type": "number",
+            "min": 1000,
+            "max": 200000
+        },
+        "placeBatchBlocks": {
+            "type": "number",
+            "min": 50,
+            "max": 5000
+        },
+        "loadChunkMode": {
+            "type": "enum",
+            "values": ["poll", "teleport"]
+        }
 }

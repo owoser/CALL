@@ -11,7 +11,8 @@
     "deploy": "node scripts/build.mjs --no-zip --deploy",
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "test:live": "node scripts/test-live.mjs",
-    "server:dev": "node scripts/dev-run-server.mjs"
+    "server:dev": "node scripts/dev-run-server.mjs",
+    "check:config": "node scripts/check-config.mjs"
   },
   "repository": {
     "type": "git",
