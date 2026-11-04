@@ -11,6 +11,57 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.0.8] - 2026-11-04
+
+### Fixed
+
+**Any block carrying states (stairs, slabs, logs, fences...) could not be pasted or restored.**
+
+`NbtCodec` parsed palette states into plain JS numbers/strings and `StructurePlacement` fed
+those straight into `new NbtCompound({...})`. LSE only accepts **NbtTag instances** there, so
+every such placement threw
+
+~~~text
+Wrong Type of data to set into NBT Compound!
+   at blockNbtOf -> placeLayoutAsync -> NBTService.loadAsync -> traversal
+~~~
+
+and took the whole slice down with it: paste, load and undo of anything containing a stateful
+block did nothing at all.
+
+- The parsed layout now keeps each state's original NBT tag id (`NbtTypedValue`), and the
+  writer rebuilds `NbtByte` / `NbtShort` / `NbtInt` / `NbtLong` / `NbtFloat` / `NbtDouble` /
+  `NbtString` accordingly.
+- A state that cannot be rebuilt is dropped **on its own** (logged once) instead of aborting
+  the placement; the block type is still written correctly.
+
+**`/ca fill <block> [...states]` rejected every syntax except one.**
+
+`States` is a single String command argument, so `["a"=1,"b"=2]` was split at its spaces,
+arrived truncated and failed the bracket check - producing `invalid:minecraft:smooth_stone_slab`,
+which reads like a bad block name. Now:
+
+- `normaliseBlockStates()` accepts `["a"=1]`, `[a=1]`, `a=1,b=2`, `{"a":1}` and the
+  `block[state=value]` token form, always emitting the canonical syntax;
+- the token form (`minecraft:oak_stairs[weirdo_direction=2]`) contains no spaces, so the
+  command parser can never split it - it is now the documented, recommended spelling;
+- states that are supplied but unusable are still **rejected** rather than silently dropped,
+  so a fill never places a different variant than requested;
+- the failure log now includes the offending **states string**, not just the block name.
+
+### Tests
+
+- Live (`npm run test:live`): 34 assertions (was 31).
+  - `ca.fillWithStates` - the four accepted spellings, each verified by reading the block's
+    states back;
+  - `ca.pasteStateful` - stairs + log saved and pasted, states compared exactly;
+  - `ca.undoStateful` - clear then undo, states restored exactly.
+  State **names** are discovered at runtime (1.26 calls the stairs direction
+  `weirdo_direction`), so the tests do not depend on a specific game version.
+- Unit (`npm run test:unit`): 33 (was 26). Adds `tests/unit/block-states.test.mjs`.
+
+> Why this survived seven releases: every previous test used stateless blocks (stone, gold,
+> diamond, iron, emerald, lapis). The suite now always includes stateful ones.
 ## [3.0.7] - 2026-11-04
 
 ### Documentation site

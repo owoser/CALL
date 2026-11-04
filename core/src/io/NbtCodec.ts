@@ -373,11 +373,34 @@ export function toBigEndian(buf: Buffer): Buffer {
  * cannot index (`getTag(0)` returns undefined), while JS-built shape templates use a
  * List of Ints. The byte-level parser handles both.
  */
+/**
+ * One NBT value together with its original tag id.
+ *
+ * The type MUST be preserved: LSE's NbtCompound only accepts NbtTag instances, so a bare
+ * JS value throws "Wrong Type of data to set into NBT Compound!" and takes the whole
+ * placement (paste / undo) down with it. Keeping the id here lets the writer rebuild
+ * NbtByte / NbtInt / NbtString exactly as the structure stored them.
+ */
+export interface NbtTypedValue {
+    /** 1 Byte, 2 Short, 3 Int, 4 Long, 5 Float, 6 Double, 8 String */
+    type: number;
+    value: any;
+}
+
 export interface StructureLayout {
     size: [number, number, number];
     indices: number[];
-    /** States are plain JS values so they can be fed back into new NbtCompound(). */
-    palette: { name: string; states: Record<string, any>; version: number }[];
+    palette: { name: string; states: Record<string, NbtTypedValue>; version: number }[];
+}
+
+/** Convert a compound's entries while keeping each value's tag id. */
+function toTypedMap(tag: Extract<NbtTag, { type: 10 }>): Record<string, NbtTypedValue> {
+    const out: Record<string, NbtTypedValue> = {};
+    for (const e of tag.entries) {
+        if (e.tag.type === 9 || e.tag.type === 10) continue; // block states are scalars
+        out[e.name] = { type: e.tag.type, value: toJs(e.tag) };
+    }
+    return out;
 }
 
 function parseRoot(buf: Buffer): Extract<NbtTag, { type: 10 }> {
@@ -469,7 +492,7 @@ export function parseStructureLayout(buf: Buffer): StructureLayout {
             const version = child(entry, "version");
             palette.push({
                 name: name && name.type === 8 ? name.value : "minecraft:air",
-                states: states && states.type === 10 ? (toJs(states) as Record<string, any>) : {},
+                states: states && states.type === 10 ? toTypedMap(states) : {},
                 version: version && version.type === 3 ? Number(version.value) : 0,
             });
         }

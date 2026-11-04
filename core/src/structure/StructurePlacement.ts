@@ -92,7 +92,8 @@ export function coveredArea(pos: Pos3, size: Vec3Tuple): Area3 {
     );
 }
 
-import { StructureLayout, parseStructureLayout, transformLayout, TransformOptions } from "../io/NbtCodec";
+import { StructureLayout, NbtTypedValue, parseStructureLayout, transformLayout, TransformOptions } from "../io/NbtCodec";
+import { describeError, logFailure } from "../util/Safe";
 
 // --------------------------------------------------- per-block placement (bytes)
 /**
@@ -116,13 +117,77 @@ import { StructureLayout, parseStructureLayout, transformLayout, TransformOption
 export { cellIndex, cellCoords } from "../io/StructureOrder";
 import { cellCoords } from "../io/StructureOrder";
 
-function blockNbtOf(entry: { name: string; states: Record<string, any>; version: number }): NbtCompound {
-    const states = entry.states && typeof entry.states === "object" ? entry.states : {};
-    return new NbtCompound({
-        name: new NbtString(entry.name || "minecraft:air"),
-        states: new NbtCompound(states),
-        version: new NbtInt(entry.version || 0),
-    });
+/** Rebuild one block state as the NbtTag LSE expects. */
+function stateTag(state: NbtTypedValue): any | null {
+    const v = state.value;
+    try {
+        switch (state.type) {
+            case 1: return new NbtByte(Number(v) ? 1 : 0);
+            case 2: return new NbtShort(Number(v));
+            case 3: return new NbtInt(Number(v));
+            // Long states do not occur in practice, and the LSE typings only accept a
+            // number here, so keep it simple.
+            case 4: return new NbtLong(Number(v));
+            case 5: return new NbtFloat(Number(v));
+            case 6: return new NbtDouble(Number(v));
+            case 8: return new NbtString(String(v));
+            default: break;
+        }
+        const parsed = NBT.parseSNBT(String(v));
+        return parsed == null ? new NbtString(String(v)) : (parsed as any);
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Build the block NBT written by Block.setNbt.
+ *
+ * LSE's NbtCompound accepts ONLY NbtTag instances ("Wrong Type of data to set into NBT
+ * Compound!" otherwise), so every state is rebuilt with its original tag type. A state that
+ * cannot be rebuilt is dropped on its own: losing one state is far better than aborting the
+ * whole slice, which is what happened when plain JS values were passed in.
+ */
+function blockNbtOf(entry: StructureLayout["palette"][number]): NbtCompound {
+    const src = entry.states && typeof entry.states === "object" ? entry.states : {};
+    const states: Record<string, any> = {};
+    let dropped = 0;
+
+    for (const key of Object.keys(src)) {
+        const tag = stateTag(src[key]);
+        if (tag == null) {
+            dropped++;
+            continue;
+        }
+        states[key] = tag;
+    }
+    if (dropped > 0) {
+        logOnce("state:" + entry.name, "dropped " + dropped + " unrebuildable state(s) on " + entry.name);
+    }
+
+    try {
+        return new NbtCompound({
+            name: new NbtString(entry.name || "minecraft:air"),
+            states: new NbtCompound(states),
+            version: new NbtInt(entry.version || 0),
+        });
+    } catch (e) {
+        // Last resort: the block without states is still the right block.
+        logOnce("compound:" + entry.name, "state compound rejected for " + entry.name + ": " + describeError(e));
+        return new NbtCompound({
+            name: new NbtString(entry.name || "minecraft:air"),
+            version: new NbtInt(entry.version || 0),
+        });
+    }
+}
+
+/** Log once per key so a broken palette cannot flood the console. */
+const logged = new Set<string>();
+function logOnce(key: string, message: string): void {
+    if (logged.has(key)) return;
+    logged.add(key);
+    if (logged.size > 500) logged.clear();
+    logFailure("StructurePlacement." + key, new Error(message));
 }
 
 function maxBlocks(restore = false): number {

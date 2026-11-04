@@ -277,7 +277,14 @@ export default class FillService {
 
     private static reportInvalid(caPlayer: CAPlayer, blockType: BlockType): void {
         const lang = caPlayer.$?.langCode ?? "en_US";
-        FillService.logOnce("invalid:" + blockType?.type, blockType?.type ?? "");
+        // Log the states as well: only the block name used to be logged, so a rejected
+        // state string was invisible and the failure looked like a bad block name.
+        const states = String((blockType as any)?.states ?? "");
+        FillService.logOnce(
+            "invalid:" + blockType?.type + "|" + states,
+            "block=" + (blockType?.type ?? "")
+            + " states=" + (states.length > 120 ? states.slice(0, 120) + "..." : (states || "(none)"))
+        );
         tell(online(caPlayer.xuid), StrFactory.cmdErr(
             Tr._(lang, "dynamic.FillManager.reason.invalidBlock") + " " + (blockType?.toString() || "(empty)")
         ), MsgType.RAW);

@@ -1,6 +1,6 @@
 import Config from "../common/Config";
 import { Pos3 } from "../common/Pos3";
-import { normaliseBlockName, isBlockStates, clampY, dimensionId, MAX_FILL_VOLUME, volumeOf } from "./SafeArgs";
+import { normaliseBlockName, normaliseBlockStates, splitBlockToken, clampY, dimensionId, MAX_FILL_VOLUME, volumeOf } from "./SafeArgs";
 import { describeError, logFailure, sleep } from "../util/Safe";
 
 /**
@@ -113,11 +113,19 @@ export async function runAt(pos: Pos3, cmd: string): Promise<CmdResult> {
 
 /** Validate and render a block argument for a command. */
 export function blockArg(type: string, states: string): string | null {
-    const name = normaliseBlockName(type);
+    const token = splitBlockToken(type);
+    const name = normaliseBlockName(token.name);
     if (name == null) return null;
-    if (states == null || String(states).trim() === "" || String(states).trim() === "[]") return name;
-    if (!isBlockStates(states)) return null;
-    return name + " " + String(states).trim();
+
+    const explicit = states != null && String(states).trim() !== "" && String(states).trim() !== "[]";
+    const raw = explicit ? states : token.states;
+    if (raw == null || String(raw).trim() === "") return name;
+
+    const normalised = normaliseBlockStates(raw);
+    // States were supplied but cannot be understood: reject instead of silently placing a
+    // different variant than the player asked for.
+    if (normalised == null) return null;
+    return name + " " + normalised;
 }
 
 /**

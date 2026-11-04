@@ -93,12 +93,136 @@ export function isBlockName(value: any): boolean {
  * argument used to produce commands with stray empty parameters.
  */
 export function isBlockStates(value: any): boolean {
-    if (typeof value !== "string") return false;
-    const s = value.trim();
-    // "" and "[]" are the same thing: there are no states, so nothing must be emitted.
-    if (s === "" || s === "[]") return false;
-    if (!s.startsWith("[") || !s.endsWith("]")) return false;
-    return !/[\r\n]/.test(s);
+    return normaliseBlockStates(value) != null;
+}
+
+/** Remove one layer of wrapping double quotes (the parser may hand them back). */
+function stripQuotes(s: string): string {
+    let t = s.trim();
+    if (t.length >= 2 && t.startsWith('"') && t.endsWith('"')) {
+        t = t.slice(1, -1).replace(/\\"/g, '"');
+    }
+    return t;
+}
+
+/** Split on commas that are not inside quotes. */
+function splitTopLevel(s: string): string[] {
+    const out: string[] = [];
+    let cur = "";
+    let inQuotes = false;
+    for (let i = 0; i < s.length; i++) {
+        const ch = s[i];
+        if (ch === '"' && s[i - 1] !== "\\") inQuotes = !inQuotes;
+        if (ch === "," && !inQuotes) {
+            out.push(cur);
+            cur = "";
+            continue;
+        }
+        cur += ch;
+    }
+    out.push(cur);
+    return out;
+}
+
+/**
+ * Split `key=value` (command syntax) or `"key":"value"` (json-ish).
+ *
+ * The separator must be found OUTSIDE quotes, because a state key can itself contain a
+ * colon ("minecraft:vertical_half"). "=" wins when present, so an unquoted namespaced key
+ * is not split at its own colon.
+ */
+function splitKeyValue(seg: string): { key: string; value: string } | null {
+    let inQuotes = false;
+    let eq = -1;
+    let colon = -1;
+    for (let i = 0; i < seg.length; i++) {
+        const ch = seg[i];
+        if (ch === '"' && seg[i - 1] !== "\\") {
+            inQuotes = !inQuotes;
+            continue;
+        }
+        if (inQuotes) continue;
+        if (ch === "=" && eq < 0) eq = i;
+        else if (ch === ":" && colon < 0) colon = i;
+    }
+    const at = eq >= 0 ? eq : colon;
+    if (at <= 0) return null;
+    const key = stripQuotes(seg.slice(0, at));
+    if (key === "") return null;
+    return { key, value: seg.slice(at + 1) };
+}
+
+function formatStateValue(raw: string): string | null {
+    const s = stripQuotes(raw);
+    if (s === "") return null;
+    if (/^-?\d+(\.\d+)?$/.test(s)) return s;
+    if (s === "true" || s === "false") return s;
+    if (/^[A-Za-z0-9_.:-]+$/.test(s)) return '"' + s + '"';
+    return null;
+}
+
+/**
+ * Normalise a block-states argument to the exact syntax the command parser wants:
+ * `["key"=value,"key2"="value2"]`.
+ *
+ * Accepted inputs (users type all of these, and 3.0.7 rejected every form except the
+ * first, which is why `/ca fill minecraft:smooth_stone_slab [...]` reported
+ * "invalid:minecraft:smooth_stone_slab"):
+ *
+ *   ["minecraft:vertical_half"="bottom"]      canonical
+ *   [minecraft:vertical_half=bottom]          unquoted
+ *   minecraft:vertical_half=bottom            no brackets
+ *   {"minecraft:vertical_half":"bottom"}      json-ish
+ *   a=1,b=true                                multiple, no spaces around commas
+ *
+ * @returns the canonical string, or null when there are no states / they are unusable
+ */
+export function normaliseBlockStates(value: any): string | null {
+    if (value == null) return null;
+    let s = String(value).replace(/[\r\n]/g, " ").trim();
+    if (s === "") return null;
+    s = stripQuotes(s);
+    if (s === "" || s === "[]") return null;
+
+    // tolerate json object form and unbalanced brackets
+    if (s.startsWith("{") && s.endsWith("}")) s = s.slice(1, -1);
+    if (s.startsWith("[")) s = s.slice(1);
+    if (s.endsWith("]")) s = s.slice(0, -1);
+    s = s.trim();
+    if (s === "") return null;
+
+    const parts: string[] = [];
+    for (const chunk of splitTopLevel(s)) {
+        const seg = chunk.trim();
+        if (seg === "") continue;
+        const split = splitKeyValue(seg);
+        if (split == null) return null;
+        const key = split.key.toLowerCase();
+        // state keys may carry a namespace: "minecraft:vertical_half"
+        if (!/^[a-z0-9_]+(:[a-z0-9_]+)?$/.test(key)) return null;
+        const val = formatStateValue(split.value);
+        if (val == null) return null;
+        parts.push('"' + key + '"=' + val);
+    }
+    if (parts.length === 0) return null;
+    return "[" + parts.join(",") + "]";
+}
+
+/**
+ * Split `name[state=value,...]` into its parts.
+ *
+ * This form exists because the `States` command argument is a single String token: any
+ * spaces inside `["a"=1]` split it, and the plugin then received a truncated value. Written
+ * without spaces inside the block token it always survives parsing.
+ */
+export function splitBlockToken(value: any): { name: string; states: string } {
+    const s = String(value ?? "").trim();
+    const open = s.indexOf("[");
+    if (open < 0) return { name: s, states: "" };
+    const close = s.lastIndexOf("]");
+    const name = s.slice(0, open).trim();
+    const inner = close > open ? s.slice(open + 1, close) : s.slice(open + 1);
+    return { name, states: "[" + inner + "]" };
 }
 
 /** Volume guard for a single /fill or /clone command (BDS limit). */

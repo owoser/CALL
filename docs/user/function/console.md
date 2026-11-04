@@ -61,3 +61,29 @@
 #### 指令
 
 > /call \<shape :enum> \<list :enum\>
+## 填充时怎么指定方块状态
+
+三种写法完全等价，任选一种：
+
+~~~text
+/ca fill minecraft:oak_stairs ["weirdo_direction"=2]
+/ca fill minecraft:oak_stairs [weirdo_direction=2]
+/ca fill minecraft:oak_stairs[weirdo_direction=2]
+~~~
+
+> **推荐第三种**：状态直接跟在方块名后面、整段不含空格，永远不会被命令参数切碎。
+> （前两种带空格时，某些版本会把参数拆开，于是报"无效的方块名或选区"。）
+
+其他可接受的写法：
+
+| 写法 | 说明 |
+|---|---|
+| `["a"=1,"b"="x"]` | 标准写法 |
+| `[a=1,b=x]` | 不写引号 |
+| `a=1,b=x` | 不写方括号 |
+| `{"a":1}` | JSON 风格 |
+| `方块名[a=1]` | 并入方块名（无空格，推荐） |
+
+!> **状态名与取值随游戏版本变化**。例如 1.26 里楼梯朝向叫 `weirdo_direction`
+（旧文档里的 `facing_direction` 已经无效），错误的状态名会被服务端直接拒绝。
+用工具点击一个方块、或先 `/ca fill <方块>` 放一个再看它的状态，是最稳妥的办法。

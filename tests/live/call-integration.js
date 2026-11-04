@@ -497,6 +497,140 @@ async function runSuite() {
         return "96x16x96 clear -> failed undo kept the snapshot -> undo restored it";
     });
 
+    // --- STATEFUL blocks (stairs / log / slab) -------------------------------
+    // 3.0.7 could not place ANY block that carries states: palette values were plain JS
+    // numbers/strings and LSE's NbtCompound only accepts NbtTag instances, so the whole
+    // slice died with "Wrong Type of data to set into NBT Compound!". Every earlier test
+    // used stateless blocks, which is why it went unnoticed.
+    //
+    // The state NAMES are discovered at runtime (1.26.51 calls the stairs direction
+    // "weirdo_direction", not "facing_direction"), so this stays valid across versions.
+    const BlockTypeM = require(path.join(M.root, "core", "src", "common", "BlockType.js")).default;
+    const statesOf = (block) => {
+        if (block == null) return "<none>";
+        try {
+            return BlockTypeM.nbtToStates(block.getNbt().getTag("states"));
+        } catch (e) {
+            return "<err " + (e && e.message) + ">";
+        }
+    };
+    const placePlain = (x, y, z, type) => {
+        const Cmd = require(path.join(M.root, "core", "src", "game", "Cmd.js"));
+        const res = Cmd.runNow("/setblock " + x + " " + y + " " + z + " " + type + " replace");
+        assert(res.ok, "setblock " + type + " failed: " + res.out);
+        const b = mc.getBlock(x, y, z, DIM);
+        assert(b != null, "cannot read back " + type);
+        return { type: b.type, states: statesOf(b) };
+    };
+    /** Derive the four accepted spellings from the canonical, engine-reported string. */
+    const spellings = (canonical) => {
+        const inner = canonical.replace(/^\[/, "").replace(/\]$/, "");
+        const unquoted = inner.replace(/"/g, "");
+        return {
+            canonical,
+            unquoted: "[" + unquoted + "]",
+            bare: unquoted,
+            token: "[" + inner + "]",
+        };
+    };
+
+    await checkAsync("ca.fillWithStates", async () => {
+        const Cmd = require(path.join(M.root, "core", "src", "game", "Cmd.js"));
+        const t = spot(25);
+        fillBox(t.x, t.y, t.z, 4, 1, 1, "minecraft:air");
+
+        const probe = placePlain(t.x, t.y, t.z, "minecraft:oak_stairs");
+        assert(probe.states !== "[]" && probe.states !== "<none>",
+            "oak_stairs reports no states; the test would be vacuous");
+        const forms = spellings(probe.states);
+        // clear the probe cell: filling a block with its own current state changes 0 blocks
+        // and BDS reports that as a failed command
+        fillBox(t.x, t.y, t.z, 4, 1, 1, "minecraft:air");
+
+        const cases = [
+            [probe.type, forms.canonical, "canonical"],
+            [probe.type, forms.unquoted, "unquoted"],
+            [probe.type, forms.bare, "no brackets"],
+            [probe.type + forms.token, "", "block[states] token"],
+        ];
+        for (let i = 0; i < cases.length; i++) {
+            const [type, states, label] = cases[i];
+            const x = t.x + i;
+            const from = new M.Pos3(x, t.y, t.z, DIM);
+            const to = new M.Pos3(x, t.y, t.z, DIM);
+            const cmd = Cmd.fillCommand(from, to, type, states);
+            assert(cmd != null, "fillCommand rejected the " + label + " form: " + type + " / " + states);
+            const res = Cmd.runNow(cmd);
+            assert(res.ok, "fill failed (" + label + "): " + cmd + " :: " + res.out);
+            const got = statesOf(mc.getBlock(x, t.y, t.z, DIM));
+            assert(got === probe.states, "states differ (" + label + "): expected " + probe.states + " got " + got);
+        }
+        return "4 spellings accepted; states preserved (" + probe.states + ")";
+    });
+
+    await checkAsync("ca.pasteStateful", async () => {
+        const src = spot(26);
+        const dst = spot(27);
+        fillBox(src.x, src.y, src.z, 6, 2, 2, "minecraft:air");
+        const stairs = placePlain(src.x, src.y, src.z, "minecraft:oak_stairs");
+        const log = placePlain(src.x + 1, src.y, src.z, "minecraft:oak_log");
+        assert(stairs.states !== "[]", "oak_stairs has no states to test with");
+        assert(log.states !== "[]", "oak_log has no states to test with");
+
+        const area = new M.Area3(new M.Pos3(src.x, src.y, src.z, DIM), new M.Pos3(src.x + 1, src.y, src.z, DIM));
+        M.NBTService.save("calltest_stateful", area);
+
+        fillBox(dst.x - 1, dst.y - 1, dst.z - 1, 5, 3, 3, "minecraft:air");
+        const written = await M.NBTService.loadAsync(fakePlayer(sim), "calltest_stateful",
+            new M.Pos3(dst.x, dst.y, dst.z, DIM), "none", 0);
+        assert(written > 0, "nothing written");
+
+        const gotA = statesOf(mc.getBlock(dst.x, dst.y, dst.z, DIM));
+        const gotB = statesOf(mc.getBlock(dst.x + 1, dst.y, dst.z, DIM));
+        assert(gotA === stairs.states, "stairs states lost: expected " + stairs.states + " got " + gotA);
+        assert(gotB === log.states, "log states lost: expected " + log.states + " got " + gotB);
+        M.NBTService.del("calltest_stateful");
+        return "round-tripped with states: " + stairs.states + " / " + log.states;
+    });
+
+    await checkAsync("ca.undoStateful", async () => {
+        const FillService = require(path.join(M.root, "core", "src", "structure", "FillService.js")).default;
+        const BT2 = require(path.join(M.root, "core", "src", "common", "BlockType.js")).default;
+        const t = spot(28);
+        fillBox(t.x, t.y, t.z, 3, 1, 1, "minecraft:air");
+        const stairs = placePlain(t.x, t.y, t.z, "minecraft:oak_stairs");
+        const log = placePlain(t.x + 1, t.y, t.z, "minecraft:oak_log");
+        assert(stairs.states !== "[]" && log.states !== "[]", "no states to test with");
+
+        const cap = fakePlayer(sim);
+        cap.settings.area = {
+            start: { x: t.x, y: t.y, z: t.z, dimid: DIM },
+            end: { x: t.x + 1, y: t.y, z: t.z, dimid: DIM },
+        };
+        cap.hasSetArea = true;
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+        let cleared = null;
+        FillService.soildFill(cap, cap.settings.area, new BT2("minecraft:air", ""),
+            new BT2("", ""), "", (o) => { cleared = o; });
+        let waited = 0;
+        while (cleared == null && waited < 90000) { await sleep(500); waited += 500; }
+        assert(cleared != null && cleared.ok, "clear did not complete: " + JSON.stringify(cleared));
+        assert(blockTypeAt(t.x, t.y, t.z) === "minecraft:air", "clear left blocks");
+
+        let undone = false;
+        M.StructureService.undoPop(cap, () => { undone = true; });
+        waited = 0;
+        while (!undone && waited < 90000) { await sleep(500); waited += 500; }
+        assert(undone, "undo did not complete");
+
+        const gotA = statesOf(mc.getBlock(t.x, t.y, t.z, DIM));
+        const gotB = statesOf(mc.getBlock(t.x + 1, t.y, t.z, DIM));
+        assert(gotA === stairs.states, "stairs state lost on undo: expected " + stairs.states + " got " + gotA);
+        assert(gotB === log.states, "log state lost on undo: expected " + log.states + " got " + gotB);
+        return "undo restored states: " + gotA + " / " + gotB;
+    });
+
     // --- chunk lease: must actually hold a ticking area, and free it -----------
     await checkAsync("chunks.lease", async () => {
         const Chunks = require(path.join(M.root, "core", "src", "game", "Chunks.js"));

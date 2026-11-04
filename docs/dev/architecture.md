@@ -55,6 +55,20 @@ pkt->mColor = color;                                              // 直接发�
 
 ~`CAPlayer.$~`~ 是 getter，每次访问都走 ~`~mc.getPlayer(xuid)~`~。缓存过的 ~`~Player*~`~ 在玩家重连后就是悬垂指针，读 ~`.realName~`~ / ~`.langCode~`~ 会直接崩。
 
+## 4.5 NbtCompound 只接受 NbtTag 对象
+
+`new NbtCompound({...})` 的每个值都必须是 `NbtInt` / `NbtString` 这样的 **NBT 对象**，
+塞纯 JS 数字或字符串会抛 `Wrong Type of data to set into NBT Compound!`。
+
+3.0.7 就栽在这里：`NbtCodec` 把 palette 的 states 解析成纯 JS 值，写回时直接塞进 compound →
+**凡是带状态的方块（楼梯、台阶、原木、栅栏…）粘贴与撤销全部整片失败**。
+
+修法：`StructureLayout.palette[].states` 保留原始 NBT tag id（`NbtTypedValue`），写回时按类型重建
+`NbtByte` / `NbtInt` / `NbtLong` / `NbtFloat` / `NbtDouble` / `NbtString`；单个状态重建失败只丢那一个。
+
+!> 教训：真机用例必须包含**带状态**的方块。3.0.0–3.0.7 的用例全是 stone / gold / diamond
+这种无状态方块，所以这个明显的问题活了七个版本。
+
 ## 5. 加载区块不要传送玩家
 
 1.x/2.0 靠传送玩家把区块拽过来（~`~loadChunk~`~ 每 400ms、~`~tpAsync~`~ 每 50ms 传一次）。
