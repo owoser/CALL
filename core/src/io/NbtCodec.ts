@@ -475,3 +475,82 @@ export function parseStructureLayout(buf: Buffer): StructureLayout {
 
     return { size: [size[0], size[1], size[2]], indices, palette };
 }
+// --------------------------------------------------- mirror / rotate support
+export interface TransformOptions {
+    /** 0 / 90 / 180 / 270 degrees, clockwise around the Y axis. */
+    rotation?: number;
+    /** "none" | "x" | "z" | "xz" */
+    mirror?: string;
+}
+
+function normaliseRotation(rotation: number | undefined): number {
+    const n = Number(rotation ?? 0);
+    if (!Number.isFinite(n)) return 0;
+    const wrapped = ((Math.round(n / 90) * 90) % 360 + 360) % 360;
+    return wrapped;
+}
+
+/**
+ * Mirror and/or rotate a parsed structure layout.
+ *
+ * Placement is per block, so the transform has to happen here - passing a rotation to
+ * the game is not an option (mc.setStructure crashes, and /structure load only accepts
+ * structures the game already knows about).
+ *
+ * Order of operations matches what a structure block does: mirror first, then rotate.
+ */
+export function transformLayout(layout: StructureLayout, options: TransformOptions): StructureLayout {
+    const rotation = normaliseRotation(options.rotation);
+    const mirror = String(options.mirror ?? "none").toLowerCase();
+    const mirrorX = mirror === "x" || mirror === "xz";
+    const mirrorZ = mirror === "z" || mirror === "xz";
+
+    const [sx, sy, sz] = layout.size;
+    const swap = rotation === 90 || rotation === 270;
+    const outSize: [number, number, number] = swap ? [sz, sy, sx] : [sx, sy, sz];
+
+    if (rotation === 0 && !mirrorX && !mirrorZ) {
+        return layout;
+    }
+
+    const outIndices = new Array<number>(outSize[0] * outSize[1] * outSize[2]).fill(-1);
+
+    for (let x = 0; x < sx; x++) {
+        for (let y = 0; y < sy; y++) {
+            for (let z = 0; z < sz; z++) {
+                const src = (x * sz + z) * sy + y;
+                const value = layout.indices[src];
+                if (value == null || value < 0) continue;
+
+                let nx = mirrorX ? sx - 1 - x : x;
+                let nz = mirrorZ ? sz - 1 - z : z;
+
+                // rotate clockwise around Y
+                let rx = nx;
+                let rz = nz;
+                switch (rotation) {
+                    case 90:
+                        rx = sz - 1 - nz;
+                        rz = nx;
+                        break;
+                    case 180:
+                        rx = sx - 1 - nx;
+                        rz = sz - 1 - nz;
+                        break;
+                    case 270:
+                        rx = nz;
+                        rz = sx - 1 - nx;
+                        break;
+                    default:
+                        break;
+                }
+
+                if (rx < 0 || rx >= outSize[0] || rz < 0 || rz >= outSize[2]) continue;
+                const dst = (rx * outSize[2] + rz) * sy + y;
+                outIndices[dst] = value;
+            }
+        }
+    }
+
+    return { size: outSize, indices: outIndices, palette: layout.palette };
+}

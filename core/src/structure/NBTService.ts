@@ -116,9 +116,13 @@ export default class NBTService {
         mirror: string | number = "none",
         rotation: number = 0
     ): Promise<number> {
+        if (!NBTService.exists(saveid)) throw new Warn("dynamic.StructureManager.load.missingFile");
         const bytes = NBTService.readBytes(saveid);
         const batch = Number(Config_getNum("placeBatchBlocks", 600));
-        return placeBytesAsync(bytes, pos, batch > 0 ? batch : 600);
+        return placeBytesAsync(bytes, pos, batch > 0 ? batch : 600, {
+            rotation: typeof rotation === "number" ? rotation : parseFloat(String(rotation)) || 0,
+            mirror: String(mirror ?? "none"),
+        });
     }
 
     public static del(saveid: string): boolean {

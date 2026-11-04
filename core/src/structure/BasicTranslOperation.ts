@@ -12,6 +12,8 @@ import StrFactory from "../util/StrFactory";
 import AreaOperation from "./AreaOperation";
 import StructureOperation from "./StructureOperation";
 import Tr from "../util/Translator";
+import { fillCommand, runNow } from "../game/Cmd";
+import { MsgType, online, tell } from "../util/Msg";
 
 export default class BasicTranslOperation {
     /*** private */
@@ -25,11 +27,18 @@ export default class BasicTranslOperation {
                     st1id = sid;
                 }
             });
-            //清空原位置
+            //清空原位置 (validated, console level - see FillService)
             FillService.ergod(caPlayer, st1.getAreas(), 0, 1, (yBottom: number, yTop: number, area: Area3) => {
-                return Players.cmd(caPlayer, `fill ${area.start.x} ${yBottom} ${area.start.z} ${area.end.x} ${yTop} ${area.end.z} air`, false).success;
+                const cmd = fillCommand(
+                    new Pos3(area.start.x, yBottom, area.start.z, area.start.dimid),
+                    new Pos3(area.end.x, yTop, area.end.z, area.end.dimid),
+                    "minecraft:air",
+                    ""
+                );
+                if (cmd == null) return false;
+                return runNow(cmd).ok;
             }, (warn: number) => {
-                if (warn != 0) caPlayer.$.sendText(StrFactory.cmdWarn(Tr._(caPlayer.$.langCode, "dynamic.FillManager.soildFill.warn")));
+                if (warn != 0) tell(online(caPlayer.xuid), StrFactory.cmdWarn(Tr._(caPlayer.$?.langCode ?? "en_US", "dynamic.FillManager.soildFill.warn")), MsgType.RAW);
 
                 //粘贴
                 StructureService.load(caPlayer, st1, st1id, st2.area.start, 0, 1, mirror, degrees, true, true, false, 100, "", () => {

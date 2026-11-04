@@ -10,7 +10,7 @@ This is a maintained community fork of [superx101/CALL](https://github.com/super
 
 ---
 
-## Why 2.0.0 exists
+## Why this fork exists
 
 On LeviLamina 3 the 1.6.1 release did not work at all, for two independent reasons:
 
@@ -21,7 +21,17 @@ On LeviLamina 3 the 1.6.1 release did not work at all, for two independent reaso
    server** on this platform (access violation inside `StructureTemplate::placeInWorld`),
    dropping every connected player.
 
-Both are fixed; the second by never calling that API again.
+Three more defects were found by testing against a real server afterwards:
+
+3. `/ca fill` **disconnected the client** because the boss-bar colour 11 is out of range
+   for BDS' 8-value `BossBarColor` enum; the server stayed up, which is why it looked
+   like only fill was broken.
+4. Pasted structures **larger than 787 bytes failed to parse** - the byte-order guess in
+   the NBT codec was size dependent.
+5. Mirror/rotation were silently ignored when structures were written back block by block.
+
+All of it is fixed and covered by `npm run test:unit` + `npm run test:live`.
+See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
 ## Requirements
 
@@ -76,11 +86,12 @@ Everything is available as `/call ...` and `/ca ...`.
 
 | Key | Default | Meaning |
 |---|---|---|
-| `areaDisplayMode` | `"particle"` | `particle` / `text` / `structure_block` / `off`. Non-destructive by default. |
+| `areaDisplayMode` | `"structure_block"` | `particle` / `text` / `structure_block` / `off`. Non-destructive by default. |
 | `areaTextTipInterval` | `1000` | Selection HUD refresh, ms (250-10000). |
 | `maxPlaceBlocks` | `40000` | Refuse a single restore larger than this instead of freezing. |
 | `placeBatchBlocks` | `600` | Blocks written between scheduler yields. |
-| `loadChunkMode` | `"teleport"` | `poll` never moves the player to load chunks. |
+| `chunkLoader` | `"tickingarea"` | how chunks are force-loaded (`none` to disable). |
+| `chunkLoadTimeout` | `4000` | how long to wait for them, ms. |
 
 Validate the pair offline with `npm run check:config`.
 
@@ -118,6 +129,7 @@ the npm script already passes it.
 ```bash
 # build.json: { "bdsDir": "D:/path/to/server", "pluginDir": "CALL" }
 npm run deploy          # build + copy into <bdsDir>/plugins/CALL
+npm run test:unit       # offline: NBT codec + mirror/rotation (no server needed)
 npm run test:live       # boots the server, runs tests/live, prints PASS/FAIL
 npm run server:dev      # headless server with a console inbox (.console-in)
 ```

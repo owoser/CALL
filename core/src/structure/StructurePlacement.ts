@@ -91,7 +91,7 @@ export function coveredArea(pos: Pos3, size: Vec3Tuple): Area3 {
     );
 }
 
-import { StructureLayout, parseStructureLayout } from "../io/NbtCodec";
+import { StructureLayout, parseStructureLayout, transformLayout, TransformOptions } from "../io/NbtCodec";
 
 // --------------------------------------------------- per-block placement (bytes)
 function blockNbtOf(entry: { name: string; states: Record<string, any>; version: number }): NbtCompound {
@@ -170,12 +170,27 @@ export async function placeLayoutAsync(
     return written;
 }
 
-/** Place NBT bytes (a .mcstructure image) at `pos`. */
-export async function placeBytesAsync(bytes: Buffer, pos: Pos3, batch = 600): Promise<number> {
-    return placeLayoutAsync(parseStructureLayout(bytes), pos, batch);
+/**
+ * Place NBT bytes (a .mcstructure image) at `pos`.
+ * @param options optional mirror / rotation, applied to the layout before writing
+ */
+export async function placeBytesAsync(
+    bytes: Buffer,
+    pos: Pos3,
+    batch = 600,
+    options?: TransformOptions
+): Promise<number> {
+    let layout = parseStructureLayout(bytes);
+    if (options != null) layout = transformLayout(layout, options);
+    return placeLayoutAsync(layout, pos, batch);
 }
 
 /** Place an in-memory NbtCompound (shape templates) at `pos`. */
-export async function placeNbtAsync(nbt: NbtCompound, pos: Pos3, batch = 600): Promise<number> {
-    return placeBytesAsync(Buffer.from(new Uint8Array(nbt.toBinaryNBT() as ArrayBuffer)), pos, batch);
+export async function placeNbtAsync(
+    nbt: NbtCompound,
+    pos: Pos3,
+    batch = 600,
+    options?: TransformOptions
+): Promise<number> {
+    return placeBytesAsync(Buffer.from(new Uint8Array(nbt.toBinaryNBT() as ArrayBuffer)), pos, batch, options);
 }

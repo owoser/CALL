@@ -326,6 +326,69 @@ async function runSuite() {
         return "8x4x8 region filled via /ca fill path";
     });
 
+    // --- selection highlight (structure_block, default mode) ---------------
+    await checkAsync("ca.selectionDisplay", async () => {
+        const fs = require("fs");
+        const AreaDisplayer = require(path.join(M.root, "core", "src", "structure", "AreaDisplayerService.js")).default;
+        const t = spot(12);
+        fillBox(t.x, t.y, t.z, 4, 4, 4, "minecraft:air");
+
+        const cap = fakePlayer(sim);
+        const area = new M.Area3(new M.Pos3(t.x, t.y, t.z, DIM), new M.Pos3(t.x + 2, t.y + 1, t.z + 2, DIM));
+        cap.settings.area = {
+            start: { x: t.x, y: t.y, z: t.z, dimid: DIM },
+            end: { x: t.x + 2, y: t.y + 1, z: t.z + 2, dimid: DIM },
+        };
+        cap.hasSetArea = true;
+
+        const anchor = AreaDisplayer.set(area, cap);
+        assert(anchor != null, "no anchor returned");
+
+        // the highlight must appear ABOVE the selection, in air
+        let foundAt = -1;
+        for (let y = t.y + 2; y <= t.y + 24; y++) {
+            if (blockTypeAt(t.x, y, t.z) === "minecraft:structure_block") { foundAt = y; break; }
+        }
+        assert(foundAt > 0, "no structure_block placed for the highlight");
+
+        const journal = path.join(M.Paths.DATA, "area_display.json");
+        assert(fs.existsSync(journal), "highlight was not journaled before touching the world");
+
+        AreaDisplayer.remove(cap);
+        assert(blockTypeAt(t.x, foundAt, t.z) === "minecraft:air", "highlight was not restored");
+        return "placed at y+" + (foundAt - t.y) + " and restored";
+    });
+
+    // --- rotation/mirror through the real loader --------------------------
+    await checkAsync("call.rotateOnLoad", async () => {
+        const src = spot(10);
+        const dst = spot(11);
+        // 3 x 1 x 1 strip: stone at x, air, gold at x+2
+        fillBox(src.x, src.y, src.z, 3, 1, 1, "minecraft:air");
+        mc.setBlock(src.x, src.y, src.z, DIM, "minecraft:stone", 0);
+        mc.setBlock(src.x + 2, src.y, src.z, DIM, "minecraft:gold_block", 0);
+
+        M.NBTService.save("calltest_rot", new M.Area3(
+            new M.Pos3(src.x, src.y, src.z, DIM), new M.Pos3(src.x + 2, src.y, src.z, DIM)));
+
+        fillBox(dst.x - 1, dst.y - 1, dst.z - 1, 6, 4, 6, "minecraft:air");
+        const written = await M.NBTService.loadAsync(
+            fakePlayer(sim), "calltest_rot", new M.Pos3(dst.x, dst.y, dst.z, DIM), "none", 90);
+        assert(written > 0, "nothing written");
+
+        // after a 90 degree rotation the strip must run along Z, not X
+        const alongX = blockTypeAt(dst.x + 1, dst.y, dst.z) === "minecraft:gold_block"
+            || blockTypeAt(dst.x + 2, dst.y, dst.z) === "minecraft:gold_block";
+        const alongZ = blockTypeAt(dst.x, dst.y, dst.z + 2) !== "minecraft:air"
+            || blockTypeAt(dst.x, dst.y, dst.z + 2) === "minecraft:gold_block";
+        assert(!alongX, "rotation 90 left the strip along X");
+        assert(alongZ, "rotation 90 did not produce a strip along Z");
+        const total = [0, 1, 2].filter((d) => blockTypeAt(dst.x, dst.y, dst.z + d) !== "minecraft:air").length;
+        assert(total === 2, "expected 2 solid cells along Z, found " + total);
+        M.NBTService.del("calltest_rot");
+        return "3x1x1 strip rotated 90";
+    });
+
     // --- CALL end-to-end: copy -> paste ------------------------------------
     await checkAsync("call.copyPaste", async () => {
         const fp = fakePlayer(sim);
