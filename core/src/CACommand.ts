@@ -406,7 +406,22 @@ export default class CACommand {
                 }
             }
         );
-        cmd.setup();
+        // setup() returns whether the command actually went live. 1.x ignored it,
+        // so a rejected registration looked exactly like a working plugin.
+        let installed = false;
+        try {
+            installed = cmd.setup() !== false;
+        } catch (e) {
+            logger.error("[CALL][command] register failed: " + (e && (e as Error).message ? (e as Error).message : String(e)));
+        }
+        if (installed) {
+            logger.info("[CALL][command] /call registered (alias: /ca)");
+        } else {
+            logger.error(
+                "[CALL][command] /call could NOT be registered. " +
+                "Another plugin may already own the name, or the server was not fully started."
+            );
+        }
     }
 
     private static command_callback(
@@ -579,6 +594,7 @@ export default class CACommand {
             case "tool":
             case "to":
                 ToolOperation.start(output, caPlayer, res);
+                return;
             case "setting":
                 SettingsOperation.start(output, caPlayer, res);
                 return;

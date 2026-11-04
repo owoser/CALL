@@ -22,6 +22,15 @@ const PLAYERS_SETTINGS_PATH = path.join(Paths.DATA, "settings.json");
 const STRUCTURES_PATH = path.join(Paths.DATA, "structures.json");
 const DATA_VERSION_PATH = path.join(Paths.USERDATA, "version");
 
+// LegacyScriptEngine's own file APIs take paths relative to the BDS root.
+const URL_LSE = Paths.lse(URL_PATH);
+const CHECK_LSE = Paths.lse(CHECK_PATH);
+const ITEM_TEXTURE_LSE = Paths.lse(ITEM_TEXTURE_PATH);
+const GLOBAL_LSE = Paths.lse(GLOBAL_PATH);
+const PERMISSIONS_LSE = Paths.lse(PERMISSIONS_PATH);
+const PLAYERS_SETTINGS_LSE = Paths.lse(PLAYERS_SETTINGS_PATH);
+const STRUCTURES_LSE = Paths.lse(STRUCTURES_PATH);
+
 /** Read a JSON file with fs - safe to call before the script engine is ready. */
 function readJson<T = any>(file: string): T | null {
     try {
@@ -123,13 +132,13 @@ export default class Config {
     public static readonly STUPID_PERMISSION_FILE_PATH = path.join(Paths.USER_CONFIG, "stupid_permission_file.json");
 
     // ---- config handles ---------------------------------------------------
-    public static URL = new JsonConfigFile(URL_PATH);
-    public static GLOBAL = new JsonConfigFile(GLOBAL_PATH);
-    public static PERMISSIONS = new JsonConfigFile(PERMISSIONS_PATH);
-    public static PLAYERS_SETTINGS = new JsonConfigFile(PLAYERS_SETTINGS_PATH);
-    public static STRUCTURES = new JsonConfigFile(STRUCTURES_PATH);
-    public static CHECK = new JsonConfigFile(CHECK_PATH);
-    public static ITEM_TEXTURES = new JsonConfigFile(ITEM_TEXTURE_PATH);
+    public static URL = new JsonConfigFile(URL_LSE);
+    public static GLOBAL = new JsonConfigFile(GLOBAL_LSE);
+    public static PERMISSIONS = new JsonConfigFile(PERMISSIONS_LSE);
+    public static PLAYERS_SETTINGS = new JsonConfigFile(PLAYERS_SETTINGS_LSE);
+    public static STRUCTURES = new JsonConfigFile(STRUCTURES_LSE);
+    public static CHECK = new JsonConfigFile(CHECK_LSE);
+    public static ITEM_TEXTURES = new JsonConfigFile(ITEM_TEXTURE_LSE);
 
     public static readonly ITEM_ICONS: Set<string> = new Set<string>(readJson<string[]>(ICONS_PATH) ?? []);
 
@@ -211,12 +220,12 @@ export default class Config {
     }
 
     public static openAll() {
-        Config.URL = new JsonConfigFile(URL_PATH);
-        Config.GLOBAL = new JsonConfigFile(GLOBAL_PATH);
-        Config.PERMISSIONS = new JsonConfigFile(PERMISSIONS_PATH);
-        Config.PLAYERS_SETTINGS = new JsonConfigFile(PLAYERS_SETTINGS_PATH);
-        Config.STRUCTURES = new JsonConfigFile(STRUCTURES_PATH);
-        Config.CHECK = new JsonConfigFile(CHECK_PATH);
-        Config.ITEM_TEXTURES = new JsonConfigFile(ITEM_TEXTURE_PATH);
+        Config.URL = new JsonConfigFile(URL_LSE);
+        Config.GLOBAL = new JsonConfigFile(GLOBAL_LSE);
+        Config.PERMISSIONS = new JsonConfigFile(PERMISSIONS_LSE);
+        Config.PLAYERS_SETTINGS = new JsonConfigFile(PLAYERS_SETTINGS_LSE);
+        Config.STRUCTURES = new JsonConfigFile(STRUCTURES_LSE);
+        Config.CHECK = new JsonConfigFile(CHECK_LSE);
+        Config.ITEM_TEXTURES = new JsonConfigFile(ITEM_TEXTURE_LSE);
     }
 }

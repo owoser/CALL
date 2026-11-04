@@ -46,30 +46,64 @@ function looksLikePluginRoot(dir: string): boolean {
 }
 
 function detectPluginRoot(): string {
-    // 1. authoritative: ask the script engine
+    // 1. This file is compiled to <root>/core/src/common/Paths.js, so three levels up
+    //    is always the plugin directory - absolute and independent of the server's
+    //    working directory. Preferred because it cannot be fooled.
+    const fromModule = path.resolve(__dirname, "..", "..", "..");
+    if (looksLikePluginRoot(fromModule)) return fromModule;
+
+    // 2. Ask the script engine. On LSE 0.22 `filePath` may be just the entry file name
+    //    ("index.js"), so the result is only trusted when it actually looks like a
+    //    plugin root.
     try {
         const getInfo = (ll as any).getCurrentPluginInfo;
         if (typeof getInfo === "function") {
             const info = getInfo.call(ll);
             if (info && info.filePath) {
-                const root = normalise(String(info.filePath));
-                if (root) return root;
+                const raw = String(info.filePath);
+                const candidates = [normalise(raw), path.resolve(process.cwd(), raw)];
+                for (const candidate of candidates) {
+                    if (candidate && looksLikePluginRoot(candidate)) return candidate;
+                }
             }
         }
     } catch {
         // engine not ready yet - fall through
     }
 
-    // 2. this file lives at <root>/core/src/common/Paths.js
-    const fromModule = path.resolve(__dirname, "..", "..", "..");
-    if (looksLikePluginRoot(fromModule)) return fromModule;
-
     // 3. historical layout
-    const fromCwd = path.resolve(process.cwd(), "plugins", "call");
-    return fromCwd;
+    return path.resolve(process.cwd(), "plugins", "call");
 }
 
 const ROOT = detectPluginRoot();
+
+/** Path of `root` relative to the BDS root, e.g. "plugins/CALL". */
+function rootRelative(p: string): string {
+    const normalized = p.replace(/\\/g, "/");
+    const at = normalized.lastIndexOf("/plugins/");
+    if (at >= 0) return normalized.slice(at + 1);
+    return normalized.replace(/^\.\//, "");
+}
+
+/**
+ * The BDS root: the plugin always lives at `<bds>/plugins/<name>`, so we walk up one
+ * level per path segment. Verified against the server executable when possible.
+ */
+function detectServerRoot(root: string): string {
+    const parts = rootRelative(root).split("/").filter(Boolean);
+    const guess = path.resolve(root, ...parts.map(() => ".."));
+    for (const exe of ["bedrock_server_mod.exe", "bedrock_server.exe"]) {
+        try {
+            if (fs.existsSync(path.join(guess, exe))) return guess;
+        } catch {
+            // ignore
+        }
+    }
+    return guess;
+}
+
+const SERVER_ROOT = detectServerRoot(ROOT);
+const SERVER_STRUCTURES_DIR = path.join(SERVER_ROOT, "structures");
 
 const CONFIG_DIR = path.join(ROOT, "config");
 const USERDATA_DIR = path.join(ROOT, "userdata");
@@ -88,6 +122,7 @@ const REQUIRED_DIRS = [
     path.join(USERDATA_DIR, "build"),
     path.join(USERDATA_DIR, "import"),
     path.join(USERDATA_DIR, "export"),
+    SERVER_STRUCTURES_DIR,
 ];
 
 let dirsEnsured = false;
@@ -107,6 +142,16 @@ export default class Paths {
     public static readonly IMPORT = path.join(USERDATA_DIR, "import");
     public static readonly EXPORT = path.join(USERDATA_DIR, "export");
 
+    /**
+     * The BDS root (`plugins/../..`) and its `structures` folder.
+     *
+     * `/structure load <name> ...` only reads templates from `<BDS root>/structures`,
+     * and that command is how CALL actually places blocks on LL3 (see
+     * StructurePlacement), so we need the real path.
+     */
+    public static readonly SERVER_ROOT = SERVER_ROOT;
+    public static readonly SERVER_STRUCTURES = SERVER_STRUCTURES_DIR;
+
     public static join(...parts: string[]): string {
         return path.join(ROOT, ...parts);
     }
@@ -118,6 +163,22 @@ export default class Paths {
      */
     public static toPosix(p: string): string {
         return p.replace(/\\/g, "/");
+    }
+
+    /**
+     * Convert an absolute path under the plugin root into a path relative to the BDS
+     * root - which is what LegacyScriptEngine's own file APIs (`new JsonConfigFile`,
+     * `new File`) document as their base directory.
+     *
+     * Falls back to the input when the plugin is not below a "plugins" directory
+     * (unusual installs), and normalises separators to forward slashes.
+     */
+    public static lse(absPath: string): string {
+        const normalized = absPath.replace(/\\/g, "/");
+        const marker = "/plugins/";
+        const at = normalized.lastIndexOf(marker);
+        if (at >= 0) return normalized.slice(at + 1);
+        return normalized.replace(/^\.\//, "");
     }
 
     /** Idempotent. Safe to call from several modules during startup. */

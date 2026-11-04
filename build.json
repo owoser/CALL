@@ -1,5 +1,5 @@
 {
   "_comment": "Local deploy target used by `npm run deploy`. Leave bdsDir empty to disable.",
-  "bdsDir": "",
-  "pluginDir": "call"
+  "bdsDir": "E:/code/LL3/Plugins/CALL/.testserver",
+  "pluginDir": "CALL"
 }

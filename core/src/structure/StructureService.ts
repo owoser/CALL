@@ -385,7 +385,8 @@ export default class StructureService {
                 const saveid = structid + "_" + x + "_" + z;
                 const start = areas[x][z].start;
                 const target = new Pos3(start.x + tx, start.y, start.z + tz, start.dimid);
-                return Promise.resolve(NBTService.load(caPlayer, saveid, target, mirror, degreeNum));
+                // placement is asynchronous (block by block, yielding between batches)
+                return NBTService.loadAsync(caPlayer, saveid, target, mirror, degreeNum).then(() => true);
             },
             () => {
                 overCallback();

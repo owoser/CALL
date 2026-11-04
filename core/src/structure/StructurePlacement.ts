@@ -3,32 +3,32 @@ import Area3 from "../common/Area3";
 import { Pos3, Vec3Tuple } from "../common/Pos3";
 
 /**
- * The one place that puts a structure back into the world.
+ * Structure placement helpers.
  *
- * WHY THIS EXISTS
- * ---------------
- * On LeviLamina 3 / LSE 0.22, `mc.setStructure(nbt, pos, mirror, rotation)` does *not*
- * place the template with its corner at `pos`: the engine calls
+ * WHAT THE PLATFORM ACTUALLY DOES (verified with tests/live on LL 26.51.x / LSE 0.22.x)
+ * -----------------------------------------------------------------------------------
+ *   mc.getStructure(pos1, pos2)   works, NBT is correct.
+ *   mc.setStructure(nbt, pos)     with engine-captured NBT: silently does nothing.
+ *                                 with a hand-built template: ACCESS VIOLATION inside
+ *                                 StructureTemplate::placeInWorld (0xC0000005, null
+ *                                 deref) -> the server process dies and every player is
+ *                                 dropped. This is the crash 1.6.1 users hit whenever
+ *                                 they pasted or generated a shape.
+ *   /structure save|load|delete    works.
  *
- *     placeInWorld(..., pos.getBlockPos() + BlockPos(0, 1, 0), mirror, rotation)
+ * Two placement mechanisms are therefore used, and neither touches mc.setStructure:
  *
- * (src/legacy/api/StructureAPI.cpp upstream), i.e. everything lands one block too high.
- * CALL used to paper over this in a single call site (`pos.y - 1` in NBTService.load)
- * and not at all in the shape generator, which is why generated shapes and pasted
- * regions did not line up with the selection and why undo restored the wrong box.
+ *   1. Structures that already live in the game's structure store are placed with
+ *      /structure load - see NBTService (copy / paste / undo / save / load).
+ *   2. Structures that only exist as NBT in memory (generated shapes, imported files)
+ *      are written block by block with Block.setNbt() - see placeByBlocks().
  *
- * Centralising the offset here keeps placement, undo bookkeeping and the shape
- * generator consistent, and lets the offset be corrected from config if a future
- * engine build changes it again.
+ * The old +1 offset hack is gone: /structure load places the template's minimum corner
+ * exactly on the given position, and placeByBlocks() does the same.
  */
 
-function placeOffset(): number {
-    const raw = Config.get(Config.GLOBAL, "structurePlaceOffset", 1);
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : 0;
-}
-
-/** Mirror name used by the command layer -> the integer mc.setStructure expects. */
+// ---------------------------------------------------------------- mirrors / rotation
+/** Mirror name from the command layer -> integer used by the engine API. */
 export function mirrorToIndex(mirror: string | number | null | undefined): 0 | 1 | 2 | 3 {
     if (typeof mirror === "number") {
         return (mirror >= 0 && mirror <= 3 ? mirror : 0) as 0 | 1 | 2 | 3;
@@ -48,44 +48,34 @@ export function mirrorToIndex(mirror: string | number | null | undefined): 0 | 1
     }
 }
 
-/** Rotation in degrees (0/90/180/270) -> the integer mc.setStructure expects (0..4). */
+/** Mirror name -> token accepted by /structure load. */
+export function mirrorToToken(mirror: string | number | null | undefined): string {
+    switch (mirrorToIndex(mirror)) {
+        case 1:
+            return "x";
+        case 2:
+            return "z";
+        case 3:
+            return "xz";
+        default:
+            return "none";
+    }
+}
+
+/** Rotation in degrees -> integer steps (0..4). */
 export function rotationToIndex(degrees: string | number | null | undefined): number {
     const n = typeof degrees === "number" ? degrees : parseFloat(String(degrees ?? "0"));
     if (!Number.isFinite(n)) return 0;
-    const steps = Math.round(((n % 360) + 360) % 360 / 90);
+    const steps = Math.round((((n % 360) + 360) % 360) / 90);
     return steps > 4 ? 0 : steps;
 }
 
-/**
- * Place `nbt` so that its minimum corner lands exactly on `pos`.
- * @returns whether the engine accepted the placement.
- */
-export function placeStructure(
-    nbt: NbtCompound,
-    pos: Pos3,
-    mirror: string | number = 0,
-    rotation: string | number = 0
-): boolean {
-    if (nbt == null) throw new Error("placeStructure: nbt is null");
-
-    const offset = placeOffset();
-    const placedY = pos.y - offset;
-    let intPos: IntPos;
-    try {
-        intPos = new IntPos(pos.x, placedY, pos.z, pos.dimid);
-    } catch {
-        intPos = mc.newIntPos(pos.x, placedY, pos.z, pos.dimid);
-    }
-
-    const result = mc.setStructure(
-        nbt,
-        intPos,
-        mirrorToIndex(mirror) as 0 | 1 | 2 | 3,
-        rotationToIndex(rotation) as 0 | 1 | 2 | 3
-    );
-    return result !== false;
+/** Rotation in degrees -> token accepted by /structure load. */
+export function rotationToToken(degrees: string | number | null | undefined): string {
+    return rotationToIndex(degrees) * 90 + "_degrees";
 }
 
+// --------------------------------------------------------------------- geometry
 /**
  * The world region a placement of `size` blocks at `pos` actually covers.
  * Used for undo snapshots - getting this wrong is what made `/ca undo` restore the
@@ -96,7 +86,96 @@ export function coveredArea(pos: Pos3, size: Vec3Tuple): Area3 {
     const sy = Math.max(1, Math.round(size[1] || 1));
     const sz = Math.max(1, Math.round(size[2] || 1));
     return new Area3(
-        new Pos3(pos.x, pos.y, pos.z, pos.dimid),
-        new Pos3(pos.x + sx - 1, pos.y + sy - 1, pos.z + sz - 1, pos.dimid)
+        new Pos3(Math.floor(pos.x), Math.floor(pos.y), Math.floor(pos.z), pos.dimid),
+        new Pos3(Math.floor(pos.x) + sx - 1, Math.floor(pos.y) + sy - 1, Math.floor(pos.z) + sz - 1, pos.dimid)
     );
+}
+
+import { StructureLayout, parseStructureLayout } from "../io/NbtCodec";
+
+// --------------------------------------------------- per-block placement (bytes)
+function blockNbtOf(entry: { name: string; states: Record<string, any>; version: number }): NbtCompound {
+    const states = entry.states && typeof entry.states === "object" ? entry.states : {};
+    return new NbtCompound({
+        name: new NbtString(entry.name || "minecraft:air"),
+        states: new NbtCompound(states),
+        version: new NbtInt(entry.version || 0),
+    });
+}
+
+function maxBlocks(): number {
+    const n = Number(Config.get(Config.GLOBAL, "maxPlaceBlocks", 40000));
+    return Number.isFinite(n) && n > 0 ? n : 40000;
+}
+
+/**
+ * Write a parsed structure into the world with its minimum corner at `pos`,
+ * yielding to the scheduler every `batch` blocks.
+ * @returns how many blocks were written.
+ */
+export async function placeLayoutAsync(
+    layout: StructureLayout,
+    pos: Pos3,
+    batch = 600
+): Promise<number> {
+    const [sx, sy, sz] = layout.size;
+    const total = sx * sy * sz;
+    if (total > maxBlocks()) {
+        throw new Error("structure too large to place block by block (" + total + " > " + maxBlocks() + ")");
+    }
+
+    const cache = new Map<number, NbtCompound | null>();
+    const baseX = Math.floor(pos.x);
+    const baseY = Math.floor(pos.y);
+    const baseZ = Math.floor(pos.z);
+    let written = 0;
+    let sinceYield = 0;
+
+    for (let i = 0; i < total && i < layout.indices.length; i++) {
+        const paletteIndex = layout.indices[i];
+        if (paletteIndex == null || paletteIndex < 0) continue;
+
+        let blockNbt = cache.get(paletteIndex);
+        if (blockNbt === undefined) {
+            const entry = layout.palette[paletteIndex];
+            blockNbt = entry ? blockNbtOf(entry) : null;
+            cache.set(paletteIndex, blockNbt);
+        }
+        if (blockNbt == null) continue;
+
+        const name = String(blockNbt.getData("name") ?? "");
+        if (name === "" || name === "minecraft:air" || name === "minecraft:structure_void") continue;
+
+        // vanilla linear index: (x * sizeZ + z) * sizeY + y
+        const y = i % sy;
+        const rest = (i - y) / sy;
+        const z = rest % sz;
+        const x = (rest - z) / sz;
+
+        const block = mc.getBlock(baseX + x, baseY + y, baseZ + z, pos.dimid);
+        if (block != null) {
+            try {
+                block.setNbt(blockNbt);
+                written++;
+            } catch {
+                // skip blocks the game rejects
+            }
+        }
+
+        if (++sinceYield >= batch) {
+            sinceYield = 0;
+            await new Promise((r) => setTimeout(r, 0));
+        }
+    }
+    return written;
+}
+
+/** Place NBT bytes (a .mcstructure image) at `pos`. */
+export async function placeBytesAsync(bytes: Buffer, pos: Pos3, batch = 600): Promise<number> {
+    return placeLayoutAsync(parseStructureLayout(bytes), pos, batch);
+}
+
+/** Place an in-memory NbtCompound (shape templates) at `pos`. */
+export async function placeNbtAsync(nbt: NbtCompound, pos: Pos3, batch = 600): Promise<number> {
+    return placeBytesAsync(Buffer.from(new Uint8Array(nbt.toBinaryNBT() as ArrayBuffer)), pos, batch);
 }

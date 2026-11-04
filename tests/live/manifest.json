@@ -1,0 +1,13 @@
+{
+  "entry": "call-integration.js",
+  "name": "CALLTEST",
+  "type": "lse-nodejs",
+  "version": "1.0.0",
+  "author": "CALL maintenance",
+  "description": "Live integration harness for CALL (dev only, not shipped)",
+  "dependencies": [
+    {
+      "name": "legacy-script-engine-nodejs"
+    }
+  ]
+}

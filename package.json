@@ -9,7 +9,9 @@
     "build": "node scripts/build.mjs",
     "build:fast": "node scripts/build.mjs --no-zip --no-deps",
     "deploy": "node scripts/build.mjs --no-zip --deploy",
-    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\""
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "test:live": "node scripts/test-live.mjs",
+    "server:dev": "node scripts/dev-run-server.mjs"
   },
   "repository": {
     "type": "git",

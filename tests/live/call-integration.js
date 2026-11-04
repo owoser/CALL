@@ -1,0 +1,320 @@
+/**
+ * CALL live integration harness (dev only - never shipped in the release zip).
+ *
+ * Runs inside a real LeviLamina + LegacyScriptEngine server and exercises the parts of
+ * CALL that cannot be verified offline.
+ *
+ * Findings this harness pinned down (keep them in mind when changing the code):
+ *   - mc.getStructure()  -> returns correct NBT.
+ *   - mc.setStructure()  -> with engine-captured NBT it silently does nothing; with a
+ *                           hand-built template it CRASHES the server inside
+ *                           StructureTemplate::placeInWorld (null deref, 0xC0000005).
+ *                           CALL therefore must never call it - see StructurePlacement.
+ *   - /structure save|load|delete -> work.
+ */
+"use strict";
+
+const path = require("path");
+
+const RESULTS = [];
+function record(ok, name, detail) {
+    RESULTS.push({ ok, name, detail: detail || "" });
+    const line = (ok ? "PASS " : "FAIL ") + name + (detail ? " :: " + detail : "");
+    logger.info("[CALLTEST] " + line);
+    if (!ok) console.error("[CALLTEST] " + line);
+}
+function check(name, fn) {
+    try {
+        const d = fn();
+        record(true, name, typeof d === "string" ? d : "");
+        return true;
+    } catch (e) {
+        record(false, name, e && e.message ? e.message : String(e));
+        return false;
+    }
+}
+async function checkAsync(name, fn) {
+    try {
+        const d = await fn();
+        record(true, name, typeof d === "string" ? d : "");
+        return true;
+    } catch (e) {
+        record(false, name, e && e.message ? e.message : String(e));
+        return false;
+    }
+}
+function assert(cond, msg) {
+    if (!cond) throw new Error(msg || "assertion failed");
+}
+
+function loadCallModules() {
+    const fs = require("fs");
+    const candidates = [path.join(__dirname, "..", "CALL"), path.join(__dirname, "..", "call")];
+    const root = candidates.find((c) => fs.existsSync(c));
+    assert(root, "CALL plugin not found next to CALLTEST");
+    const core = path.join(root, "core", "src");
+    return {
+        root,
+        Paths: require(path.join(core, "common", "Paths.js")).default,
+        Config: require(path.join(core, "common", "Config.js")).default,
+        Area3: require(path.join(core, "common", "Area3.js")).default,
+        Pos3: require(path.join(core, "common", "Pos3.js")).Pos3,
+        Structure: require(path.join(core, "common", "Structure.js")).Structure,
+        StructureService: require(path.join(core, "structure", "StructureService.js")).default,
+        NBTService: require(path.join(core, "structure", "NBTService.js")).default,
+        Placement: require(path.join(core, "structure", "StructurePlacement.js")),
+    };
+}
+
+// ------------------------------------------------------------------ world utils
+const DIM = 0;
+let BX = 16;
+let BY = 100;
+let BZ = 16;
+
+/**
+ * Pick a work spot close enough to the simulated player that its chunk stays loaded.
+ * Uses concentric slots in a 5x5 grid around the base, stacked upwards, so we never
+ * walk outside the loaded region (going further than ~48 blocks used to make
+ * mc.getBlock return null and produce misleading failures).
+ */
+function spot(i) {
+    const dx = (i % 5) * 6;
+    const dz = (Math.floor(i / 5) % 5) * 6;
+    const dy = Math.floor(i / 25) * 8;
+    return { x: BX + dx, y: BY + dy, z: BZ + dz };
+}
+function blockTypeAt(x, y, z) {
+    const b = mc.getBlock(x, y, z, DIM);
+    return b == null ? "<unloaded>" : b.type;
+}
+function fillBox(x, y, z, sx, sy, sz, type) {
+    for (let dx = 0; dx < sx; dx++)
+        for (let dy = 0; dy < sy; dy++)
+            for (let dz = 0; dz < sz; dz++)
+                mc.setBlock(x + dx, y + dy, z + dz, DIM, type, 0);
+}
+function findGround(x, z) {
+    for (let y = 120; y > -60; y--) {
+        const b = mc.getBlock(x, y, z, DIM);
+        if (b != null && b.type !== "minecraft:air") return y;
+    }
+    return null;
+}
+function fakePlayer(player) {
+    return {
+        xuid: (player && player.xuid) || "calltest-xuid",
+        settings: {
+            enable: true, displayProgressBar: false, loadChuckTip: false,
+            saveEntity: true, saveUndo: true, saveCopy: true, areaTextShow: false
+        },
+        forbidCmd: false,
+        prePos: null,
+        direction: { pitch: 0, yaw: 0 },
+        refreshAllChunks() { },
+        $: player || null,
+    };
+}
+
+// --------------------------------------------------------------------- the suite
+async function runSuite() {
+    let M;
+    if (!check("modules.load", () => { M = loadCallModules(); return M.root; })) return;
+
+    check("paths.root", () => {
+        assert(require("fs").existsSync(path.join(M.Paths.ROOT, "manifest.json")), "no manifest in " + M.Paths.ROOT);
+        return M.Paths.ROOT;
+    });
+    check("paths.dirs", () => {
+        const fs = require("fs");
+        for (const d of [M.Paths.CONFIG, M.Paths.DATA, M.Paths.NBT, M.Paths.PLUGINS]) {
+            assert(fs.existsSync(d), "missing " + d);
+        }
+        return "ok";
+    });
+    check("config.versions", () => "plugin=" + M.Config.PLUGIN_VERSION + " bds=" + M.Config.SERVER_VERSION + " lse=" + M.Config.LSE_VERSION);
+
+    // --- pure geometry ------------------------------------------------------
+    check("slicing.1x1", () => {
+        const st = new M.Structure(new M.Area3(new M.Pos3(0, 0, 0, DIM), new M.Pos3(10, 5, 10, DIM)));
+        const areas = st.getAreas();
+        assert(areas.length === 1 && areas[0].length === 1, "expected 1x1");
+        return "1x1";
+    });
+    check("slicing.128x128", () => {
+        const st = new M.Structure(new M.Area3(new M.Pos3(0, 0, 0, DIM), new M.Pos3(127, 10, 127, DIM)));
+        const areas = st.getAreas();
+        assert(st.xSize === 2 && st.zSize === 2, "xSize/zSize " + st.xSize + "/" + st.zSize);
+        assert(areas[0][0].end.x === 63 && areas[1][0].start.x === 64, "x split wrong");
+        assert(areas[1][0].end.x === 127, "x tail wrong");
+        assert(areas[0][1].start.z === 64 && areas[0][1].end.z === 127, "z split wrong");
+        return "2x2 covers 0..127";
+    });
+    check("coveredArea.aligns", () => {
+        const a = M.Placement.coveredArea(new M.Pos3(100, 60, 100, DIM), [3, 4, 5]);
+        assert(a.start.x === 100 && a.end.x === 102, "x");
+        assert(a.start.y === 60 && a.end.y === 63, "y");
+        assert(a.start.z === 100 && a.end.z === 104, "z");
+        return "3x4x5";
+    });
+
+    // --- world --------------------------------------------------------------
+    const sim = mc.spawnSimulatedPlayer("CALLTEST", 0, 120, 0, DIM);
+    if (!sim) { record(false, "world.spawnPlayer", "mc.spawnSimulatedPlayer returned undefined"); return; }
+    record(true, "world.spawnPlayer", sim.name || "sim");
+    await new Promise((r) => setTimeout(r, 4000));
+
+    const ground = findGround(BX, BZ);
+    if (ground == null) { record(false, "world.ground", "no loaded ground"); return; }
+    BY = Math.min(ground + 20, 180);
+    record(true, "world.ground", "y=" + ground + " workBase=" + BY);
+    try { sim.teleport(BX + 12, BY + 6, BZ + 12, DIM); } catch (e) { /* optional */ }
+    await new Promise((r) => setTimeout(r, 2500));
+
+    // --- capture + vanilla round trip --------------------------------------
+    let srcSpot = spot(0);
+    check("capture.getStructure", () => {
+        fillBox(srcSpot.x, srcSpot.y, srcSpot.z, 3, 2, 3, "minecraft:gold_block");
+        const nbt = mc.getStructure(
+            new IntPos(srcSpot.x, srcSpot.y, srcSpot.z, DIM),
+            new IntPos(srcSpot.x + 2, srcSpot.y + 1, srcSpot.z + 2, DIM), false, true);
+        assert(nbt != null, "null");
+        assert(String(nbt.toSNBT()).indexOf("gold_block") >= 0, "captured NBT has no gold_block");
+        return "palette ok";
+    });
+    check("vanilla.saveLoad", () => {
+        const t = spot(1);
+        fillBox(t.x, t.y, t.z, 5, 4, 5, "minecraft:air");
+        assert(mc.runcmdEx("/structure save calltest_v " + srcSpot.x + " " + srcSpot.y + " " + srcSpot.z +
+            " " + (srcSpot.x + 2) + " " + (srcSpot.y + 1) + " " + (srcSpot.z + 2)).success, "save failed");
+        assert(mc.runcmdEx("/structure load calltest_v " + t.x + " " + t.y + " " + t.z).success, "load failed");
+        assert(blockTypeAt(t.x, t.y, t.z) === "minecraft:gold_block", "corner=" + blockTypeAt(t.x, t.y, t.z));
+        return "corner exact";
+    });
+
+    // --- structures survive a restart only through CALL's own files --------
+    check("persist.ownFileStore", () => {
+        const t = spot(2);
+        fillBox(t.x, t.y, t.z, 3, 2, 3, "minecraft:gold_block");
+        const area = new M.Area3(new M.Pos3(t.x, t.y, t.z, DIM), new M.Pos3(t.x + 2, t.y + 1, t.z + 2, DIM));
+        M.NBTService.save("calltest_persist", area);
+        assert(M.NBTService.exists("calltest_persist"), "call did not write its .mcstructure file");
+        return M.NBTService.filePath("calltest_persist");
+    });
+
+    // --- per-block placement primitive (shapes / imports) -------------------
+    check("block.setNbt", () => {
+        const t = spot(3);
+        fillBox(t.x, t.y, t.z, 2, 2, 2, "minecraft:air");
+        const bl = mc.getBlock(t.x, t.y, t.z, DIM);
+        assert(bl != null, "no block handle");
+        bl.setNbt(new NbtCompound({
+            name: new NbtString("minecraft:diamond_block"),
+            states: new NbtCompound({}),
+            version: new NbtInt(18168865)
+        }));
+        assert(blockTypeAt(t.x, t.y, t.z) === "minecraft:diamond_block", "type=" + blockTypeAt(t.x, t.y, t.z));
+        return "ok";
+    });
+
+    // --- CALL end-to-end: NBTService save + load ---------------------------
+    await checkAsync("call.nbtRoundTrip", async () => {
+        const src = spot(4);
+        const dst = spot(5);
+        fillBox(src.x, src.y, src.z, 3, 2, 3, "minecraft:emerald_block");
+        fillBox(dst.x, dst.y, dst.z, 5, 4, 5, "minecraft:air");
+        M.NBTService.save("calltest_rt", new M.Area3(
+            new M.Pos3(src.x, src.y, src.z, DIM), new M.Pos3(src.x + 2, src.y + 1, src.z + 2, DIM)));
+        assert(M.NBTService.exists("calltest_rt"), "file not written");
+        const written = await M.NBTService.loadAsync(fakePlayer(sim), "calltest_rt", new M.Pos3(dst.x, dst.y, dst.z, DIM));
+        assert(written > 0, "nothing written by loadAsync");
+        assert(blockTypeAt(dst.x, dst.y, dst.z) === "minecraft:emerald_block",
+            "placed " + blockTypeAt(dst.x, dst.y, dst.z) + " instead of emerald");
+        M.NBTService.del("calltest_rt");
+        return "3x2x3 at exact corner";
+    });
+
+    // --- shape-style template placed block by block ------------------------
+    await checkAsync("call.shapePlacement", async () => {
+        const t = spot(8);
+        fillBox(t.x, t.y, t.z, 6, 6, 6, "minecraft:air");
+        const size = [3, 2, 3];
+        const count = size[0] * size[1] * size[2];
+        const palette = new NbtList();
+        palette.addTag(new NbtCompound({
+            name: new NbtString("minecraft:gold_block"),
+            states: new NbtCompound({}),
+            version: new NbtInt(18168865)
+        }));
+        const layer0 = new NbtList();
+        for (let i = 0; i < count; i++) layer0.addTag(new NbtInt(0));
+        const indices = new NbtList();
+        indices.addTag(layer0);
+        const nbt = new NbtCompound({
+            format_version: new NbtInt(2),
+            size: new NbtList([new NbtInt(size[0]), new NbtInt(size[1]), new NbtInt(size[2])]),
+            structure: new NbtCompound({
+                block_indices: indices,
+                entities: new NbtList(),
+                palette: new NbtCompound({
+                    default: new NbtCompound({
+                        block_palette: palette,
+                        block_position_data: new NbtCompound()
+                    })
+                })
+            })
+        });
+        const written = await M.Placement.placeNbtAsync(nbt, new M.Pos3(t.x, t.y, t.z, DIM));
+        assert(written === count, "wrote " + written + " of " + count);
+        assert(blockTypeAt(t.x, t.y, t.z) === "minecraft:gold_block", "corner");
+        assert(blockTypeAt(t.x + 2, t.y + 1, t.z + 2) === "minecraft:gold_block", "far corner");
+        assert(blockTypeAt(t.x + 3, t.y, t.z) === "minecraft:air", "wrote outside the template");
+        return count + " blocks";
+    });
+
+    // --- CALL end-to-end: copy -> paste ------------------------------------
+    await checkAsync("call.copyPaste", async () => {
+        const fp = fakePlayer(sim);
+        const src = spot(6);
+        const dst = spot(7);
+        fillBox(src.x, src.y, src.z, 4, 2, 4, "minecraft:emerald_block");
+        mc.setBlock(src.x, src.y, src.z, DIM, "minecraft:iron_block", 0);
+        mc.setBlock(src.x + 3, src.y + 1, src.z + 3, DIM, "minecraft:diamond_block", 0);
+        fillBox(dst.x, dst.y, dst.z, 6, 4, 6, "minecraft:air");
+
+        const st = new M.Structure(new M.Area3(
+            new M.Pos3(src.x, src.y, src.z, DIM), new M.Pos3(src.x + 3, src.y + 1, src.z + 3, DIM)));
+
+        let complex = null;
+        await new Promise((resolve, reject) => {
+            M.StructureService.copy(fp, [st], false, {}, (c) => { complex = c; resolve(); });
+            setTimeout(() => reject(new Error("copy timed out")), 40000);
+        });
+        assert(complex && Object.keys(complex).length > 0, "copy produced nothing");
+
+        await new Promise((resolve, reject) => {
+            M.StructureService.paste(fp, new M.Pos3(dst.x, dst.y, dst.z, DIM), { copy: complex }, resolve).catch(reject);
+            setTimeout(() => reject(new Error("paste timed out")), 60000);
+        });
+        assert(blockTypeAt(dst.x, dst.y, dst.z) === "minecraft:iron_block", "corner=" + blockTypeAt(dst.x, dst.y, dst.z));
+        assert(blockTypeAt(dst.x + 3, dst.y + 1, dst.z + 3) === "minecraft:diamond_block", "far corner");
+        assert(blockTypeAt(dst.x + 1, dst.y, dst.z + 1) === "minecraft:emerald_block", "body");
+        assert(blockTypeAt(dst.x, dst.y + 3, dst.z) === "minecraft:air", "pasted too tall");
+        return "4x2x4 copied+paste exact";
+    });
+}
+
+function finish() {
+    const failed = RESULTS.filter((r) => !r.ok);
+    logger.info("[CALLTEST] SUMMARY total=" + RESULTS.length + " failed=" + failed.length);
+    for (const f of failed) logger.info("[CALLTEST] FAILED: " + f.name + " :: " + f.detail);
+    logger.info("[CALLTEST] ALL DONE");
+}
+
+mc.listen("onServerStarted", () => {
+    setTimeout(() => {
+        runSuite()
+            .catch((e) => record(false, "suite.crashed", e && e.message ? e.message : String(e)))
+            .finally(() => finish());
+    }, 6000);
+});

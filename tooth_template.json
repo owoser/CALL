@@ -33,8 +33,8 @@
           "placements": [
             {
               "type": "dir",
-              "src": "call/",
-              "dest": "plugins/call"
+              "src": "CALL/",
+              "dest": "plugins/CALL"
             }
           ]
         }

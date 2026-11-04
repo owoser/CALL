@@ -169,7 +169,8 @@ async function readJson(p, fallback = null) {
 
 async function emitManifests(pkg) {
   const manifest = {
-    name: 'CALL',
+    // MUST equal the plugin directory name, or LeviLamina 3 rejects the manifest.
+    name: PLUGIN_NAME,
     entry: 'index.js',
     type: 'lse-nodejs',
     version: pkg.version,
@@ -217,9 +218,16 @@ async function emitTooth(pkg) {
   log('generated tooth.json (' + pkg.version + ')');
 }
 
+/**
+ * LeviLamina 3 refuses to load a plugin whose manifest.json `name` differs from its
+ * directory name (case-sensitively), so the archive folder and the deploy target are
+ * both derived from the manifest name instead of being hardcoded.
+ */
+const PLUGIN_NAME = 'CALL';
+
 async function pack(pkg) {
   const entries = (await walk(OUT)).map((e) => ({
-    name: 'call/' + relative(OUT, e.sourcePath).split(sep).join('/'),
+    name: PLUGIN_NAME + '/' + relative(OUT, e.sourcePath).split(sep).join('/'),
     sourcePath: e.sourcePath,
   }));
   const zipPath = join(DIST, 'CALL-' + pkg.version + '.zip');
@@ -235,7 +243,7 @@ async function deploy(pkg) {
     log('deploy skipped: set "bdsDir" in build.json');
     return;
   }
-  const target = join(resolve(bdsDir), 'plugins', cfg.pluginDir || 'call');
+  const target = join(resolve(bdsDir), 'plugins', cfg.pluginDir || PLUGIN_NAME);
   await rm(target, { recursive: true, force: true });
   await cp(OUT, target, { recursive: true });
   log('deployed to ' + target);

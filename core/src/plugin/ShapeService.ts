@@ -10,7 +10,7 @@ import Tr from "../util/Translator";
 import StructureNBT from "../io/StructureNBT";
 import { MsgType, online, tell } from "../util/Msg";
 import { describeError, safeCall } from "../util/Safe";
-import { coveredArea, placeStructure } from "../structure/StructurePlacement";
+import { coveredArea, placeNbtAsync } from "../structure/StructurePlacement";
 
 export interface BlockData {
     x: number;
@@ -87,14 +87,19 @@ export class ShapeService {
         tell(player, StrFactory.cmdTip(Tr._(lang, "dynamic.ShapeManager.run.creating")), MsgType.RAW);
 
         StructureService.undoSave(caPlayer, [structure], () => {
-            safeCall("ShapeService.place", () => {
-                const ok = placeStructure(nbt, pos);
-                if (ok) {
-                    tell(player, StrFactory.cmdSuccess(Tr._(lang, "dynamic.ShapeManager.run.success")), MsgType.RAW);
-                } else {
-                    tell(player, StrFactory.cmdErr(Tr._(lang, "dynamic.ShapeManager.run.fail")), MsgType.RAW);
-                }
-            });
+            // mc.setStructure() crashes the server on this platform, so shapes are
+            // written block by block (async, yields between batches).
+            placeNbtAsync(nbt, pos)
+                .then((written) => {
+                    if (written > 0) {
+                        tell(player, StrFactory.cmdSuccess(Tr._(lang, "dynamic.ShapeManager.run.success")), MsgType.RAW);
+                    } else {
+                        tell(player, StrFactory.cmdErr(Tr._(lang, "dynamic.ShapeManager.run.fail")), MsgType.RAW);
+                    }
+                })
+                .catch((e) => {
+                    tell(player, StrFactory.cmdErr(describeError(e)), MsgType.RAW);
+                });
         });
     }
 }
