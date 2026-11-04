@@ -14,8 +14,6 @@ export default class CAPlayer {
     public isDisplayArea: boolean;
     public displayPos: any;
     public forbidCmd: boolean;
-    public prePos: any;
-    public direction: DirectionAngle;
     /** Timers owned by this player; cleared on logout/unload. */
     public timers: number[] = [];
 
@@ -32,7 +30,6 @@ export default class CAPlayer {
         this.isDisplayArea = false;
         this.displayPos = null;
         this.forbidCmd = false;
-        this.prePos = null;
         this.setDefaultSettings();
     }
 

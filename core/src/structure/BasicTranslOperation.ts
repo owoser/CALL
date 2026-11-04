@@ -18,7 +18,6 @@ import { MsgType, online, tell } from "../util/Msg";
 export default class BasicTranslOperation {
     /*** private */
     private static sl(caPlayer: CAPlayer, st1: Structure, st2: Structure, mirror: string, degrees: string, overCallback: Function) {
-        StructureService.savePos(caPlayer);
         //保存complex
         StructureService.undoSave(caPlayer, [st1, st2], (complex: Complex) => {
             let st1id: string;
@@ -43,7 +42,6 @@ export default class BasicTranslOperation {
                 //粘贴
                 StructureService.load(caPlayer, st1, st1id, st2.area.start, 0, 1, mirror, degrees, true, true, false, 100, "", () => {
                     overCallback();
-                    StructureService.tp(caPlayer);
                 });
             });
         });
@@ -173,7 +171,6 @@ export default class BasicTranslOperation {
         let p1 = Pos3.fromPos3(area.start).add(nx < 0 ? nx * lens[0] : 0, ny < 0 ? ny * lens[1] : 0, nz < 0 ? nz * lens[2] : 0);
         let p2 = Pos3.fromPos3(area.end).add(nx > 0 ? nx * lens[0] : 0, ny > 0 ? ny * lens[1] : 0, nz > 0 ? nz * lens[2] : 0);
         let allst = new Structure(new Area3(p1, p2));
-        StructureService.savePos(caPlayer);
         //save st
         StructureService.save(caPlayer, st, 0, 1, (stSid: string, data: any) => {
             //undoSave
@@ -199,7 +196,6 @@ export default class BasicTranslOperation {
                     setTimeout(() => {
                         StructureService.delete(caPlayer, stSid, st);
                     }, 100)
-                    StructureService.tp(caPlayer);
                     let d = (nx == 0 ? 0 : 1) + (ny == 0 ? 0 : 1) + (nz == 0 ? 0 : 1);
                     let nStr = StrFactory.replaceAll(`${ax != 0 ? ax : ""} ${ay != 0 ? ay : ""} ${az != 0 ? az : ""}`.trim(), " +", ",");
                     player.sendText(StrFactory.cmdSuccess(Tr._(player.langCode, "dynamic.BasicTranslOperation.stack.success" ,`${nx != 0 ? (nx >= 0 ? "+" : "-") + "x" : ""}${ny != 0 ? (ny >= 0 ? "+" : "-") + "y" : ""}${nz != 0 ? (nz >= 0 ? "+" : "-") + "z" : ""}`,`${d}`,`${nStr}`)));

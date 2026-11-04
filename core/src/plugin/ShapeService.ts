@@ -89,7 +89,8 @@ export class ShapeService {
         StructureService.undoSave(caPlayer, [structure], () => {
             // mc.setStructure() crashes the server on this platform, so shapes are
             // written block by block (async, yields between batches).
-            placeNbtAsync(nbt, pos)
+            // writeAir:false - a shape pack uses air for "do not generate"
+            placeNbtAsync(nbt, pos, 600, { writeAir: false })
                 .then((written) => {
                     if (written > 0) {
                         tell(player, StrFactory.cmdSuccess(Tr._(lang, "dynamic.ShapeManager.run.success")), MsgType.RAW);

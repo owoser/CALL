@@ -17,6 +17,8 @@
  * conversion is lossless.
  */
 
+import { cellIndex } from "./StructureOrder";
+
 type NbtTag =
     | { type: 1; value: number }
     | { type: 2; value: number }
@@ -514,11 +516,13 @@ export function transformLayout(layout: StructureLayout, options: TransformOptio
     }
 
     const outIndices = new Array<number>(outSize[0] * outSize[1] * outSize[2]).fill(-1);
+    const outSz = outSize[2];
 
     for (let x = 0; x < sx; x++) {
         for (let y = 0; y < sy; y++) {
             for (let z = 0; z < sz; z++) {
-                const src = (x * sz + z) * sy + y;
+                // ZYX order: SZ*SY*X + SZ*Y + Z (see StructureOrder)
+                const src = cellIndex(x, y, z, sz, sy);
                 const value = layout.indices[src];
                 if (value == null || value < 0) continue;
 
@@ -546,7 +550,7 @@ export function transformLayout(layout: StructureLayout, options: TransformOptio
                 }
 
                 if (rx < 0 || rx >= outSize[0] || rz < 0 || rz >= outSize[2]) continue;
-                const dst = (rx * outSize[2] + rz) * sy + y;
+                const dst = cellIndex(rx, y, rz, outSz, sy);
                 outIndices[dst] = value;
             }
         }

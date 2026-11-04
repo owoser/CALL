@@ -101,7 +101,6 @@ export default class StructureOperation {
             );
         }
         let st = new Structure(caPlayer.settings.area, name);
-        StructureService.savePos(caPlayer);
         StructureService.save(
             caPlayer,
             st,
@@ -110,7 +109,6 @@ export default class StructureOperation {
             (structid: string, data: Data) => {
                 data.saveList[`${structid}`] = st;
                 Config.set(Config.STRUCTURES, `private.${player.xuid}`, data);
-                StructureService.tp(caPlayer);
                 tell(online(player.xuid), StrFactory.cmdSuccess(
                     Tr._(
                         player.langCode,
@@ -158,7 +156,6 @@ export default class StructureOperation {
         let targetArea = Area3.fromArea3D(st.area)
             .relative()
             .addBoth(pos.x, pos.y, pos.z);
-        StructureService.savePos(caPlayer);
         StructureOperation.setDimid({ st: structure }, pos.dimid); // set dimid to structure
         //save dist area
         StructureService.undoSave(caPlayer, [new Structure(targetArea)], () => {
@@ -385,10 +382,8 @@ export default class StructureOperation {
             let area = Area3.fromArea3D(complex[sid].area);
             structArr.push(new Structure(area, "system_save"));
         });
-        StructureService.savePos(caPlayer);
         StructureService.redoPush(caPlayer, structArr, () => {
             StructureService.undoPop(caPlayer, () => {
-                StructureService.tp(caPlayer);
                 player.sendText(
                     StrFactory.cmdSuccess(
                         Tr._(
@@ -415,10 +410,8 @@ export default class StructureOperation {
             let area = Area3.fromArea3D(complex[sid].area);
             structArr.push(new Structure(area, "system_save"));
         });
-        StructureService.savePos(caPlayer);
         StructureService.undoPush(caPlayer, structArr, () => {
             StructureService.redoPop(caPlayer, () => {
-                StructureService.tp(caPlayer);
                 player.sendText(
                     StrFactory.cmdSuccess(
                         Tr._(
@@ -501,7 +494,6 @@ export default class StructureOperation {
                 caPlayer
             );
         });
-        StructureService.savePos(caPlayer);
         StructureOperation.setDimid(data.copy, pos.dimid); // set dimid to data.copy
         StructureService.undoSave(
             caPlayer,

@@ -312,6 +312,9 @@ async function runSuite() {
             fillBox(t.x, t.y, t.z, 8, 4, 8, "minecraft:air");
         }
 
+        // 2.0/3.0.0 used to restore a LATCHED prePos here, moving the player to a
+        // position left over from an unrelated earlier operation.
+        const beforePos = sim.pos;
         // full path: FillOperation -> FillService -> StructureService.traversal -> /fill
         FillOperation.fill(null, cap, { block: sourceBlock, States: "", FillMode: undefined, states: "" });
 
@@ -323,7 +326,15 @@ async function runSuite() {
         }
         assert(done, "fill produced no blocks within 40s (checked t+1,+1,+1)");
         assert(blockTypeAt(t.x + 5, t.y + 2, t.z + 5) !== "minecraft:air", "fill did not cover the far corner");
-        return "8x4x8 region filled via /ca fill path";
+        // Only horizontal drift is meaningful: a simulated player is subject to gravity,
+        // and the bug being guarded against was a teleport to a stale operation position
+        // (which always shows up as a horizontal jump).
+        const afterPos = sim.pos;
+        const horizontal = Math.hypot(afterPos.x - beforePos.x, afterPos.z - beforePos.z);
+        assert(horizontal < 1.5,
+            "the fill teleported the player " + horizontal.toFixed(2) + " blocks horizontally " +
+            "(" + JSON.stringify({ from: beforePos, to: afterPos }) + ")");
+        return "8x4x8 region filled via /ca fill path, no horizontal teleport";
     });
 
     // --- selection highlight (structure_block, default mode) ---------------
@@ -357,6 +368,99 @@ async function runSuite() {
         AreaDisplayer.remove(cap);
         assert(blockTypeAt(t.x, foundAt, t.z) === "minecraft:air", "highlight was not restored");
         return "placed at y+" + (foundAt - t.y) + " and restored";
+    });
+
+    // --- ASYMMETRIC round trip: the test that would have caught the 3.0.0
+    //     transposition. The old copy/paste case used 4x2x4 (sx === sz) with markers
+    //     only on the first and last index, both of which survive any axis permutation.
+    await checkAsync("ca.asymmetricXy", async () => {
+        const src = spot(13);
+        const dst = spot(14);
+        // 3 (X) x 2 (Y) x 1 (Z) - six different materials, one per cell
+        const mats = [
+            "minecraft:stone", "minecraft:gold_block", "minecraft:diamond_block",
+            "minecraft:iron_block", "minecraft:emerald_block", "minecraft:lapis_block",
+        ];
+        fillBox(src.x, src.y, src.z, 4, 3, 2, "minecraft:air");
+        let i = 0;
+        for (let y = 0; y < 2; y++) {
+            for (let x = 0; x < 3; x++) {
+                mc.setBlock(src.x + x, src.y + y, src.z, DIM, mats[i++], 0);
+            }
+        }
+        M.NBTService.save("calltest_ax", new M.Area3(
+            new M.Pos3(src.x, src.y, src.z, DIM), new M.Pos3(src.x + 2, src.y + 1, src.z, DIM)));
+        fillBox(dst.x - 1, dst.y - 1, dst.z - 1, 6, 5, 4, "minecraft:air");
+        await M.NBTService.loadAsync(fakePlayer(sim), "calltest_ax", new M.Pos3(dst.x, dst.y, dst.z, DIM), "none", 0);
+
+        const wrong = [];
+        let n = 0;
+        for (let y = 0; y < 2; y++) {
+            for (let x = 0; x < 3; x++) {
+                const got = blockTypeAt(dst.x + x, dst.y + y, dst.z);
+                if (got !== mats[n]) wrong.push("(" + x + "," + y + ") expected " + mats[n] + " got " + got);
+                n++;
+            }
+        }
+        assert(wrong.length === 0, wrong.join("; "));
+        M.NBTService.del("calltest_ax");
+        return "3x2x1 with 6 distinct blocks, cell for cell";
+    });
+
+    await checkAsync("ca.asymmetricZ", async () => {
+        const src = spot(15);
+        const dst = spot(16);
+        // 1 (X) x 2 (Y) x 3 (Z) - makes Z the long axis so a Y/Z swap cannot pass
+        const mats = [
+            "minecraft:stone", "minecraft:gold_block", "minecraft:diamond_block",
+            "minecraft:iron_block", "minecraft:emerald_block", "minecraft:lapis_block",
+        ];
+        fillBox(src.x, src.y, src.z, 2, 3, 4, "minecraft:air");
+        let i = 0;
+        for (let y = 0; y < 2; y++) {
+            for (let z = 0; z < 3; z++) {
+                mc.setBlock(src.x, src.y + y, src.z + z, DIM, mats[i++], 0);
+            }
+        }
+        M.NBTService.save("calltest_az", new M.Area3(
+            new M.Pos3(src.x, src.y, src.z, DIM), new M.Pos3(src.x, src.y + 1, src.z + 2, DIM)));
+        fillBox(dst.x - 1, dst.y - 1, dst.z - 1, 4, 5, 6, "minecraft:air");
+        await M.NBTService.loadAsync(fakePlayer(sim), "calltest_az", new M.Pos3(dst.x, dst.y, dst.z, DIM), "none", 0);
+
+        const wrong = [];
+        let n = 0;
+        for (let y = 0; y < 2; y++) {
+            for (let z = 0; z < 3; z++) {
+                const got = blockTypeAt(dst.x, dst.y + y, dst.z + z);
+                if (got !== mats[n]) wrong.push("(y" + y + ",z" + z + ") expected " + mats[n] + " got " + got);
+                n++;
+            }
+        }
+        assert(wrong.length === 0, wrong.join("; "));
+        M.NBTService.del("calltest_az");
+        return "1x2x3 with 6 distinct blocks, cell for cell";
+    });
+
+    // --- air in the snapshot must clear the destination --------------------
+    await checkAsync("ca.pasteWritesAir", async () => {
+        const src = spot(17);
+        const dst = spot(18);
+        fillBox(src.x, src.y, src.z, 5, 1, 1, "minecraft:air");
+        mc.setBlock(src.x, src.y, src.z, DIM, "minecraft:stone", 0);
+        mc.setBlock(src.x + 2, src.y, src.z, DIM, "minecraft:stone", 0);
+        mc.setBlock(src.x + 4, src.y, src.z, DIM, "minecraft:stone", 0);
+        M.NBTService.save("calltest_air", new M.Area3(
+            new M.Pos3(src.x, src.y, src.z, DIM), new M.Pos3(src.x + 4, src.y, src.z, DIM)));
+
+        fillBox(dst.x, dst.y, dst.z, 5, 1, 1, "minecraft:gold_block");
+        await M.NBTService.loadAsync(fakePlayer(sim), "calltest_air", new M.Pos3(dst.x, dst.y, dst.z, DIM), "none", 0);
+
+        const got = [0, 1, 2, 3, 4].map((d) => blockTypeAt(dst.x + d, dst.y, dst.z));
+        const want = ["minecraft:stone", "minecraft:air", "minecraft:stone", "minecraft:air", "minecraft:stone"];
+        assert(JSON.stringify(got) === JSON.stringify(want),
+            "expected " + want.join(",") + " got " + got.join(","));
+        M.NBTService.del("calltest_air");
+        return "air cells cleared the destination instead of leaving gold behind";
     });
 
     // --- rotation/mirror through the real loader --------------------------
@@ -409,10 +513,14 @@ async function runSuite() {
         });
         assert(complex && Object.keys(complex).length > 0, "copy produced nothing");
 
+        const pasteStart = sim.pos;
         await new Promise((resolve, reject) => {
             M.StructureService.paste(fp, new M.Pos3(dst.x, dst.y, dst.z, DIM), { copy: complex }, resolve).catch(reject);
             setTimeout(() => reject(new Error("paste timed out")), 60000);
         });
+        const pasteEnd = sim.pos;
+        const drift = Math.hypot(pasteEnd.x - pasteStart.x, pasteEnd.z - pasteStart.z);
+        assert(drift < 1.5, "paste teleported the player " + drift.toFixed(2) + " blocks horizontally");
         assert(blockTypeAt(dst.x, dst.y, dst.z) === "minecraft:iron_block", "corner=" + blockTypeAt(dst.x, dst.y, dst.z));
         assert(blockTypeAt(dst.x + 3, dst.y + 1, dst.z + 3) === "minecraft:diamond_block", "far corner");
         assert(blockTypeAt(dst.x + 1, dst.y, dst.z + 1) === "minecraft:emerald_block", "body");

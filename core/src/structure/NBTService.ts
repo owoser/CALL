@@ -122,6 +122,8 @@ export default class NBTService {
         return placeBytesAsync(bytes, pos, batch > 0 ? batch : 600, {
             rotation: typeof rotation === "number" ? rotation : parseFloat(String(rotation)) || 0,
             mirror: String(mirror ?? "none"),
+            // paste / load / undo must reproduce the snapshot cell for cell
+            writeAir: true,
         });
     }
 

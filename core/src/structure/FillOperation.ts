@@ -19,26 +19,20 @@ export default class FillOperation {
             case undefined:
             case "null":
             case "nu":
-                StructureService.savePos(caPlayer);
                 FillService.soildFill(caPlayer, caPlayer.settings.area, blockType, new BlockType("", ""), "", () => {
-                    StructureService.tp(caPlayer);
                     player.sendText(StrFactory.cmdSuccess(Tr._(player.langCode, "dynamic.FillOperation.fill.fill", `${Area3.fromArea3D(caPlayer.settings.area)}`)));
                 });
                 break;
             case "hollow":
             case "ho":
                 //空心-清空
-                StructureService.savePos(caPlayer);
                 FillService.fillOutside(caPlayer, caPlayer.settings.area, blockType, true, () => {
-                    StructureService.tp(caPlayer);
                     player.sendText(StrFactory.cmdSuccess(Tr._(player.langCode, "dynamic.FillOperation.fill.hollow", `${Area3.fromArea3D(caPlayer.settings.area)}`)));
                 });
                 break;
             case "outline":
             case "ou":
-                StructureService.savePos(caPlayer);
                 FillService.fillOutside(caPlayer, caPlayer.settings.area, blockType, false, () => {
-                    StructureService.tp(caPlayer);
                     player.sendText(StrFactory.cmdSuccess(Tr._(player.langCode, "dynamic.FillOperation.fill.outline", `${Area3.fromArea3D(caPlayer.settings.area)}`)));
                 });
                 break;
@@ -48,9 +42,7 @@ export default class FillOperation {
     public static clear(output: CommandOutput, caPlayer: CAPlayer) {
         const player = caPlayer.$;
         AreaOperation.hasArea(caPlayer);
-        StructureService.savePos(caPlayer);
         FillService.soildFill(caPlayer, caPlayer.settings.area, new BlockType("air", ""), new BlockType("", ""), "", () => {
-            StructureService.tp(caPlayer);
             player.sendText(StrFactory.cmdSuccess(Tr._(player.langCode, "dynamic.FillOperation.fill.clear", `${Area3.fromArea3D(caPlayer.settings.area)}`)));
         });
     }
@@ -60,9 +52,7 @@ export default class FillOperation {
         let blockType1 = new BlockType(res.block.type, res.states);
         let blockType2 = new BlockType(res.block2.type, res.states2);
         AreaOperation.hasArea(caPlayer);
-        StructureService.savePos(caPlayer);
         FillService.soildFill(caPlayer, caPlayer.settings.area, blockType1, blockType2, "replace", () => {
-            StructureService.tp(caPlayer);
             player.sendText(StrFactory.cmdSuccess(Tr._(player.langCode, "dynamic.FillOperation.fill.replace", `${Area3.fromArea3D(caPlayer.settings.area)}`)));
         });
     }

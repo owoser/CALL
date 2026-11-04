@@ -94,6 +94,27 @@ export function coveredArea(pos: Pos3, size: Vec3Tuple): Area3 {
 import { StructureLayout, parseStructureLayout, transformLayout, TransformOptions } from "../io/NbtCodec";
 
 // --------------------------------------------------- per-block placement (bytes)
+/**
+ * Linear index of a cell inside block_indices.
+ *
+ * THIS IS THE FORMAT SPEC, NOT A GUESS. From the Bedrock .mcstructure documentation
+ * (tryashtar's "Bedrock mcstructure file format", wiki.bedrock.dev/nbt/mcstructure):
+ *
+ *   "Entries proceed in ZYX order from the lowest corner to the highest one."
+ *   index -> coords:  (i / SZ / SY, i / SZ % SY, i % SZ)
+ *   coords -> index:  SZ*SY*X + SZ*Y + Z
+ *
+ * i.e. Z varies fastest, then Y, then X.
+ *
+ * 3.0.0 used "Y varies fastest" --- i.e. `(x * sz + z) * sy + y` --- which transposed
+ * every pasted structure: a wall standing in the XY plane came out lying flat in the XZ
+ * plane. It slipped through testing because the only copy/paste test used a 4x2x4 region
+ * (so sx === sz, hiding the swap) with markers on index 0 and index N-1, which map to
+ * themselves under any axis permutation.
+ */
+export { cellIndex, cellCoords } from "../io/StructureOrder";
+import { cellCoords } from "../io/StructureOrder";
+
 function blockNbtOf(entry: { name: string; states: Record<string, any>; version: number }): NbtCompound {
     const states = entry.states && typeof entry.states === "object" ? entry.states : {};
     return new NbtCompound({
@@ -108,15 +129,30 @@ function maxBlocks(): number {
     return Number.isFinite(n) && n > 0 ? n : 40000;
 }
 
+export interface PlaceOptions extends TransformOptions {
+    /**
+     * Write palette entries that are air.
+     *
+     * MUST be true for paste / load / undo (the result has to match the snapshot cell for
+     * cell) and false for generated shapes (a shape pack uses air for "do not generate",
+     * so writing it would carve holes in the terrain).
+     *
+     * Index -1 is different from air: the spec says it means "no block here, leave
+     * whatever is in the world", so those cells are always skipped.
+     */
+    writeAir?: boolean;
+}
+
 /**
  * Write a parsed structure into the world with its minimum corner at `pos`,
  * yielding to the scheduler every `batch` blocks.
- * @returns how many blocks were written.
+ * @returns how many blocks were written
  */
 export async function placeLayoutAsync(
     layout: StructureLayout,
     pos: Pos3,
-    batch = 600
+    batch = 600,
+    options: PlaceOptions = {}
 ): Promise<number> {
     const [sx, sy, sz] = layout.size;
     const total = sx * sy * sz;
@@ -128,11 +164,13 @@ export async function placeLayoutAsync(
     const baseX = Math.floor(pos.x);
     const baseY = Math.floor(pos.y);
     const baseZ = Math.floor(pos.z);
+    const writeAir = options.writeAir === true;
     let written = 0;
     let sinceYield = 0;
 
     for (let i = 0; i < total && i < layout.indices.length; i++) {
         const paletteIndex = layout.indices[i];
+        // -1 = "no block", leave the world alone.
         if (paletteIndex == null || paletteIndex < 0) continue;
 
         let blockNbt = cache.get(paletteIndex);
@@ -144,22 +182,28 @@ export async function placeLayoutAsync(
         if (blockNbt == null) continue;
 
         const name = String(blockNbt.getData("name") ?? "");
-        if (name === "" || name === "minecraft:air" || name === "minecraft:structure_void") continue;
+        const isAir = name === "" || name === "minecraft:air" || name === "minecraft:void_air" || name === "minecraft:cave_air";
+        if (name === "minecraft:structure_void") continue;
+        if (isAir && !writeAir) continue;
 
-        // vanilla linear index: (x * sizeZ + z) * sizeY + y
-        const y = i % sy;
-        const rest = (i - y) / sy;
-        const z = rest % sz;
-        const x = (rest - z) / sz;
+        const { x, y, z } = cellCoords(i, sz, sy);
+        const targetX = baseX + x;
+        const targetY = baseY + y;
+        const targetZ = baseZ + z;
 
-        const block = mc.getBlock(baseX + x, baseY + y, baseZ + z, pos.dimid);
-        if (block != null) {
-            try {
-                block.setNbt(blockNbt);
+        try {
+            if (isAir) {
+                mc.setBlock(targetX, targetY, targetZ, pos.dimid, "minecraft:air", 0);
                 written++;
-            } catch {
-                // skip blocks the game rejects
+            } else {
+                const block = mc.getBlock(targetX, targetY, targetZ, pos.dimid);
+                if (block != null) {
+                    block.setNbt(blockNbt);
+                    written++;
+                }
             }
+        } catch {
+            // skip blocks the game rejects
         }
 
         if (++sinceYield >= batch) {
@@ -172,17 +216,19 @@ export async function placeLayoutAsync(
 
 /**
  * Place NBT bytes (a .mcstructure image) at `pos`.
- * @param options optional mirror / rotation, applied to the layout before writing
+ * @param options mirror / rotation plus air handling
  */
 export async function placeBytesAsync(
     bytes: Buffer,
     pos: Pos3,
     batch = 600,
-    options?: TransformOptions
+    options: PlaceOptions = {}
 ): Promise<number> {
     let layout = parseStructureLayout(bytes);
-    if (options != null) layout = transformLayout(layout, options);
-    return placeLayoutAsync(layout, pos, batch);
+    if (options.mirror != null || options.rotation != null) {
+        layout = transformLayout(layout, { mirror: options.mirror, rotation: options.rotation });
+    }
+    return placeLayoutAsync(layout, pos, batch, options);
 }
 
 /** Place an in-memory NbtCompound (shape templates) at `pos`. */
@@ -190,7 +236,7 @@ export async function placeNbtAsync(
     nbt: NbtCompound,
     pos: Pos3,
     batch = 600,
-    options?: TransformOptions
+    options: PlaceOptions = {}
 ): Promise<number> {
     return placeBytesAsync(Buffer.from(new Uint8Array(nbt.toBinaryNBT() as ArrayBuffer)), pos, batch, options);
 }

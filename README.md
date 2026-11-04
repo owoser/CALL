@@ -144,3 +144,11 @@ copy -> paste, all against a real LeviLamina process.
 - LL3 / LSE 0.22 port: **owoser**.
 
 Licensed under GPL-3.0-or-later - see [LICENSE](./LICENSE).
+## Known limitations
+
+- Restoring a region writes the primary block layer only: **block entity contents**
+  (chests, signs, banners…) are not restored, and **waterlogged** blocks come back dry.
+- A single restore is capped by `maxPlaceBlocks` (default 40000). Larger regions are
+  refused with a clear message instead of stalling a tick; raise the cap at your own risk.
+- `particle` selection display has not been confirmed to render on this platform;
+  `structure_block` (the default) is the verified one.

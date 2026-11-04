@@ -12,7 +12,7 @@ import Tr from "../util/Translator";
 import { MsgType, online, tell } from "../util/Msg";
 import { describeError, logFailure, sleep } from "../util/Safe";
 import { ensureLoaded, isLoaded } from "../game/Chunks";
-import { runNow, teleportCommand } from "../game/Cmd";
+
 
 /**
  * Copy / paste / save / load / undo / redo.
@@ -136,40 +136,6 @@ export default class StructureService {
         }
     }
 
-    // ------------------------------------------------------- position / tp
-    public static savePos(caPlayer: CAPlayer) {
-        const p = online(caPlayer.xuid);
-        if (p == null) return;
-        caPlayer.prePos = Pos3.fromPos(p.pos).calibration();
-        caPlayer.direction = p.direction;
-    }
-
-    /**
-     * Return the player to where the operation started.
-     * Teleporting is the ONLY motion CALL performs now, and only because operations no
-     * longer move the player in the first place.
-     */
-    public static tp(caPlayer: CAPlayer) {
-        const pos = caPlayer.prePos;
-        const player = online(caPlayer.xuid);
-        if (pos == null || player == null) return;
-
-        try {
-            const facing = Pos3.directionToPosArr(caPlayer.direction ?? player.direction);
-            const target = new Pos3(pos.x, pos.y - 0.5, pos.z, pos.dimid);
-            const cmd = teleportCommand(player.realName, target, [
-                Number((pos.x + facing[0]).toFixed(2)),
-                Number((pos.y + facing[1]).toFixed(2)),
-                Number((pos.z + facing[2]).toFixed(2)),
-            ]);
-            if (cmd == null) return;
-            const res = runNow(cmd);
-            if (res.ok) caPlayer.refreshAllChunks();
-        } catch (e) {
-            logger.debug("[CALL][StructureService.tp] " + describeError(e));
-        }
-    }
-
     // ------------------------------------------------------------ traversal
     /**
      * Walk the slice grid, one slice at a time, with a progress bar.
@@ -243,7 +209,12 @@ export default class StructureService {
             overCallback();
         } finally {
             caPlayer.forbidCmd = false;
-            StructureService.tp(caPlayer);
+            // NOTE: no position restore. 3.0 removed every teleport from the operation
+            // paths (chunks are force-loaded with /tickingarea instead), so the player is
+            // exactly where they were. 2.0 restored a LATCHED prePos owned by whichever
+            // operation had last called savePos(), which teleported people to unrelated
+            // places - e.g. every /ca shape load moved the player to the previous paste's
+            // origin.
         }
     }
 
