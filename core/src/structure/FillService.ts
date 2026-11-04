@@ -63,7 +63,7 @@ export default class FillService {
         areas: Areas,
         index: number,
         total: number,
-        cmdCallback: (yBottom: number, yTop: number, area: Area3) => FillStep,
+        cmdCallback: (yBottom: number, yTop: number, area: Area3) => FillStep | Promise<FillStep>,
         overCallback: (outcome: FillOutcome) => void
     ): Promise<void> {
         const fillWaitTime = Number(Config.get(Config.GLOBAL, "fillWaitTime", 0)) || 0;
@@ -81,7 +81,7 @@ export default class FillService {
                     const yTop = Math.min(y + step - 1, area.end.y);
                     let result: FillStep;
                     try {
-                        result = cmdCallback(y, yTop, area);
+                        result = await cmdCallback(y, yTop, area);
                     } catch (e) {
                         logFailure("FillService.slab", e);
                         result = "failed";
@@ -217,14 +217,32 @@ export default class FillService {
         overCallback(outcome);
     }
 
-    /** Execute one fill command (console level) and classify the result. */
-    private static exec(cmd: string): FillStep {
-        const res = runNow(cmd);
-        if (res.ok) return "ok";
-        const kind = classifyCmdError(res.out, res.ok);
-        if (kind === "noop") return "noop";
-        if (kind === "not-loaded") return "not-loaded";
-        FillService.logOnce(cmd, res.out);
+    /**
+     * Execute one fill command (console level) and classify the result.
+     *
+     * "not loaded" is retried: the ticking area taken by Chunks.acquire is registered
+     * asynchronously, and there is no reliable way to observe that from the script API
+     * (mc.getBlock force-loads on demand, so any readiness probe is instantly true). A few
+     * short retries turn an intermittent failure into a reliable one.
+     */
+    private static async exec(cmd: string): Promise<FillStep> {
+        const attempts = 4;
+        for (let i = 0; i < attempts; i++) {
+            const res = runNow(cmd);
+            if (res.ok) return "ok";
+            const kind = classifyCmdError(res.out, res.ok);
+            if (kind === "noop") return "noop";
+            if (kind === "not-loaded") {
+                if (i < attempts - 1) {
+                    await sleep(800);
+                    continue;
+                }
+                FillService.logOnce(cmd, "region still not loaded after " + attempts + " attempts");
+                return "not-loaded";
+            }
+            FillService.logOnce(cmd, res.out);
+            return "failed";
+        }
         return "failed";
     }
 

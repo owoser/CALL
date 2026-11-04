@@ -182,9 +182,14 @@ export async function acquire(area: Area3, label = ""): Promise<ChunkLease> {
         logFailure("Chunks.acquire.add", new Error(label + " " + (add.out || "tickingarea add rejected")));
     }
 
-    // The ticking area only *starts* generation; wait until the whole region reads back,
-    // otherwise the very first /fill still hits unloaded chunks.
+    // BDS registers the area asynchronously. waitLoaded() alone cannot prove readiness
+    // (mc.getBlock force-loads a chunk on demand, so it is instantly true - measured), so
+    // give the registration a moment proportional to the region size. Callers additionally
+    // retry a "not loaded" command result, which is what makes this robust.
+    const chunkX = Math.floor(x2 / CHUNK) - Math.floor(x1 / CHUNK) + 1;
+    const chunkZ = Math.floor(z2 / CHUNK) - Math.floor(z1 / CHUNK) + 1;
     await waitLoaded(area);
+    await sleep(Math.min(1500, 200 + chunkX * chunkZ * 60));
 
     return {
         name,

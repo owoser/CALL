@@ -11,6 +11,37 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.0.4] - 2026-11-04
+
+### Fixed
+
+**Intermittent failure on large regions: "the area is outside the loaded chunks".**
+
+3.0.3 took a ticking-area lease and polled `mc.getBlock` until the region read back. That
+poll is worthless: **`mc.getBlock` force-loads a chunk on demand**, so the very first probe
+returns a block and `waitLoaded()` is instantly true - the ticking area had not been
+registered yet, and `/fill` raced it. A 96x96 clear therefore passed or failed depending on
+timing (measured: pass, then fail on the last slice, log line
+`step:(416,140,480)->(479,147,511):140:not-loaded`).
+
+Two changes:
+
+1. `Chunks.acquire` now waits a settle period proportional to the region
+   (`200ms + chunks * 60ms`, capped at 1.5s) after adding the ticking area, instead of
+   trusting the probe.
+2. `FillService` **retries** a command whose result classifies as "not loaded" (four
+   attempts, 800ms apart) before reporting it. The classifier already distinguishes that
+   case, so this needs no new detection logic.
+
+Because there is no reliable way to observe chunk-load state from the script API, the retry
+is the actual guarantee; the settle period just avoids doing it in the common case.
+
+### Tests
+
+- Live (`npm run test:live`): 27 assertions, including `ca.clearLargeRegion`
+  (96x8x96 = 6x6 chunks, 400 blocks away from the player) which reproduces exactly this
+  flake. Confirmed green on consecutive runs.
+
 ## [3.0.3] - 2026-11-04
 
 ### Fixed
