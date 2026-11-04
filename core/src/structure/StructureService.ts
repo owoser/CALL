@@ -245,10 +245,22 @@ export default class StructureService {
             caPlayer,
             areas,
             Tr._(lang, "dynamic.StructureManager.save.saving", `${index + 1}/${total}`),
-            (x: number, z: number) => {
+            async (x: number, z: number) => {
                 const saveid = structid + "_" + x + "_" + z;
-                NBTService.save(saveid, areas[x][z], false, !caPlayer.settings.saveEntity);
-                return Promise.resolve(true);
+                // mc.getStructure returns null when the chunk is not ready yet, exactly like
+                // /fill. Retry before declaring the slice lost.
+                let lastError: any = null;
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    try {
+                        NBTService.save(saveid, areas[x][z], false, !caPlayer.settings.saveEntity);
+                        return true;
+                    } catch (e) {
+                        lastError = e;
+                        if (attempt < 2) await sleep(700);
+                    }
+                }
+                logFailure("StructureService.save " + x + "," + z, lastError);
+                return false;
             },
             () => {
                 overCallback(structid, data);
@@ -482,23 +494,31 @@ export default class StructureService {
         Config.set(Config.STRUCTURES, key, []);
     }
 
-    /** 普通操作调用入口 */
+    /**
+     * 普通操作调用入口
+     *
+     * `failCallback` is not optional in spirit: without it a failed snapshot used to be
+     * swallowed (only logged) and `overCallback` was never called, so the operation the
+     * caller wanted to run simply never started and the player was told nothing at all.
+     */
     public static undoSave(
         caPlayer: CAPlayer,
         structArr: Array<Structure>,
-        overCallback: (complex: Complex) => void
+        overCallback: (complex: Complex) => void,
+        failCallback?: (error: any) => void
     ) {
         StructureService.undoPush(caPlayer, structArr, (complex: Complex) => {
             StructureService.clearRedoList(caPlayer); // 清空 redoList
             overCallback(complex);
-        });
+        }, failCallback);
     }
 
     /** undo 调用入口 */
     public static undoPush(
         caPlayer: CAPlayer,
         structArr: Array<Structure>,
-        overCallback: (complex: Complex) => void
+        overCallback: (complex: Complex) => void,
+        failCallback?: (error: any) => void
     ) {
         StructureService.otherSave(caPlayer, structArr, (complex: Complex) => {
             const data = StructureService.getData(caPlayer.xuid);
@@ -513,7 +533,14 @@ export default class StructureService {
             Config.set(Config.STRUCTURES, `private.${caPlayer.xuid}`, data);
             overCallback(complex);
         }).catch((e) => {
-            logger.error("[CALL][StructureService.undoPush] snapshot failed: " + describeError(e));
+            logFailure("StructureService.undoPush", e);
+            if (failCallback != null) {
+                try {
+                    failCallback(e);
+                } catch (e2) {
+                    logFailure("StructureService.undoPush.fail", e2);
+                }
+            }
         });
     }
 

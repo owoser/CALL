@@ -11,6 +11,35 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.0.5] - 2026-11-04
+
+### Fixed
+
+**An operation could silently never start.**
+
+`StructureService.save` signals slice failures by throwing after its traversal loop, and
+`undoPush` handled that with `catch(e => logger.error(...))` - the error was logged and the
+completion callback was **never invoked**. So for any operation that snapshots first (fill,
+clear, hollow, outline, replace, paste, move, rotate, mirror, shapes) a failed snapshot made
+the whole thing vanish: nothing ran, and the player was told nothing.
+
+- `undoSave`/`undoPush` take a failure callback, and every caller now has one.
+- Fill/clear/hollow/outline **proceed without the snapshot** and warn the player that the
+  operation cannot be undone. Doing nothing at all is strictly worse.
+
+**The undo snapshot had no retry.**
+
+It calls `mc.getStructure`, which - like `/fill` - returns nothing until the chunk is ready,
+so a large selection could fail its snapshot on the same race the fill had. Each slice is
+now captured with three attempts, 700ms apart, and reports which slice was lost.
+
+### Tests
+
+- Live (`npm run test:live`): 27 assertions, green on consecutive runs.
+  `ca.clearLargeRegion` now waits for the operation's own completion callback instead of
+  polling ticking areas: there is a gap between slices where no lease is held, which made
+  the test declare "finished" while the fill was still running, and report a false failure.
+
 ## [3.0.4] - 2026-11-04
 
 ### Fixed

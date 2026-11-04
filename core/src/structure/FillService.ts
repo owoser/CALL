@@ -111,7 +111,9 @@ export default class FillService {
         overCallback: (outcome: FillOutcome) => void
     ): void {
         const structure = new Structure(Area3.fromArea3D(targetArea));
-        StructureService.undoSave(caPlayer, [structure], () => {
+        // The fill runs even when the undo snapshot fails: doing nothing at all is worse,
+        // and the player is warned that this operation cannot be undone.
+        const runFill = () => {
             FillService.ergod(
                 caPlayer,
                 structure.getAreas(),
@@ -140,7 +142,21 @@ export default class FillService {
                 logFailure("FillService.soildFill", e);
                 overCallback({ ok: false, slabs: 1, failed: 1, notLoaded: 0, invalidBlock: false });
             });
+        };
+
+        StructureService.undoSave(caPlayer, [structure], runFill, (e) => {
+            FillService.warnNoUndo(caPlayer, e);
+            runFill();
         });
+    }
+
+    /** Tell the player an operation is running without an undo snapshot. */
+    private static warnNoUndo(caPlayer: CAPlayer, error: any): void {
+        logFailure("FillService.undoSnapshot", error);
+        const lang = caPlayer.$?.langCode ?? "en_US";
+        tell(online(caPlayer.xuid), StrFactory.cmdWarn(
+            Tr._(lang, "dynamic.StructureManager.save.failed", "-")
+        ), MsgType.RAW);
     }
 
     /** Hollow / outline: fill the six faces, then clear the inside for "hollow". */
@@ -174,11 +190,15 @@ export default class FillService {
             structs.push(new Structure(interior));
         }
 
-        StructureService.undoSave(caPlayer, structs, () => {
+        const runPasses = () => {
             FillService.runPasses(caPlayer, structs, interior, blockTypeA, overCallback).catch((e) => {
                 logFailure("FillService.fillOutside", e);
                 overCallback({ ok: false, slabs: 1, failed: 1, notLoaded: 0, invalidBlock: false });
             });
+        };
+        StructureService.undoSave(caPlayer, structs, runPasses, (e) => {
+            FillService.warnNoUndo(caPlayer, e);
+            runPasses();
         });
     }
 

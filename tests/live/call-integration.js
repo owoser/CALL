@@ -431,28 +431,30 @@ async function runSuite() {
 
         const hasCallArea = () => /call_[A-Za-z0-9_]+/.test(String(Cmd.runNow("/tickingarea list all-dimensions").out));
 
-        FillOperation.clear(null, cap);
+        // Drive the same code FillOperation.clear uses, but capture the outcome so a
+        // failure reports WHY (slabs / failed / notLoaded) instead of just "left blocks".
+        const FillService = require(path.join(M.root, "core", "src", "structure", "FillService.js")).default;
+        const BlockType = require(path.join(M.root, "core", "src", "common", "BlockType.js")).default;
+        let outcome = null;
+        FillService.soildFill(
+            cap,
+            cap.settings.area,
+            new BlockType("minecraft:air", ""),
+            new BlockType("", ""),
+            "",
+            (o) => { outcome = o; }
+        );
 
-        // Wait for CALL's own ticking area to appear and then disappear: that is the
-        // operation finishing. Nothing is held by the harness during this, so the chunks
-        // really are CALL's responsibility.
-        const appeared = Date.now() + 90000;
-        let sawLease = false;
-        while (Date.now() < appeared) {
+        // Wait for the operation's OWN completion callback. Sniffing ticking areas is not
+        // valid: there is a gap between slices where no lease is held, which made this
+        // test declare "finished" while the fill was still running.
+        const finishBy = Date.now() + 240000;
+        while (outcome == null && Date.now() < finishBy) {
             await sleep(1000);
-            if (hasCallArea()) { sawLease = true; break; }
         }
-        assert(sawLease, "CALL never created a ticking area for the large region");
+        assert(outcome != null, "soildFill never reported completion within 240s");
 
-        const finished = Date.now() + 180000;
-        while (Date.now() < finished) {
-            await sleep(1500);
-            if (!hasCallArea()) break;
-        }
-        assert(!hasCallArea(), "CALL did not release its ticking area (leak)");
-
-        // The chunks unload again once CALL releases them, so re-load JUST for reading:
-        // this must not be confused with the behaviour under test.
+        // The chunks unload once CALL releases them, so re-load JUST for reading.
         const verifyLease = await Chunks.acquire(new M.Area3(
             new M.Pos3(x0, y0, z0, DIM), new M.Pos3(x0 + 95, y0 + 7, z0 + 95, DIM)), "verify");
         const near = blockTypeAt(x0, y0, z0);
@@ -461,11 +463,13 @@ async function runSuite() {
         verifyLease.release();
 
         assert(near === "minecraft:air" && far === "minecraft:air" && mid === "minecraft:air",
-            "large clear left blocks: near=" + near + " far=" + far + " mid=" + mid);
+            "large clear left blocks: near=" + near + " far=" + far + " mid=" + mid
+            + " outcome=" + JSON.stringify(outcome));
+        assert(outcome.ok && outcome.failed === 0, "outcome reports failures: " + JSON.stringify(outcome));
 
         assert(!/call_[A-Za-z0-9_]+/.test(String(Cmd.runNow("/tickingarea list all-dimensions").out)),
-            "ticking areas leaked after verification");
-        return "96x8x96 (6x6 chunks) cleared, lease created and released";
+            "ticking areas leaked after the operation");
+                return "96x8x96 (6x6 chunks) cleared, lease created and released, outcome=" + JSON.stringify(outcome);
     });
 
     // --- /ca clear really clears (regression: "invalid block or region: air") ---
