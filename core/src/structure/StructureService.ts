@@ -10,7 +10,9 @@ import NBTService from "./NBTService";
 import { Matrix3D, Transform3 } from "../util/SimpleMatrix";
 import Tr from "../util/Translator";
 import { MsgType, online, tell } from "../util/Msg";
-import { describeError, sleep } from "../util/Safe";
+import { describeError, logFailure, sleep } from "../util/Safe";
+import { ensureLoaded, isLoaded } from "../game/Chunks";
+import { runNow, teleportCommand } from "../game/Cmd";
 
 /**
  * Copy / paste / save / load / undo / redo.
@@ -37,9 +39,6 @@ export default class StructureService {
     }
     public static uid = 0;
 
-    /** Boss bar slot reused for progress, so we never leak bars. */
-    private static readonly BAR_UID = 0xCA11;
-
     // ---------------------------------------------------------------- helpers
     private static langOf(caPlayer: CAPlayer): string {
         const p = online(caPlayer?.xuid);
@@ -65,78 +64,38 @@ export default class StructureService {
     }
 
     // ------------------------------------------------------------ chunk gate
-    private static canGetBlock(area: Area3): boolean {
-        const a = area.start;
-        const b = area.end;
-        try {
-            return mc.getBlock(a.x, a.y, a.z, a.dimid) != null
-                && mc.getBlock(b.x, b.y, b.z, b.dimid) != null;
-        } catch {
-            return false;
-        }
-    }
-
-    private static loadChunkMode(): string {
-        const raw = String(Config.get(Config.GLOBAL, "loadChunkMode", "teleport") ?? "").toLowerCase();
-        return raw === "poll" ? "poll" : "teleport";
-    }
-
     /**
      * Wait until both corners of `area` are readable.
      *
-     * BDS has no public "load this chunk" API, so the only reliable way to force a
-     * remote chunk in is to move a player next to it - which is why the legacy code
-     * teleported. `loadChunkMode: "poll"` disables that: the operation then simply
-     * fails with a clear message when the area is not loaded, instead of yanking the
-     * player around.
+     * The player is NEVER moved for this any more: 1.x/2.0 teleported them every 400ms
+     * (and every 50ms in Players.tpAsync) to force chunks in. `Chunks.ensureLoaded` uses
+     * a named /tickingarea instead and cleans it up again.
      */
     private static async loadChunk(caPlayer: CAPlayer, area: Area3): Promise<boolean> {
-        if (StructureService.canGetBlock(area)) return true;
+        if (isLoaded(area)) return true;
 
-        const mode = StructureService.loadChunkMode();
-        const max = Math.max(1, Number(Config.get(Config.GLOBAL, "maxLoadCheckNum", 10)) || 10);
         const lang = StructureService.langOf(caPlayer);
         const tip = !!caPlayer.settings.loadChuckTip;
-
         if (tip) {
             StructureService.tip(caPlayer, StrFactory.cmdMsg(
                 Tr._(lang, "dynamic.StructureManager.loadChunk.overRange", area.toString())
             ));
         }
 
-        const p = online(caPlayer.xuid);
-        for (let attempt = 0; attempt < max; attempt++) {
-            if (mode === "teleport" && p != null) {
-                // Land on top of the area instead of inside it: teleporting into the
-                // middle of a solid region used to suffocate / fall-damage the player.
-                try {
-                    p.teleport(
-                        (area.start.x + area.end.x) / 2 + 0.5,
-                        Math.min(area.end.y + 2, 320),
-                        (area.start.z + area.end.z) / 2 + 0.5,
-                        area.start.dimid
-                    );
-                } catch {
-                    // player might be in a state that rejects teleports (loading screen)
-                }
-            }
-            await sleep(400);
-            if (StructureService.canGetBlock(area)) {
-                if (tip) {
-                    StructureService.tip(caPlayer, StrFactory.cmdTip(
-                        Tr._(lang, "dynamic.StructureManager.loadChunk.success", area.toString())
-                    ));
-                }
-                return true;
-            }
-        }
+        const ok = await ensureLoaded(area);
 
-        if (tip) {
+        if (ok) {
+            if (tip) {
+                StructureService.tip(caPlayer, StrFactory.cmdTip(
+                    Tr._(lang, "dynamic.StructureManager.loadChunk.success", area.toString())
+                ));
+            }
+        } else if (tip) {
             StructureService.tip(caPlayer, StrFactory.cmdErr(
-                Tr._(lang, "dynamic.StructureManager.loadChunk.cancel", area.toString(), String(max))
+                Tr._(lang, "dynamic.StructureManager.loadChunk.cancel", area.toString(), "timeout")
             ));
         }
-        return false;
+        return ok;
     }
 
     // -------------------------------------------------------------- storage
@@ -185,20 +144,27 @@ export default class StructureService {
         caPlayer.direction = p.direction;
     }
 
+    /**
+     * Return the player to where the operation started.
+     * Teleporting is the ONLY motion CALL performs now, and only because operations no
+     * longer move the player in the first place.
+     */
     public static tp(caPlayer: CAPlayer) {
         const pos = caPlayer.prePos;
         const player = online(caPlayer.xuid);
         if (pos == null || player == null) return;
 
         try {
-            const diArr = Pos3.directionToPosArr(caPlayer.direction ?? player.direction);
-            const cmd =
-                `/tp "${player.realName}" ${pos.x.toFixed(2)} ${(pos.y - 0.5).toFixed(2)} ${pos.z.toFixed(2)} ` +
-                `facing ${(pos.x + diArr[0]).toFixed(2)} ${(pos.y + diArr[1]).toFixed(2)} ${(pos.z + diArr[2]).toFixed(2)}`;
-            const res = Play_versionSafeRun(caPlayer, cmd);
-            if (res && res.success) {
-                caPlayer.refreshAllChunks();
-            }
+            const facing = Pos3.directionToPosArr(caPlayer.direction ?? player.direction);
+            const target = new Pos3(pos.x, pos.y - 0.5, pos.z, pos.dimid);
+            const cmd = teleportCommand(player.realName, target, [
+                Number((pos.x + facing[0]).toFixed(2)),
+                Number((pos.y + facing[1]).toFixed(2)),
+                Number((pos.z + facing[2]).toFixed(2)),
+            ]);
+            if (cmd == null) return;
+            const res = runNow(cmd);
+            if (res.ok) caPlayer.refreshAllChunks();
         } catch (e) {
             logger.debug("[CALL][StructureService.tp] " + describeError(e));
         }
@@ -208,14 +174,20 @@ export default class StructureService {
     /**
      * Walk the slice grid, one slice at a time, with a progress bar.
      *
-     * Guarantees: `forbidCmd` is always restored, the boss bar is always removed, and a
-     * failing slice callback is treated as a failure instead of an escaping exception.
+     * Guarantees: `forbidCmd` is always restored and a failing slice callback is treated
+     * as a failure instead of an escaping exception.
+     *
+     * PROGRESS IS TEXT, NOT A BOSS BAR.
+     * 2.0 called `Player.setBossBar(uid, title, percent, colour)` with colour 11 for
+     * every fill; LSE casts that straight into BDS' `BossBarColor` (0..7) and the client
+     * dropped the connection while the server kept running. Each call also emits a fake
+     * `AddActorPacket` of type "player". Text is boring and cannot kick anyone - see
+     * core/src/game/SafeArgs.ts.
      */
     public static async traversal(
         caPlayer: CAPlayer,
         areas: Areas,
         title: string,
-        color: number,
         successCallback: (x: number, z: number) => Promise<boolean>,
         overCallback: () => void,
         failCallback: (x: number, z: number) => void,
@@ -228,15 +200,20 @@ export default class StructureService {
             return;
         }
 
-        const showBar = () => !!caPlayer.settings.displayProgressBar && online(caPlayer.xuid) != null;
+        const showProgress = () => !!caPlayer.settings.displayProgressBar;
         const total = mx * mz;
+        let lastProgressAt = 0;
+        const reportProgress = (percent: number, force = false) => {
+            if (!showProgress() && !force) return;
+            const now = Date.now();
+            if (!force && now - lastProgressAt < 500) return;
+            lastProgressAt = now;
+            StructureService.tip(caPlayer, StrFactory.cmdMsg(title + " " + Math.round(percent) + "%"), MsgType.TIP);
+        };
 
         caPlayer.forbidCmd = true; // 禁止执行指令
         try {
-            if (showBar()) {
-                const p = online(caPlayer.xuid)!;
-                p.setBossBar(StructureService.BAR_UID, StrFactory.cmdMsg(title), 0, color);
-            }
+            reportProgress(0, true);
 
             for (let x = 0; x < mx; x++) {
                 for (let z = 0; z < mz; z++) {
@@ -246,8 +223,7 @@ export default class StructureService {
                         try {
                             stepOk = await successCallback(x, z);
                         } catch (e) {
-                            logger.error("[CALL][StructureService] slice " + x + "," + z + " failed: " + describeError(e)
-                                + (e && e.stack ? "\n" + e.stack : ""));
+                            logFailure("StructureService.slice " + x + "," + z, e);
                             stepOk = false;
                         }
                     }
@@ -255,16 +231,11 @@ export default class StructureService {
                         try {
                             failCallback(x, z);
                         } catch (e) {
-                            logger.error("[CALL][StructureService] failCallback threw: " + describeError(e));
+                            logFailure("StructureService.failCallback", e);
                         }
                         return;
                     }
-                    if (showBar()) {
-                        const p = online(caPlayer.xuid);
-                        if (p != null) {
-                            p.setBossBar(StructureService.BAR_UID, StrFactory.cmdMsg(title), ((x * mz + z + 1) * 100) / total, color);
-                        }
-                    }
+                    reportProgress(((x * mz + z + 1) * 100) / total);
                     await sleep(waitTime);
                 }
             }
@@ -272,12 +243,6 @@ export default class StructureService {
             overCallback();
         } finally {
             caPlayer.forbidCmd = false;
-            try {
-                const p = online(caPlayer.xuid);
-                if (p != null) p.removeBossBar(StructureService.BAR_UID);
-            } catch {
-                // ignore
-            }
             StructureService.tp(caPlayer);
         }
     }
@@ -311,7 +276,6 @@ export default class StructureService {
             caPlayer,
             areas,
             Tr._(lang, "dynamic.StructureManager.save.saving", `${index + 1}/${total}`),
-            1,
             (x: number, z: number) => {
                 const saveid = structid + "_" + x + "_" + z;
                 NBTService.save(saveid, areas[x][z], false, !caPlayer.settings.saveEntity);
@@ -380,7 +344,6 @@ export default class StructureService {
             caPlayer,
             areas,
             Tr._(lang, "dynamic.StructureManager.load.loading", `${index + 1}/${total}`),
-            6,
             (x: number, z: number) => {
                 const saveid = structid + "_" + x + "_" + z;
                 const start = areas[x][z].start;

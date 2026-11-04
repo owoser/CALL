@@ -127,8 +127,13 @@
             "min": 50,
             "max": 5000
         },
-        "loadChunkMode": {
+        "chunkLoader": {
             "type": "enum",
-            "values": ["poll", "teleport"]
+            "values": ["tickingarea", "none"]
+        },
+        "chunkLoadTimeout": {
+            "type": "number",
+            "min": 500,
+            "max": 30000
         }
 }

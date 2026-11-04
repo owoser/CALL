@@ -272,6 +272,60 @@ async function runSuite() {
         return count + " blocks";
     });
 
+    // --- THE fill path (this is what used to kick the client) --------------
+    await checkAsync("ca.fillRegion", async () => {
+        const M2 = M;
+        const FillOperation = require(path.join(M2.root, "core", "src", "structure", "FillOperation.js")).default;
+        const t = spot(9);
+        fillBox(t.x, t.y, t.z, 8, 4, 8, "minecraft:air");
+        // (the corner is re-populated below so the fill argument is a real block)
+
+        const cap = fakePlayer(sim);
+        cap.settings.area = {
+            start: { x: t.x, y: t.y, z: t.z, dimid: DIM },
+            end: { x: t.x + 5, y: t.y + 2, z: t.z + 5, dimid: DIM },
+        };
+        cap.hasSetArea = true;
+
+        // the fill argument must be a real, non-air block
+        mc.setBlock(t.x, t.y, t.z, DIM, "minecraft:stone", 0);
+        const sourceBlock = mc.getBlock(t.x, t.y, t.z, DIM);
+        assert(sourceBlock != null, "no block handle for the fill argument");
+        assert(sourceBlock.type !== "minecraft:air", "fill source block is air");
+
+        // (1) is the generated command itself valid?
+        const Cmd = require(path.join(M2.root, "core", "src", "game", "Cmd.js"));
+        const from = new M2.Pos3(t.x, t.y, t.z, DIM);
+        const to = new M2.Pos3(t.x + 5, t.y + 2, t.z + 5, DIM);
+        const cmd = Cmd.fillCommand(from, to, sourceBlock.type, "", "", "", "");
+        record(cmd != null && cmd.indexOf("/fill ") === 0, "ca.fillRegion.command", String(cmd));
+
+        // (2) does the console accept it?
+        if (cmd) {
+            // make it a real change: clear, then fill with stone through the same builder
+            fillBox(t.x, t.y, t.z, 8, 4, 8, "minecraft:air");
+            const stoneCmd = Cmd.fillCommand(from, to, "minecraft:stone", "", "", "", "");
+            const direct = Cmd.runNow(stoneCmd);
+            record(direct.ok, "ca.fillRegion.directRun",
+                "ok=" + direct.ok + " out=" + String(direct.out).slice(0, 120) + " cmd=" + stoneCmd);
+            assert(blockTypeAt(t.x, t.y, t.z) === "minecraft:stone", "direct /fill did not apply");
+            fillBox(t.x, t.y, t.z, 8, 4, 8, "minecraft:air");
+        }
+
+        // full path: FillOperation -> FillService -> StructureService.traversal -> /fill
+        FillOperation.fill(null, cap, { block: sourceBlock, States: "", FillMode: undefined, states: "" });
+
+        const deadline = Date.now() + 40000;
+        let done = false;
+        while (Date.now() < deadline) {
+            await new Promise((r) => setTimeout(r, 500));
+            if (blockTypeAt(t.x + 1, t.y + 1, t.z + 1) !== "minecraft:air") { done = true; break; }
+        }
+        assert(done, "fill produced no blocks within 40s (checked t+1,+1,+1)");
+        assert(blockTypeAt(t.x + 5, t.y + 2, t.z + 5) !== "minecraft:air", "fill did not cover the far corner");
+        return "8x4x8 region filled via /ca fill path";
+    });
+
     // --- CALL end-to-end: copy -> paste ------------------------------------
     await checkAsync("call.copyPaste", async () => {
         const fp = fakePlayer(sim);

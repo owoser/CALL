@@ -17,6 +17,7 @@ import StructureOperation from "./structure/StructureOperation";
 import TextureOperation from "./structure/TextureOperation";
 import { ToolOperation } from "./user/ToolOperation";
 import { Warn } from "./util/Error";
+import { logFailure } from "./util/Safe";
 import StrFactory from "./util/StrFactory";
 import Tr from "./util/Translator";
 
@@ -438,7 +439,7 @@ export default class CACommand {
                 try {
                     CACommand.command_consoleCallback(output, res);
                 } catch (error) {
-                   logger.error(error);
+                    logFailure("command.console", error);
                 }
                 return;
             case OriginType.Virtual:

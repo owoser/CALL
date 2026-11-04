@@ -35,6 +35,11 @@ class Reader {
     private pos = 0;
     constructor(private readonly buf: Buffer, private readonly little: boolean) {}
 
+    /** Current read offset (also used to verify a parse consumed the whole buffer). */
+    public get position(): number {
+        return this.pos;
+    }
+
     need(n: number): void {
         if (this.pos + n > this.buf.length) throw new Error("NBT truncated at " + this.pos);
     }
@@ -278,13 +283,60 @@ function writePayload(w: Writer, tag: NbtTag, type: number): void {
     }
 }
 
-/** Guess the byte order of an NBT document whose root is a named compound. */
+interface ParsedRoot {
+    rootName: string;
+    root: NbtTag;
+    little: boolean;
+}
+
+/**
+ * Try to read `buf` as a named root compound in one byte order.
+ * @returns the parse when it consumed the buffer EXACTLY, otherwise null.
+ */
+function tryParseRoot(buf: Buffer, little: boolean): ParsedRoot | null {
+    try {
+        const reader = new Reader(buf, little);
+        const rootType = reader.u8();
+        if (rootType !== 10) return null;
+        const rootName = reader.utf();
+        // A root name is either empty or printable ASCII; anything else means we are
+        // reading the wrong byte order.
+        if (!/^[\x20-\x7e]*$/.test(rootName)) return null;
+        const root = readPayload(reader, 10);
+        // The decisive check: a correct byte order consumes the buffer exactly.
+        if (reader.position !== buf.length) return null;
+        return { rootName, root, little };
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Determine the byte order of an NBT document whose root is a named compound.
+ *
+ * WHY NOT A LENGTH HEURISTIC
+ * --------------------------
+ * 2.0 guessed with `readUInt16BE(3) <= buf.length - 5`. For a little-endian file that
+ * value is the constant 782 (the first child's name length 0x000e read the wrong way),
+ * so every file LARGER than 787 bytes was misdetected as big-endian and failed to parse
+ * with "structure has no usable size". Small test regions happened to be under that
+ * size, which is why the bug survived testing.
+ *
+ * Both orders are now parsed and the one that consumes the buffer exactly wins;
+ * little-endian is preferred when both succeed (that is the .mcstructure format).
+ */
 export function detectEndian(buf: Buffer): "be" | "le" {
     if (buf.length < 5) throw new Error("NBT too short");
     if (buf[0] !== 10) throw new Error("NBT root is not a compound (0x" + buf[0].toString(16) + ")");
-    const beLen = buf.readUInt16BE(3);
-    if (beLen === 0) return "be";
-    return beLen <= buf.length - 5 ? "be" : "le";
+
+    const little = tryParseRoot(buf, true);
+    if (little) return "le";
+    const big = tryParseRoot(buf, false);
+    if (big) return "be";
+
+    throw new Error(
+        "cannot determine NBT byte order: neither reading parses to a complete compound"
+    );
 }
 
 function toEndian(buf: Buffer, little: boolean): Buffer {

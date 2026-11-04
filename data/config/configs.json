@@ -398,7 +398,7 @@
     *   "structure_block" legacy behaviour: temp structure block (journalled, recoverable)
     *   "off"             nothing
     */
-    "areaDisplayMode": "particle",
+    "areaDisplayMode": "structure_block",
 
     /*
     *   ###选区尺寸提示刷新间隔(毫秒)###   (2.0.0 新增)
@@ -436,5 +436,14 @@
     *   "poll"     only wait, never move the player
     *   "teleport" temporarily move the player above the area (legacy behaviour)
     */
-    "loadChunkMode": "teleport"
+    "chunkLoader": "tickingarea",
+
+    /*
+    *   ###等待区块加载的超时(毫秒)###   (3.0 新增)
+    *   [说明] 使用 /tickingarea 强制加载，玩家不会被传送。
+    *   [范围] 500--30000   [建议] 4000
+    *
+    * ###Chunk load timeout in milliseconds###  [Range] 500--30000  [Recommended] 4000
+    */
+    "chunkLoadTimeout": 4000
 }

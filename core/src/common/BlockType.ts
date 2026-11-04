@@ -53,8 +53,27 @@ export default class BlockType {
         }
     }
 
+    /**
+     * Command-safe block argument.
+     *
+     * 1.x returned `type + " " + states` unconditionally, so a block without states
+     * produced "minecraft:stone " and callers that appended more arguments ended up
+     * with stray empty parameters ("... minecraft:stone  replace ..."), which the
+     * command parser rejects.
+     */
     public toString(): string {
-        return `${this.type} ${this.states}`;
+        const type = (this.type ?? "").trim();
+        const states = (this.states ?? "").trim();
+        if (type === "") return "";
+        if (states === "" || states === "[]") return type;
+        return type + " " + states;
+    }
+
+    /** True when this instance can form a valid block argument. */
+    public isValid(): boolean {
+        const type = (this.type ?? "").trim();
+        if (type === "") return false;
+        return /^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(type);
     }
 
     public toFormatString(): string {

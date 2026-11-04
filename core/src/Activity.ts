@@ -3,6 +3,8 @@ import StructureService from "./structure/StructureService";
 import CAPlayer from "./user/CAPlayer";
 import AreaOperation from "./structure/AreaOperation";
 import SettingsOperation from "./user/SettingsOperation";
+import AreaDisplayerService from "./structure/AreaDisplayerService";
+import { logFailure } from "./util/Safe";
 
 export default class Activity {
     public static onServerCreate() {
@@ -23,6 +25,18 @@ export default class Activity {
 
     public static onDestroy(caPlayer: CAPlayer) {
         if (caPlayer == null) return;
+        // Every per-player timer and world highlight must go with the player, otherwise
+        // it keeps running against a handle that no longer exists.
+        try {
+            caPlayer.stopTimers();
+        } catch {
+            // ignore
+        }
+        try {
+            AreaDisplayerService.release(caPlayer);
+        } catch (e) {
+            logFailure("Activity.onDestroy.display", e);
+        }
         caPlayer.saveAll();
         Players.dataMap.delete(caPlayer.xuid);
         if (!caPlayer.settings.saveUndo) {
