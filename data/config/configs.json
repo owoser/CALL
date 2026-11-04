@@ -423,9 +423,19 @@
     *   [说明] 每写入这么多方块就让出一次主线程，避免长任务卡 tick 导致玩家超时掉线。
     *   [范围] 50--5000   [建议] 600
     *
-    * ###Blocks per batch before yielding the main thread###  [Range] 50--5000  [Recommended] 600
+    * ###Blocks per batch before yielding the main thread###  [Range] 50--5000  [Recommended] 2000
     */
-    "placeBatchBlocks": 600,
+    "placeBatchBlocks": 2000,
+
+    /*
+    *   ###恢复类操作的最大方块数###   (3.0.6 新增)
+    *   [说明] 撤销 / 重做 / 粘贴 / 载入 这类"把快照写回世界"的操作，通常会远大于形状生成。
+    *          超过此值会拒绝执行并提示（不会破坏已有的撤销快照）。
+    *   [范围] 40000--20000000   [建议] 2000000
+    *
+    * ###Maximum blocks for a restore (undo / redo / paste / load)###  [Range] 40000--20000000  [Recommended] 2000000
+    */
+    "maxRestoreBlocks": 2000000,
 
     /*
     *   ###加载远处区块的方式###   (2.0.0 新增)

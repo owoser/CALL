@@ -743,3 +743,4 @@ word.public =(MT) общедоступный
 word.unpublic=(MT)непубличный
 dynamic.FillManager.reason.notLoaded=Область вне загруженных чанков.\nПодойдите ближе или увеличьте chunkLoadTimeout в configs.json
 dynamic.FillManager.reason.invalidBlock=Недопустимое имя блока или область
+dynamic.StructureManager.undo.incomplete=Отмена не завершена: не удалось восстановить %d частей. Снимок сохранён - повторите отмену

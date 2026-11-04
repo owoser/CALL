@@ -744,3 +744,4 @@ word.unpublic=不公开
 
 dynamic.FillManager.reason.notLoaded=区域超出已加载范围（区块未加载）\n请靠近该区域，或把 configs.json 里的 chunkLoadTimeout 调大后重试
 dynamic.FillManager.reason.invalidBlock=无效的方块名或选区
+dynamic.StructureManager.undo.incomplete=撤销未完成: %d 个分片恢复失败。快照已保留，可再次执行撤销重试

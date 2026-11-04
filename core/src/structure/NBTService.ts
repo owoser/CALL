@@ -6,6 +6,7 @@ import CAPlayer from "../user/CAPlayer";
 import { Pos3 } from "../common/Pos3";
 import { Warn } from "../util/Error";
 import { describeError } from "../util/Safe";
+import { MsgType, online, tell } from "../util/Msg";
 import { placeBytesAsync } from "./StructurePlacement";
 
 /**
@@ -118,13 +119,29 @@ export default class NBTService {
     ): Promise<number> {
         if (!NBTService.exists(saveid)) throw new Warn("dynamic.StructureManager.load.missingFile");
         const bytes = NBTService.readBytes(saveid);
-        const batch = Number(Config_getNum("placeBatchBlocks", 600));
-        return placeBytesAsync(bytes, pos, batch > 0 ? batch : 600, {
+        const batch = Number(Config_getNum("placeBatchBlocks", 2000));
+        return placeBytesAsync(bytes, pos, batch > 0 ? batch : 2000, {
             rotation: typeof rotation === "number" ? rotation : parseFloat(String(rotation)) || 0,
             mirror: String(mirror ?? "none"),
             // paste / load / undo must reproduce the snapshot cell for cell
             writeAir: true,
+            // a restore may legitimately be far larger than a generated shape
+            restore: true,
+            onProgress: (done, total, written) => NBTService.reportProgress(caPlayer, done, total, written),
         });
+    }
+
+    private static lastTip = 0;
+
+    /** Throttled progress text for a long restore. */
+    private static reportProgress(caPlayer: CAPlayer, done: number, total: number, written: number): void {
+        const now = Date.now();
+        if (now - NBTService.lastTip < 1000) return;
+        NBTService.lastTip = now;
+        const player = online(caPlayer.xuid);
+        if (player == null || total <= 0) return;
+        const pct = Math.floor((done * 100) / total);
+        tell(player, "CALL: " + pct + "% (" + written + "/" + total + ")", MsgType.TIP);
     }
 
     public static del(saveid: string): boolean {

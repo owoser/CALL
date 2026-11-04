@@ -11,6 +11,58 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.0.6] - 2026-11-04
+
+### Fixed
+
+**Undo of a large region failed with "structure too large to place block by block".**
+
+Restoring wrote blocks one at a time under `maxPlaceBlocks` (40000), a guard meant for shape
+generation. A 107x99x90 undo is four slices of up to 368640 cells, so every slice was
+refused and nothing came back.
+
+- New `maxRestoreBlocks` (default **2000000**) applies to the restore paths - undo, redo,
+  paste, load. `maxPlaceBlocks` keeps guarding generated shapes.
+
+**A failed undo deleted the snapshot.**
+
+`StructureService.pop` popped the entry first and then deleted each slice file
+*unconditionally* after `load()` returned - and `load()` swallows slice failures. So a failed
+undo destroyed exactly the data needed to retry it. Now:
+
+- `traversal` reports the number of failed slices to its completion callback, and
+  `StructureService.load` returns it;
+- `pop` peeks instead of popping, restores, and only consumes the entry and deletes the
+  files when **every** slice succeeded. On failure it keeps everything and tells the player
+  the undo was incomplete and can be retried.
+
+**Restores are much faster.**
+
+- Cells that already match the target are skipped (one `mc.getBlock` compare instead of a
+  write). Undoing a clear is almost all air that is already air. Blocks carrying states are
+  never skipped, because the name can match while the variant does not.
+- `placeBatchBlocks` default 600 -> **2000**.
+- A long restore now shows throttled percentage progress instead of going silent.
+
+### Verified and rejected: the native paths
+
+| Option | Result |
+|---|---|
+| `mc.setStructure` | access violation 0xC0000005 - still banned |
+| `/structure load` + our file in `<bds>/structures/` | "找不到 mystructure:callprobe" |
+| `/structure load` + `structures/mystructure/` subdir | same |
+| world structure store | lives inside the world LevelDB; only `/structure save` can seed it |
+
+So per-block writing stays, made survivable rather than avoided.
+
+### Tests
+
+- Live (`npm run test:live`): 28 assertions. `ca.undoLarge` seeds a **96x16x96** region
+  (largest slice 64x16x64 = 65536 > 40000), clears it, verifies that a deliberately
+  impossible undo keeps both the list entry and the files, then verifies the real undo
+  restores every sampled cell and consumes exactly one entry.
+- Unit (`npm run test:unit`): 26. Adds `tests/unit/restore-skip.test.mjs`.
+
 ## [3.0.5] - 2026-11-04
 
 ### Fixed

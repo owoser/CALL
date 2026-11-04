@@ -113,6 +113,21 @@ export const SAFE_FILL_VOLUME = 30000;
  * `/fill` is capped at 32768 blocks per command. A full 64x64 slice with the old fixed
  * height of 8 produced exactly 32768, i.e. zero margin.
  */
+/**
+ * Should a restore write this cell at all?
+ *
+ * Restoring a big region is dominated by cells that are already correct - undoing a clear
+ * is almost entirely air, which is already air in the world. Writing those is pure waste.
+ *
+ * Only skipped when the target block carries no states: if it has states, the name matches
+ * but the variant may not, so it must be written.
+ */
+export function shouldWriteTarget(currentType: string, targetName: string, hasStates: boolean): boolean {
+    if (hasStates) return true;
+    if (targetName == null || targetName === "") return false;
+    return String(currentType ?? "") !== String(targetName);
+}
+
 export type CmdErrorClass = "not-loaded" | "noop" | "other";
 
 /**

@@ -1,6 +1,7 @@
 import Config from "../common/Config";
 import Area3 from "../common/Area3";
 import { Pos3, Vec3Tuple } from "../common/Pos3";
+import { shouldWriteTarget } from "../game/SafeArgs";
 
 /**
  * Structure placement helpers.
@@ -124,12 +125,21 @@ function blockNbtOf(entry: { name: string; states: Record<string, any>; version:
     });
 }
 
-function maxBlocks(): number {
-    const n = Number(Config.get(Config.GLOBAL, "maxPlaceBlocks", 40000));
-    return Number.isFinite(n) && n > 0 ? n : 40000;
+function maxBlocks(restore = false): number {
+    const key = restore ? "maxRestoreBlocks" : "maxPlaceBlocks";
+    const fallback = restore ? 2000000 : 40000;
+    const n = Number(Config.get(Config.GLOBAL, key, fallback));
+    return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
 export interface PlaceOptions extends TransformOptions {
+    /**
+     * Restore path (undo / redo / paste / load): use `maxRestoreBlocks` instead of the much
+     * smaller `maxPlaceBlocks` that guards shape generation.
+     */
+    restore?: boolean;
+    /** Called after every batch so a long restore can show progress. */
+    onProgress?: (done: number, total: number, written: number) => void;
     /**
      * Write palette entries that are air.
      *
@@ -156,8 +166,12 @@ export async function placeLayoutAsync(
 ): Promise<number> {
     const [sx, sy, sz] = layout.size;
     const total = sx * sy * sz;
-    if (total > maxBlocks()) {
-        throw new Error("structure too large to place block by block (" + total + " > " + maxBlocks() + ")");
+    const limit = maxBlocks(options.restore === true);
+    if (total > limit) {
+        throw new Error(
+            "structure too large to place block by block (" + total + " > " + limit + ", key "
+            + (options.restore === true ? "maxRestoreBlocks" : "maxPlaceBlocks") + ")"
+        );
     }
 
     const cache = new Map<number, NbtCompound | null>();
@@ -166,6 +180,7 @@ export async function placeLayoutAsync(
     const baseZ = Math.floor(pos.z);
     const writeAir = options.writeAir === true;
     let written = 0;
+    let skipped = 0;
     let sinceYield = 0;
 
     for (let i = 0; i < total && i < layout.indices.length; i++) {
@@ -192,22 +207,36 @@ export async function placeLayoutAsync(
         const targetZ = baseZ + z;
 
         try {
-            if (isAir) {
-                mc.setBlock(targetX, targetY, targetZ, pos.dimid, "minecraft:air", 0);
-                written++;
+            const block = mc.getBlock(targetX, targetY, targetZ, pos.dimid);
+            if (block == null) {
+                // unloaded chunk: nothing to compare against, nothing we can write
             } else {
-                const block = mc.getBlock(targetX, targetY, targetZ, pos.dimid);
-                if (block != null) {
-                    block.setNbt(blockNbt);
-                    written++;
+                const entry = layout.palette[paletteIndex];
+                const hasStates = entry?.states != null && Object.keys(entry.states).length > 0;
+                if (!shouldWriteTarget(block.type, name, hasStates)) {
+                    skipped++;
+                } else {
+                    try {
+                        block.setNbt(blockNbt);
+                        written++;
+                    } catch {
+                        // the game rejected this block (e.g. an invalid state)
+                    }
                 }
             }
         } catch {
-            // skip blocks the game rejects
+            // access failed; skip
         }
 
         if (++sinceYield >= batch) {
             sinceYield = 0;
+            if (options.onProgress != null) {
+                try {
+                    options.onProgress(i + 1, total, written);
+                } catch {
+                    // ignore
+                }
+            }
             await new Promise((r) => setTimeout(r, 0));
         }
     }

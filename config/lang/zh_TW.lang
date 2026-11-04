@@ -743,3 +743,4 @@ word.public=(MT)公開
 word.unpublic=(MT)不公開
 dynamic.FillManager.reason.notLoaded=區域超出已載入範圍（區塊未載入）\n請靠近該區域，或把 configs.json 裡的 chunkLoadTimeout 調大後重試
 dynamic.FillManager.reason.invalidBlock=無效的方塊名或選區
+dynamic.StructureManager.undo.incomplete=復原未完成: %d 個分片還原失敗。快照已保留，可再次執行復原重試

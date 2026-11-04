@@ -140,14 +140,16 @@ export default class StructureService {
         areas: Areas,
         title: string,
         successCallback: (x: number, z: number) => Promise<boolean>,
-        overCallback: () => void,
+        /** Receives the number of slices that failed (0 = complete success). */
+        overCallback: (failed: number) => void,
         failCallback: (x: number, z: number) => void,
         waitTime: number = Number(Config.get(Config.GLOBAL, "traversalWaitTime", 20)) || 20
     ): Promise<void> {
         const mx = areas.length;
         const mz = mx > 0 ? areas[0].length : 0;
+        let failedSlices = 0;
         if (mx === 0 || mz === 0) {
-            overCallback();
+            overCallback(0);
             return;
         }
 
@@ -188,6 +190,7 @@ export default class StructureService {
                         lease.release();
                     }
                     if (!stepOk) {
+                        failedSlices++;
                         // DO NOT abort the whole operation here. A 96x96 selection is 4
                         // slices; giving up on the first bad one left every later slice
                         // untouched while the player was told nothing at all (the early
@@ -204,7 +207,7 @@ export default class StructureService {
                 }
             }
 
-            overCallback();
+            overCallback(failedSlices);
         } finally {
             caPlayer.forbidCmd = false;
             // NOTE: no position restore. 3.0 removed every teleport from the operation
@@ -298,7 +301,8 @@ export default class StructureService {
         integrity = 100,
         seed = "",
         overCallback: () => void
-    ): Promise<void> {
+    ): Promise<number> {
+        let failedSlices = 0;
         const area = Area3.fromArea3D(preStructure.area).relative();
         const areas = new Structure(area).getAreas();
         const degreeNum = parseFloat(degrees) || 0;
@@ -332,7 +336,8 @@ export default class StructureService {
                 // placement is asynchronous (block by block, yielding between batches)
                 return NBTService.loadAsync(caPlayer, saveid, target, mirror, degreeNum).then(() => true);
             },
-            () => {
+            (failed: number) => {
+                failedSlices = failed;
                 overCallback();
             },
             () => {
@@ -340,6 +345,8 @@ export default class StructureService {
             },
             Number(Config.get(Config.GLOBAL, "traversalWaitTime", 20)) || 20
         );
+
+        return failedSlices;
     }
 
     public static delete(caPlayer: CAPlayer, sid: string, st: Structure) {
@@ -436,6 +443,14 @@ export default class StructureService {
         return complex;
     }
 
+    /**
+     * Apply the next undo/redo entry.
+     *
+     * The snapshot is only consumed when EVERY slice restored. It previously popped the
+     * entry first and deleted each slice file unconditionally after `load()` returned -
+     * and `load()` swallows slice failures - so a failed undo destroyed the very data the
+     * player needed to retry with.
+     */
     private static async pop(caPlayer: CAPlayer, overCallback: () => void, mod: string): Promise<void> {
         const key = `private.${caPlayer.xuid}.${mod}List`;
         const list = Config.get(Config.STRUCTURES, key);
@@ -443,24 +458,49 @@ export default class StructureService {
             overCallback();
             return;
         }
-        const complex = list.pop();
+        // peek, do not remove
+        const complex = list[list.length - 1];
         const keys = Object.keys(complex ?? {});
-
-        for (let i = 0; i < keys.length; i++) {
-            const sid = keys[i];
-            const st = complex[sid];
-            await StructureService.load(
-                caPlayer, st, sid, st.area.start, i, keys.length,
-                "none", "0_degrees", false, true, false, 100, "",
-                () => {
-                    // loaded: the snapshot is consumed once all slices are back
-                }
-            );
-            StructureService.delete(caPlayer, sid, st);
+        if (keys.length === 0) {
+            list.pop();
+            Config.set(Config.STRUCTURES, key, list);
+            overCallback();
+            return;
         }
 
-        Config.set(Config.STRUCTURES, key, list);
-        overCallback();
+        caPlayer.forbidCmd = true;
+        let failed = 0;
+        try {
+            for (let i = 0; i < keys.length; i++) {
+                const sid = keys[i];
+                const st = complex[sid];
+                failed += await StructureService.load(
+                    caPlayer, st, sid, st.area.start, i, keys.length,
+                    "none", "0_degrees", false, true, false, 100, "",
+                    () => { /* completion is read from the return value */ }
+                );
+            }
+
+            const player = online(caPlayer.xuid);
+            const lang = caPlayer.$?.langCode ?? "en_US";
+
+            if (failed > 0) {
+                // keep the entry AND the slice files so the player can retry
+                if (player != null) {
+                    tell(player, StrFactory.cmdWarn(
+                        Tr._(lang, "dynamic.StructureManager.undo.incomplete", String(failed))
+                    ), MsgType.RAW);
+                }
+                return;
+            }
+
+            list.pop();
+            for (const sid of keys) StructureService.delete(caPlayer, sid, complex[sid]);
+            Config.set(Config.STRUCTURES, key, list);
+        } finally {
+            caPlayer.forbidCmd = false;
+            overCallback();
+        }
     }
 
     public static clearCopy(caPlayer: CAPlayer) {

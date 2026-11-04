@@ -370,6 +370,92 @@ async function runSuite() {
         return "placed at y+" + (foundAt - t.y) + " and restored";
     });
 
+    // --- UNDO of a large region (reported: "structure too large to place block
+    //     by block (368640 > 40000)") plus "the snapshot must survive a failure".
+    await checkAsync("ca.undoLarge", async () => {
+        const fs = require("fs");
+        const FillService = require(path.join(M.root, "core", "src", "structure", "FillService.js")).default;
+        const BlockType = require(path.join(M.root, "core", "src", "common", "BlockType.js")).default;
+        const Config = require(path.join(M.root, "core", "src", "common", "Config.js")).default;
+        const Chunks = require(path.join(M.root, "core", "src", "game", "Chunks.js"));
+        const Cmd = require(path.join(M.root, "core", "src", "game", "Cmd.js"));
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+        // 96 x 16 x 96 -> the largest slice is 64x16x64 = 65536, above maxPlaceBlocks
+        // (40000), i.e. exactly the situation that made /ca undo impossible.
+        const x0 = BX + 520;
+        const y0 = BY;
+        const z0 = BZ + 520;
+        const region = new M.Area3(
+            new M.Pos3(x0, y0, z0, DIM), new M.Pos3(x0 + 95, y0 + 15, z0 + 95, DIM));
+
+        const seedLease = await Chunks.acquire(region, "undo-seed");
+        assert(await Chunks.waitLoaded(region, 60000), "seed region not loaded");
+        for (let dy = 0; dy < 16; dy += 2) {
+            const res = Cmd.runNow("/fill " + x0 + " " + (y0 + dy) + " " + z0 + " " +
+                (x0 + 95) + " " + (y0 + dy + 1) + " " + (z0 + 95) + " minecraft:stone");
+            assert(res.ok, "seed fill failed at dy=" + dy + ": " + res.out);
+        }
+        assert(blockTypeAt(x0 + 8, y0 + 8, z0 + 8) === "minecraft:stone", "seed did not take");
+
+        const cap = fakePlayer(sim);
+        cap.settings.area = {
+            start: { x: x0, y: y0, z: z0, dimid: DIM },
+            end: { x: x0 + 95, y: y0 + 15, z: z0 + 95, dimid: DIM },
+        };
+        cap.hasSetArea = true;
+        seedLease.release();
+
+        // 1) clear: creates the undo snapshot of the stone
+        let cleared = null;
+        FillService.soildFill(cap, cap.settings.area, new BlockType("minecraft:air", ""),
+            new BlockType("", ""), "", (o) => { cleared = o; });
+        let waited = 0;
+        while (cleared == null && waited < 180000) { await sleep(1000); waited += 1000; }
+        assert(cleared != null && cleared.ok, "clear did not complete: " + JSON.stringify(cleared));
+
+        const key = "private." + cap.xuid + ".undoList";
+        const listBefore = (Config.get(Config.STRUCTURES, key) || []).length;
+        assert(listBefore > 0, "no undo snapshot was created by the clear");
+
+        // 2) a restore that CANNOT succeed must keep the snapshot
+        const original = Config.get(Config.GLOBAL, "maxRestoreBlocks", 2000000);
+        Config.set(Config.GLOBAL, "maxRestoreBlocks", 40000);
+        let firstDone = false;
+        M.StructureService.undoPop(cap, () => { firstDone = true; });
+        waited = 0;
+        while (!firstDone && waited < 180000) { await sleep(500); waited += 500; }
+        const listAfterFail = (Config.get(Config.STRUCTURES, key) || []).length;
+        const nbtDir = path.join(M.Paths.NBT);
+        const filesAfterFail = fs.existsSync(nbtDir) ? fs.readdirSync(nbtDir).length : 0;
+        assert(firstDone, "undoPop never reported completion");
+        assert(listAfterFail === listBefore, "a failed undo consumed the list entry (data loss): "
+            + listBefore + " -> " + listAfterFail);
+        assert(filesAfterFail > 0, "a failed undo deleted the snapshot files (data loss)");
+
+        // 3) with the budget restored, the same undo works
+        Config.set(Config.GLOBAL, "maxRestoreBlocks", original);
+        let undone = false;
+        M.StructureService.undoPop(cap, () => { undone = true; });
+        waited = 0;
+        while (!undone && waited < 300000) { await sleep(1000); waited += 1000; }
+        assert(undone, "undoPop (second attempt) never reported completion");
+
+        const verifyLease = await Chunks.acquire(region, "undo-verify");
+        await Chunks.waitLoaded(region, 60000);
+        const a = blockTypeAt(x0 + 8, y0 + 8, z0 + 8);
+        const b = blockTypeAt(x0 + 95, y0 + 15, z0 + 95);
+        const c = blockTypeAt(x0 + 48, y0, z0 + 48);
+        verifyLease.release();
+        assert(a === "minecraft:stone" && b === "minecraft:stone" && c === "minecraft:stone",
+            "undo did not restore the region: " + a + " / " + b + " / " + c);
+
+        const listAfterOk = (Config.get(Config.STRUCTURES, key) || []).length;
+        assert(listAfterOk === listBefore - 1, "a successful undo did not consume its entry: "
+            + listBefore + " -> " + listAfterOk);
+        return "96x16x96 clear -> failed undo kept the snapshot -> undo restored it";
+    });
+
     // --- chunk lease: must actually hold a ticking area, and free it -----------
     await checkAsync("chunks.lease", async () => {
         const Chunks = require(path.join(M.root, "core", "src", "game", "Chunks.js"));
