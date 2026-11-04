@@ -389,22 +389,31 @@ async function runSuite() {
         const region = new M.Area3(
             new M.Pos3(x0, y0, z0, DIM), new M.Pos3(x0 + 95, y0 + 15, z0 + 95, DIM));
 
-        const seedLease = await Chunks.acquire(region, "undo-seed");
-        assert(await Chunks.waitLoaded(region, 60000), "seed region not loaded");
-        for (let dy = 0; dy < 16; dy += 2) {
-            const res = Cmd.runNow("/fill " + x0 + " " + (y0 + dy) + " " + z0 + " " +
-                (x0 + 95) + " " + (y0 + dy + 1) + " " + (z0 + 95) + " minecraft:stone");
-            assert(res.ok, "seed fill failed at dy=" + dy + ": " + res.out);
-        }
-        assert(blockTypeAt(x0 + 8, y0 + 8, z0 + 8) === "minecraft:stone", "seed did not take");
-
         const cap = fakePlayer(sim);
         cap.settings.area = {
             start: { x: x0, y: y0, z: z0, dimid: DIM },
             end: { x: x0 + 95, y: y0 + 15, z: z0 + 95, dimid: DIM },
         };
         cap.hasSetArea = true;
-        seedLease.release();
+
+        // A previous run may have left this area restored to stone, in which case filling
+        // it with stone changes 0 blocks and BDS reports failure. Clear first.
+        const seedLease = await Chunks.acquire(region, "undo-seed");
+        try {
+            assert(await Chunks.waitLoaded(region, 60000), "seed region not loaded");
+            for (let dy = 0; dy < 16; dy += 2) {
+                Cmd.runNow("/fill " + x0 + " " + (y0 + dy) + " " + z0 + " " +
+                    (x0 + 95) + " " + (y0 + dy + 1) + " " + (z0 + 95) + " minecraft:air");
+            }
+            for (let dy = 0; dy < 16; dy += 2) {
+                const res = Cmd.runNow("/fill " + x0 + " " + (y0 + dy) + " " + z0 + " " +
+                    (x0 + 95) + " " + (y0 + dy + 1) + " " + (z0 + 95) + " minecraft:stone");
+                assert(res.ok, "seed fill failed at dy=" + dy + ": " + res.out);
+            }
+            assert(blockTypeAt(x0 + 8, y0 + 8, z0 + 8) === "minecraft:stone", "seed did not take");
+        } finally {
+            seedLease.release();
+        }
 
         // 1) clear: creates the undo snapshot of the stone
         let cleared = null;
