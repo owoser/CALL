@@ -7,22 +7,25 @@
 配置文件的真实路径是：
 
 ~~~text
-plugins/CALL/userdata/config/configs.json
+plugins/CALL/assets/configs.json
 ~~~
 
 Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`。启动日志里也会打印一次这个绝对路径（`[CALL] config: ...`），不确定时直接看日志。
 
-!> **原版文档写的 `CALL/config/configs.json` 是笔误。**
-原作者 1.6.1 的代码里配置一直写在 `userdata/config` 下；`plugins/CALL/config/` 只放只读资源（`check.json`、`help.json`、`icons.json`、`item_texture.json`、`url.json`、`lang/*.lang`），**不要**去那里找。
+!> **原版文档写的 `CALL/assets/configs.json` 是笔误。**
+原作者 1.6.1 的代码里配置一直写在 `config` 下；`plugins/CALL/assets/` 只放只读资源（`check.json`、`help.json`、`icons.json`、`item_texture.json`、`url.json`、`lang/*.lang`），**不要**去那里找。
 
 ## 目录职责
 
 | 目录 | 内容 | 是否可改 |
 |---|---|---|
-| `plugins/CALL/config/` | 内置资源：校验规则、图标、贴图索引、语言包 | ❌ 只读 |
-| `plugins/CALL/userdata/config/` | **configs.json**（本文档）、userlist.json（白名单） | ✅ 你的配置 |
-| `plugins/CALL/userdata/data/` | nbt/（结构切片）、settings.json、structures.json | ✅ 玩家数据 |
-| `plugins/CALL/userdata/plugins/` | 第三方形状包 | ✅ |
+| `plugins/CALL/core/` | 程序代码 | ❌ |
+| `plugins/CALL/assets/` | 只读资源：语言包、图标、贴图索引、校验规则、导入导出工具 | ❌ 不要改 |
+| `plugins/CALL/config/` | **configs.json（本文档）**、userlist.json（白名单）、permission.json | ✅ 你的配置 |
+| `plugins/CALL/data/` | nbt/（结构切片）、shapes/（形状包）、import/、export/、settings.json、structures.json | ✅ 你的数据 |
+
+> 3.0.x 及更早版本把配置和数据塞在一个嵌套了很多层级的目录里。
+> 3.1.0 起改为上面这套三段式结构，**升级时会自动迁移**，详见[从 1.x / 2.0 升级](user/migrate.md)。
 
 ## 生效方式
 
@@ -37,7 +40,7 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 | 键 | 默认值 | 可选值 | 说明 |
 |---|---|---|---|
 | `enable` | `true` | true / false | 总开关，关闭后 CALL 不加载任何功能 |
-| `permission` | `"op"` | `all` / `op` / `customize` | 谁能用；`customize` 时配合 `userdata/config/userlist.json` 白名单 |
+| `permission` | `"op"` | `all` / `op` / `customize` | 谁能用；`customize` 时配合 `config/userlist.json` 白名单 |
 | `consoleLanguage` | `"zh_CN"` | zh_CN / zh_TW / en_US / ru_RU | 控制台语言 |
 | `debugMod` | `false` | true / false | 输出调试日志（形状包开发时用） |
 | `displayLogo` | `true` | true / false | 启动时打印字符 Logo |
@@ -72,7 +75,7 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 
 ### 新玩家默认设置（`default` 对象）
 
-`default` 决定新玩家第一次进服时的个人设置；进服后玩家可在菜单里自行修改（存于 `userdata/data/settings.json`）。
+`default` 决定新玩家第一次进服时的个人设置；进服后玩家可在菜单里自行修改（存于 `data/settings.json`）。
 
 | 子键 | 默认值 | 说明 |
 |---|---|---|
@@ -103,4 +106,4 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 ## 改错了怎么办
 
 - 只是值写错：按上表填回默认值，然后 `/ca reload`；
-- 文件解析不了：删掉 `plugins/CALL/userdata/config/configs.json` 后重启，插件会从内置模板重新生成默认配置（覆盖配置项本身，玩家数据与结构文件不受影响）。
+- 文件解析不了：删掉 `plugins/CALL/assets/configs.json` 后重启，插件会从内置模板重新生成默认配置（覆盖配置项本身，玩家数据与结构文件不受影响）。

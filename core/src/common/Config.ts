@@ -11,16 +11,20 @@ export enum PermissionsType {
     FROM_TAG = "tag"
 }
 
-const URL_PATH = path.join(Paths.CONFIG, "url.json");
-const CHECK_PATH = path.join(Paths.CONFIG, "check.json");
-const ICONS_PATH = path.join(Paths.CONFIG, "icons.json");
-const ITEM_TEXTURE_PATH = path.join(Paths.CONFIG, "item_texture.json");
-const UPDATE_PATH = path.join(Paths.CONFIG, "update.json");
-const GLOBAL_PATH = path.join(Paths.USER_CONFIG, "configs.json");
-const PERMISSIONS_PATH = path.join(Paths.USER_CONFIG, "userlist.json");
+// read-only assets (shipped with the plugin)
+const CHECK_PATH = path.join(Paths.ASSETS, "check.json");
+const ICONS_PATH = path.join(Paths.ASSETS, "icons.json");
+const ITEM_TEXTURE_PATH = path.join(Paths.ASSETS, "item_texture.json");
+
+// user configuration
+const GLOBAL_PATH = path.join(Paths.CONFIG, "configs.json");
+const PERMISSIONS_PATH = path.join(Paths.CONFIG, "userlist.json");
+const PERMISSION_FILE_PATH = path.join(Paths.CONFIG, "permission.json");
+
+// user data
 const PLAYERS_SETTINGS_PATH = path.join(Paths.DATA, "settings.json");
 const STRUCTURES_PATH = path.join(Paths.DATA, "structures.json");
-const DATA_VERSION_PATH = path.join(Paths.USERDATA, "version");
+const DATA_VERSION_PATH = path.join(Paths.DATA, "version");
 
 /**
  * Pristine copy of the shipped defaults, kept in the read-only config folder.
@@ -30,11 +34,11 @@ const DATA_VERSION_PATH = path.join(Paths.USERDATA, "version");
  * the code defaults and there is nothing to read or edit. Restore the annotated template
  * instead, before the handles below are opened.
  */
-const CONFIG_TEMPLATE_PATH = path.join(Paths.CONFIG, "configs.default.json");
+const CONFIG_TEMPLATE_PATH = path.join(Paths.ASSETS, "configs.default.json");
 
 function healGlobalConfig(): void {
     try {
-        fs.mkdirSync(Paths.USER_CONFIG, { recursive: true });
+        fs.mkdirSync(Paths.CONFIG, { recursive: true });
         let missing = true;
         try {
             const st = fs.statSync(GLOBAL_PATH);
@@ -58,7 +62,6 @@ function healGlobalConfig(): void {
 healGlobalConfig();
 
 // LegacyScriptEngine's own file APIs take paths relative to the BDS root.
-const URL_LSE = Paths.lse(URL_PATH);
 const CHECK_LSE = Paths.lse(CHECK_PATH);
 const ITEM_TEXTURE_LSE = Paths.lse(ITEM_TEXTURE_PATH);
 const GLOBAL_LSE = Paths.lse(GLOBAL_PATH);
@@ -158,19 +161,18 @@ export default class Config {
     public static readonly CONFIG_PATH = Paths.CONFIG;
     public static readonly LANG_PATH = Paths.LANG;
     public static readonly BIN_PATH = Paths.BIN;
-    public static readonly DATAPATH = Paths.USERDATA;
+    public static readonly ASSETS_PATH = Paths.ASSETS;
+    /** Kept for backwards compatibility: data/ replaced userdata/. */
+    public static readonly DATAPATH = Paths.DATA;
     public static readonly DATA_PATH = Paths.DATA;
-    public static readonly BUILD_PATH = Paths.BUILD;
-    public static readonly PLUGINS_PATH = Paths.PLUGINS;
-    public static readonly TEMP_PATH = Paths.TEMP;
+    public static readonly SHAPES_PATH = Paths.SHAPES;
     public static readonly IMPORT_PATH = Paths.IMPORT;
     public static readonly EXPORT_PATH = Paths.EXPORT;
-    public static readonly UPDATE_PATH = UPDATE_PATH;
     public static readonly TEMPLATES_PATH = path.join(Paths.ROOT, "templates");
-    public static readonly STUPID_PERMISSION_FILE_PATH = path.join(Paths.USER_CONFIG, "stupid_permission_file.json");
+    /** Whitelist file used by permission "customize" (was stupid_permission_file.json). */
+    public static readonly PERMISSION_FILE_PATH = PERMISSION_FILE_PATH;
 
     // ---- config handles ---------------------------------------------------
-    public static URL = new JsonConfigFile(URL_LSE);
     public static GLOBAL = new JsonConfigFile(GLOBAL_LSE);
     public static PERMISSIONS = new JsonConfigFile(PERMISSIONS_LSE);
     public static PLAYERS_SETTINGS = new JsonConfigFile(PLAYERS_SETTINGS_LSE);
@@ -209,8 +211,10 @@ export default class Config {
             config.set(keys[0], data);
             return true;
         }
-        const root = config.get(keys[0]);
-        if (root == null || typeof root !== "object") return false;
+        // A missing top-level key is normal on a fresh install (e.g. structures.json starts
+        // as "{}"), and refusing here silently dropped every undo/redo snapshot.
+        let root = config.get(keys[0]);
+        if (root == null || typeof root !== "object") root = {};
         let cursor: any = root;
         try {
             for (let i = 1; i < keys.length - 1; i++) {
@@ -241,7 +245,6 @@ export default class Config {
 
     public static closeAll() {
         [
-            Config.URL,
             Config.GLOBAL,
             Config.PERMISSIONS,
             Config.PLAYERS_SETTINGS,
@@ -258,7 +261,6 @@ export default class Config {
     }
 
     public static openAll() {
-        Config.URL = new JsonConfigFile(URL_LSE);
         Config.GLOBAL = new JsonConfigFile(GLOBAL_LSE);
         Config.PERMISSIONS = new JsonConfigFile(PERMISSIONS_LSE);
         Config.PLAYERS_SETTINGS = new JsonConfigFile(PLAYERS_SETTINGS_LSE);

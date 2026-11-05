@@ -28,7 +28,7 @@
           └───lib
 ```
 
-> 3.x 的形状包目录是 `plugins/CALL/userdata/plugins`（1.x 是 `CALL/plugins/shape`）。
+> 3.x 的形状包目录是 `plugins/CALL/data/shapes`（1.x 是 `CALL/plugins/shape`）。
 > 内置示例包会以 `call.superx101.basicShape.js` 的形式出现在这里。
 
 - **其他语言**  
@@ -95,7 +95,7 @@ SHP.export_form((player, index, intPos)=>{
     <https://blog.csdn.net/zkl99999/article/details/44627911>
 
 ### 示例
-该示例为 `plugins/CALL/userdata/plugins/call.superx101.basicShape.js` 中的部分代码，用体素的方法生成了一个可自由旋转的立方体
+该示例为 `plugins/CALL/data/shapes/call.superx101.basicShape.js` 中的部分代码，用体素的方法生成了一个可自由旋转的立方体
 
 ?> 该代码已过期，具体实现请参考形状包
 

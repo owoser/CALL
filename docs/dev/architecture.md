@@ -22,7 +22,7 @@
 
 CALL 的做法：
 
-- **抓取**：~`~mc.getStructure~`~ → 存成 ~`~.mcstructure~`~ 到 ~`~userdata/data/nbt~`~；
+- **抓取**：~`~mc.getStructure~`~ → 存成 ~`~.mcstructure~`~ 到 ~`~data/nbt~`~；
 - **还原**：~`~core/src/io/NbtCodec.ts~`~ 解析字节，~`~StructurePlacement.placeLayoutAsync~`~ 逐块 ~`~Block.setNbt()~`~，每 ~`~placeBatchBlocks~`~ 块让出一次；
 - **变换**：镜像/旋转在 ~`~transformLayout~`~ 里提前改写索引（游戏端根本收不到旋转参数）。
 

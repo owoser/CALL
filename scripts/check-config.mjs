@@ -3,8 +3,8 @@
  * Validate CALL's configuration files offline.
  *
  * Both files are JSON with comments (JsonConfigFile accepts them), so this strips
- * comments first, then checks that every key listed in config/check.json exists in
- * data/config/configs.json - the same invariant app.checkConfig() enforces at startup,
+ * comments first, then checks that every key listed in assets/check.json exists in
+ * assets/configs.default.json - the same invariant app.checkConfig() enforces at startup,
  * which used to abort plugin init when the two drifted apart.
  */
 import { readFileSync } from 'node:fs';
@@ -57,8 +57,8 @@ function loadJsonc(file) {
     return JSON.parse(stripComments(readFileSync(file, 'utf8')));
 }
 
-const configsPath = join(ROOT, 'data', 'config', 'configs.json');
-const checkPath = join(ROOT, 'config', 'check.json');
+const configsPath = join(ROOT, 'assets', 'configs.default.json');
+const checkPath = join(ROOT, 'assets', 'check.json');
 
 const configs = loadJsonc(configsPath);
 const check = loadJsonc(checkPath);

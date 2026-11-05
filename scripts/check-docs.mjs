@@ -11,7 +11,9 @@
  *   2. no reference to the upstream project or its docs site is left in the pages
  *      (they describe 1.x behaviour, so they send readers to wrong instructions);
  *   3. the key list documented in user/config.md equals the keys in the shipped
- *      data/config/configs.json (config drifted ahead of the docs more than once).
+ *      assets/configs.default.json (config drifted ahead of the docs more than once).
+ *   4. no page still describes the removed userdata/ layout or the stale
+ *      plugins/CALL/config/configs.json path.
  */
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve, relative, sep } from 'node:path';
@@ -62,13 +64,24 @@ for (const file of walk(DOCS)) {
         note(rel + ': links to the upstream repository');
     }
     // user/config.md is allowed to quote the wrong path while explaining it is wrong
-    if (/CALL\/config\/configs\.json/.test(text) && !rel.endsWith('docs/user/config.md')) {
+    // the upstream docs pointed at CALL/config/configs.json (no plugins/ prefix, and it never existed)
+    if (/(?<!plugins\/)CALL\/config\/configs\.json/.test(text)) {
         note(rel + ': uses the wrong config path (CALL/config/configs.json)');
     }
 }
 
+// ------------------------------------------------ 4. removed userdata/ layout
+for (const file of walk(DOCS)) {
+    const rel = relative(ROOT, file).split(sep).join('/');
+    if (rel.endsWith('docs/user/migrate.md')) continue; // migration note legitimately mentions it
+    const text = readFileSync(file, 'utf8');
+    if (/userdata\/(config|data|plugins|temp|build|import|export)/.test(text)) {
+        note(rel + ': describes the removed userdata/ layout');
+    }
+}
+
 // ------------------------------------------- 3. documented keys == shipped keys
-const configPath = join(ROOT, 'data', 'config', 'configs.json');
+const configPath = join(ROOT, 'assets', 'configs.default.json');
 const docPath = join(DOCS, 'user', 'config.md');
 if (!existsSync(configPath) || !existsSync(docPath)) {
     note('cannot compare config keys (missing file)');

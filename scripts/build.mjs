@@ -5,14 +5,16 @@
  * Steps:
  *   1. clean dist/
  *   2. compile TypeScript with tsc (tsconfig.build.json) -> dist/call
- *   3. copy config/, data/, bin/
- *   4. relocate compiled shape plugins into userdata/plugins
- *   5. pre-create the runtime directories the plugin expects
- *   6. vendor the production dependency closure into node_modules/
- *   7. emit manifest.json + package.json
- *   8. generate tooth.json from tooth_template.json
- *   9. optional: pack dist/CALL-<version>.zip
- *  10. optional: deploy to a BDS server (build.json -> bdsDir)
+ *   3. copy assets/ (read-only resources) + seed config/ + create data/ dirs
+ *   4. relocate compiled shape plugins into data/shapes
+ *   5. emit manifest.json + package.json + index.js
+ *   6. generate tooth.json from tooth_template.json
+ *   7. pack the lean zip (no node_modules - LSE installs them on first start)
+ *   8. unless --no-deps: pack the "full" offline zip with node_modules vendored
+ *   9. optional: deploy to a BDS server (build.json -> bdsDir)
+ *
+ * 3.1 layout: assets/ (read-only) + config/ (user) + data/ (user). The old
+ * userdata/{config,data,plugins,temp,build} nesting is gone.
  *
  * Usage:
  *   node scripts/build.mjs                # build + zip
@@ -39,7 +41,8 @@ import { createZip, walk } from './zip.mjs';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(ROOT, 'dist');
 const OUT = join(DIST, 'call');
-const USERDATA = join(OUT, 'userdata');
+const CONFIG_OUT = join(OUT, 'config');
+const DATA_OUT = join(OUT, 'data');
 
 const has = (flag) => process.argv.includes(flag);
 
@@ -87,17 +90,26 @@ async function copyIfPresent(from, to) {
 
 /** Move the compiled shape plugins next to the data they load at runtime. */
 async function relocateShapePlugins() {
-  const src = join(OUT, 'data', 'plugins');
-  const dst = join(USERDATA, 'plugins');
+  const src = join(OUT, 'shapes');
+  const dst = join(DATA_OUT, 'shapes');
   await mkdir(dst, { recursive: true });
-  if (await exists(src)) {
-    for (const ent of await readdir(src, { withFileTypes: true })) {
-      if (!ent.isFile()) continue;
-      await rename(join(src, ent.name), join(dst, ent.name));
+  if (!(await exists(src))) return;
+  for (const ent of await readdir(src, { withFileTypes: true })) {
+    if (!ent.isFile()) continue;
+    // Source lives at shapes/<pack>.ts (depth 1, so it imports "../core/..."), but it is
+    // loaded from data/shapes/<pack>.js (depth 2). Rewrite the requires to match, otherwise
+    // every built-in shape pack dies with MODULE_NOT_FOUND at load time.
+    if (ent.name.endsWith('.js')) {
+      const from = join(src, ent.name);
+      const code = await readFile(from, 'utf8');
+      await writeFile(join(dst, ent.name), code.split('"../core/').join('"../../core/').split("'../core/").join("'../../core/"), 'utf8');
+      await rm(from, { force: true });
+      continue;
     }
-    await rm(join(OUT, 'data'), { recursive: true, force: true });
-    log('relocated compiled shape plugins -> userdata/plugins');
+    await rename(join(src, ent.name), join(dst, ent.name));
   }
+  await rm(src, { recursive: true, force: true });
+  log('relocated compiled shape plugins -> data/shapes');
 }
 
 /**
@@ -107,16 +119,24 @@ async function relocateShapePlugins() {
  */
 async function ensureRuntimeDirs() {
   const dirs = [
-    'plugins',
-    'data/nbt',
-    'temp',
-    'build',
-    'import',
-    'export',
+    CONFIG_OUT,
+    join(DATA_OUT, 'nbt'),
+    join(DATA_OUT, 'shapes'),
+    join(DATA_OUT, 'import'),
+    join(DATA_OUT, 'export'),
   ];
-  for (const d of dirs) await mkdir(join(USERDATA, d), { recursive: true });
-  log('created runtime directories under userdata/');
+  for (const d of dirs) await mkdir(d, { recursive: true });
+  log('created runtime directories: config/ + data/{nbt,shapes,import,export}');
 }
+
+/**
+ * config/ is deliberately left EMPTY in the package.
+ *
+ * If the shipped defaults were written here, an upgrade would find "target already exists"
+ * and the player's real configs.json would be pushed aside as *.old. The plugin creates
+ * configs.json from assets/configs.default.json on first start instead (see
+ * Config.healGlobalConfig), so a legacy file always wins during migration.
+ */
 
 /**
  * Copy only the production dependency closure from the root node_modules.
@@ -225,12 +245,12 @@ async function emitTooth(pkg) {
  */
 const PLUGIN_NAME = 'CALL';
 
-async function pack(pkg) {
+async function pack(pkg, suffix = '') {
   const entries = (await walk(OUT)).map((e) => ({
     name: PLUGIN_NAME + '/' + relative(OUT, e.sourcePath).split(sep).join('/'),
     sourcePath: e.sourcePath,
   }));
-  const zipPath = join(DIST, 'CALL-' + pkg.version + '.zip');
+  const zipPath = join(DIST, 'CALL-' + pkg.version + suffix + '.zip');
   const res = await createZip(zipPath, entries);
   const mb = (res.bytes / 1048576).toFixed(2);
   log('packed ' + relative(ROOT, zipPath) + ' (' + res.files + ' files, ' + mb + ' MB)');
@@ -257,22 +277,26 @@ async function main() {
   await clean();
   compile();
 
-  await copyIfPresent(join(ROOT, 'config'), join(OUT, 'config'));
-  // Pristine copy of the defaults in the READ-ONLY folder: the plugin restores from it when
-  // the user's configs.json is missing or empty (LSE would create an empty file instead).
-  await copyIfPresent(join(ROOT, 'data', 'config'), join(USERDATA, 'config'));
-  await copyIfPresent(join(ROOT, 'data', 'config', 'configs.json'), join(OUT, 'config', 'configs.default.json'));
-  await copyIfPresent(join(ROOT, 'data', 'data'), join(USERDATA, 'data'));
-  await copyIfPresent(join(ROOT, 'data', 'version'), join(USERDATA, 'version'));
-  await copyIfPresent(join(ROOT, 'bin'), join(OUT, 'bin'));
-
-  await relocateShapePlugins();
+  await copyIfPresent(join(ROOT, 'assets'), join(OUT, 'assets'));
   await ensureRuntimeDirs();
-  if (!has('--no-deps')) await vendorDependencies();
+  await relocateShapePlugins();
 
   await emitManifests(pkg);
   await emitTooth(pkg);
+
+  // Lean package first: node_modules is deliberately NOT shipped - LSE runs
+  // `npm install --omit=dev` on the first start (verified on LL 26.51.x).
   if (!has('--no-zip')) await pack(pkg);
+
+  if (!has('--no-deps')) {
+    await vendorDependencies();
+    if (!has('--no-zip')) await pack(pkg, '-full');
+    // keep node_modules in dist/call only when deploying (offline dev server)
+    if (!has('--deploy')) {
+      await rm(join(OUT, 'node_modules'), { recursive: true, force: true });
+    }
+  }
+
   if (has('--deploy')) await deploy(pkg);
 
   log('done');

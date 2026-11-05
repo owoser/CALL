@@ -69,7 +69,7 @@
 ### 怎么导出结构？
 1. 使用 `/call list` 命令查看需要导出结构的id
 2. 在后台输入指令：`call export <格式名> <结构id> [是否包含实体] [文件名称]` 即可将CALL中保存的结构导出 
-3. 在 `plugins/CALL/userdata/export` 目录下可找到导出后的文件
+3. 在 `plugins/CALL/data/export` 目录下可找到导出后的文件
 
 指令说明：
 - `格式名` 目前支持的格式有: mcstructure
@@ -78,7 +78,7 @@
 - `文件名称` 导出后文件的名称，可不输入，默认为结构id
 
 ### 怎么导入文件为结构？
-1. 将需要导入的文件放入 `plugins/CALL/userdata/import` 目录下
+1. 将需要导入的文件放入 `plugins/CALL/data/import` 目录下
 2. 在后台输入指令：`call import <文件名> <玩家名> [是否包含实体] [结构名称]` 即可将文件导入为结构给某个玩家
 
 指令说明：
@@ -88,14 +88,14 @@
 - `结构名称` 结构的名称，默认为当前时间
 
 ### 怎么在另一个存档使用保存的建筑？
-结构文件保存在 `plugins/CALL/userdata/data` 里，与存档无关；换存档不会丢建筑，直接使用即可。
+结构文件保存在 `plugins/CALL/data` 里，与存档无关；换存档不会丢建筑，直接使用即可。
 
 ### 怎么更新CALL？
 3.x **没有自动更新**（1.x 的 `autoUpdate` 已移除），一律手动覆盖：
 
 1. 到 [Releases](https://github.com/owoser/CALL/releases/latest) 下载最新的 `CALL-<版本>.zip`
 2. 解压覆盖 `plugins/CALL` 里的程序文件
-3. **保留** `plugins/CALL/userdata`（配置、玩家设置、已保存的结构都在里面）
+3. **保留** `plugins/CALL/data`（配置、玩家设置、已保存的结构都在里面）
 4. 重启服务器
 
 ## 3.x 常见问题

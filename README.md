@@ -94,9 +94,9 @@ Everything is available as `/call ...` and `/ca ...`.
 
 Full reference: **<https://owoser.github.io/CALL/#/user/config>**
 
-`plugins/CALL/userdata/config/configs.json` (JSON with comments) - note that the original
-project's documentation claims `CALL/config/configs.json`, which is a **documentation
-error**: upstream's own code has always written it under `userdata/config`. The shipped
+`plugins/CALL/assets/configs.json` (JSON with comments) - note that the original
+project's documentation claims `CALL/assets/configs.json`, which is a **documentation
+error**: upstream's own code has always written it under `config`. The shipped
 `config/` folder holds read-only resources only.
 
 Keys added in 2.0.0 / 3.x:
@@ -114,19 +114,27 @@ Validate the pair offline with `npm run check:config`.
 
 ## Data
 
-```
+~~~
 plugins/CALL/
-  config/                 shipped defaults: configs schema, icons, lang
-  userdata/
-    config/               your configs.json, userlist.json
-    data/
-      nbt/                .mcstructure slice files (1.x compatible)
-      settings.json       per-player settings
-      structures.json     per-player structure index
-      area_display.json   crash journal for legacy structure_block display
-    plugins/              third-party shape packs
+  core/                   compiled program
+  assets/                 read-only: lang/, icons, schemas, bin/CALL-CLI.exe
+  config/                 your configuration
+    configs.json          global config (documented, with comments)
+    userlist.json         whitelist
+    permission.json       file-based whitelist
+  data/                   your data
+    nbt/                  .mcstructure slice files (1.x compatible)
+    shapes/               third-party shape packs
     import/ export/       import/export staging
-```
+    settings.json         per-player settings
+    structures.json       per-player structure index
+    area_display.json     crash journal for the selection highlight
+  node_modules/           installed by LSE on first start (npm install --omit=dev)
+~~~
+
+> 3.0.x and earlier nested all of this under `userdata/`. 3.1.0 flattens it to
+> `assets/` + `config/` + `data/` and migrates an existing install automatically on
+> first start.
 
 ## Building
 

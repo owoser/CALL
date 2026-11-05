@@ -15,12 +15,12 @@ compatible with LiteLoaderBDS 1.x servers, but it is designed to keep your data.
 
 | Data | Status |
 |---|---|
-| `userdata/config/configs.json` | Read as-is. New keys get defaults. |
-| `userdata/config/userlist.json` | Unchanged. |
-| `userdata/data/settings.json` | Unchanged. |
-| `userdata/data/structures.json` | Read as-is; records missing `redoList`/`copy` are repaired on read. |
-| `userdata/data/nbt/*.mcstructure` | Read as-is - same format, same ids. |
-| Third-party shape packs in `userdata/plugins/` | Still loaded. |
+| `config/configs.json` | Read as-is. New keys get defaults. |
+| `config/userlist.json` | Unchanged. |
+| `data/settings.json` | Unchanged. |
+| `data/structures.json` | Read as-is; records missing `redoList`/`copy` are repaired on read. |
+| `data/nbt/*.mcstructure` | Read as-is - same format, same ids. |
+| Third-party shape packs in `data/shapes/` | Still loaded. |
 
 ## Behaviour changes you should know about
 
@@ -62,6 +62,6 @@ have the operation fail than see the player move.
 | Symptom | Cause |
 |---|---|
 | Manifest rejected / name mismatch | The folder must be `plugins/CALL`. |
-| `[CALL] init failed` | Check `userdata/config/configs.json` against `config/check.json` (`npm run check:config`). |
+| `[CALL] init failed` | Check `config/configs.json` against `config/check.json` (`npm run check:config`). |
 | `/call` unknown | Another plugin owns the name, or the server was not fully started when the plugin registered. The console says which. |
-| "structure file missing" on paste | `userdata/data/nbt` was wiped; re-copy the region. |
+| "structure file missing" on paste | `data/nbt` was wiped; re-copy the region. |

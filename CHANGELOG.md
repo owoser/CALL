@@ -11,6 +11,59 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.1.0] - 2026-11-05
+
+### Changed - release layout
+
+The package used to nest everything under `userdata/` while the plugin root mixed
+read-only resources with user files, which made the (already mis-documented) config file
+impossible to find. The layout is now three clearly separated areas:
+
+~~~text
+plugins/CALL/
+  core/            program
+  assets/          read-only: lang/, bin/CALL-CLI.exe, check.json, configs.default.json, ...
+  config/          YOUR configuration: configs.json, userlist.json, permission.json
+  data/            YOUR data: nbt/, shapes/, import/, export/, settings.json, structures.json
+  node_modules/    installed by LSE on first start
+~~~
+
+- **Existing installs migrate automatically** on first start, before any file is opened
+  (`core/src/common/Layout.ts`). A target that already exists is never overwritten - the
+  legacy file is kept as `*.old` - and a failure leaves the old files untouched.
+- Renamed `userdata/config/stupid_permission_file.json` to `config/permission.json`.
+- Shape packs moved from `userdata/plugins/` to `data/shapes/`.
+- **Deleted directories and files that were never used**: `userdata/temp/`,
+  `userdata/build/` (always empty), `config/update.json`, `config/url.json`
+  (`Config.UPDATE` / `Config.URL` had no readers - auto-update was removed in 2.0).
+
+### Changed - dependencies are no longer shipped
+
+`node_modules/` is **no longer packaged** (it was 2.11 MB, 63% of the unpacked size).
+Verified on LL 26.51.x: when the folder is missing, LegacyScriptEngine runs
+`npm install --omit=dev` for the plugin and the plugin loads normally.
+
+- Default artifact `CALL-<version>.zip` is now **0.42 MB** (was 0.96 MB).
+- Offline servers get `CALL-<version>-full.zip` with the dependency tree vendored.
+- Documented in the install page, including what to do without npm access.
+
+### Fixed
+
+- `io/Utils.ts` built the CLI path from `process.cwd()`, so the import/export helper was
+  not found when the server was started from another working directory. It now uses the
+  plugin-relative `assets/bin/CALL-CLI.exe`.
+- `PermissionOperation.findByFile` threw when `permission.json` was missing or malformed;
+  it now treats that as "not in the whitelist".
+- The startup log prints `[CALL] config: ...` **and** `[CALL] data: ...`, plus a warning
+  when a legacy layout was migrated.
+
+### Tests
+
+- Unit: 40 (was 33). Adds `tests/unit/layout-migration.test.mjs` - the planner mapping,
+  the "never overwrite" rule, pruning of the legacy tree and "user files in temp/ are
+  left alone".
+- Live: 37 (was 34). Adds `layout.freshInstall` (the old paths must be gone, the new ones
+  present) and `layout.dependenciesInstalled`.
 ## [3.0.8] - 2026-11-04
 
 ### Fixed

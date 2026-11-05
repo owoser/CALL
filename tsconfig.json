@@ -24,7 +24,7 @@
     },
     "include": [
         "core/**/*.ts",
-        "data/plugins/*.ts",
+        "shapes/*.ts",
         "types/**/*.d.ts"
     ],
     "exclude": [

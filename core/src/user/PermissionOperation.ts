@@ -23,19 +23,26 @@ export default class PermissionOperation {
     }
 
     public static find(name: string) {
-        let list = Config.get(Config.PERMISSIONS, "list");
-        if (list.indexOf(name) != -1) {
-            return true;
-        }
-        return false;
+        // userlist.json is created empty on first start, so "list" may be missing entirely
+        const list = Config.get(Config.PERMISSIONS, "list");
+        if (!Array.isArray(list)) return false;
+        return list.includes(name);
     }
 
     /**
      * warning: this is a bad way to check permission, but simple
      */
     public static findByFile(name: string) {
-        const content = fs.readFileSync(Config.STUPID_PERMISSION_FILE_PATH, {encoding:"utf8"});
-        const list: string[] = JSON.parse(content);
+        // The file is optional: it only exists when the admin maintains a whitelist by hand.
+        // Missing or malformed content must not throw inside a permission check.
+        let list: string[] = [];
+        try {
+            const content = fs.readFileSync(Config.PERMISSION_FILE_PATH, { encoding: "utf8" });
+            const parsed = JSON.parse(content);
+            if (Array.isArray(parsed)) list = parsed.map((v) => String(v));
+        } catch {
+            return false;
+        }
         return list.includes(name);
     }
 

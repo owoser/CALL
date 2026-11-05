@@ -23,10 +23,12 @@
        CALL/                    ← 目录名必须正好是 CALL
          manifest.json
          index.js
-         core/
-         config/
-         userdata/
-         node_modules/
+         package.json
+         core/                  程序
+         assets/                只读资源（语言包、图标、导入导出工具）
+         config/                你的配置
+         data/                  你的数据
+         node_modules/          ← 首次启动时由 LSE 自动安装
    ~~~
 
 4. **重启服务器**。
@@ -42,7 +44,7 @@ LL3 要求插件目录名与 `manifest.json` 里的 `name` 完全一致，否则
 [CALL] LegacyScriptEngine ... 版本提示（若过低会警告）
 [CALL] [CALL][command] /call registered (alias: /ca)
 [CALL] 3.0.7 ready (root: <你的路径>/plugins/CALL)
-[CALL] config: <你的路径>/plugins/CALL/userdata/config/configs.json
+[CALL] config: <你的路径>/plugins/CALL/assets/configs.json
 ~~~
 
 然后进游戏输入 `/ca help` 能看到菜单即可。
@@ -51,11 +53,22 @@ LL3 要求插件目录名与 `manifest.json` 里的 `name` 完全一致，否则
 
 | 路径 | 内容 |
 |---|---|
-| `plugins/CALL/userdata/config/configs.json` | 全局配置（带注释，见[配置参考](user/config.md)） |
-| `plugins/CALL/userdata/data/settings.json` | 玩家个人设置 |
-| `plugins/CALL/userdata/data/structures.json` | 玩家结构索引 |
-| `plugins/CALL/userdata/data/nbt/` | 结构切片文件（`.mcstructure`） |
-| `plugins/CALL/userdata/plugins/` | 第三方形状包目录 |
+| `plugins/CALL/node_modules/` | 运行时依赖，**由 LSE 自动执行 `npm install --omit=dev` 安装**（首次启动会慢一点，需要能访问 npm 源） |
+| `plugins/CALL/config/configs.json` | 全局配置（带注释，见[配置参考](user/config.md)） |
+| `plugins/CALL/config/userlist.json` | 白名单（`permission` 为 `customize` 时使用） |
+| `plugins/CALL/config/permission.json` | 按文件维护的白名单 |
+| `plugins/CALL/data/settings.json` | 玩家个人设置 |
+| `plugins/CALL/data/structures.json` | 玩家结构索引 |
+| `plugins/CALL/data/nbt/` | 结构切片文件（`.mcstructure`） |
+| `plugins/CALL/data/shapes/` | 第三方形状包 |
+| `plugins/CALL/data/import` / `export` | 导入 / 导出暂存 |
+
+### 离线服务器怎么办
+
+本插件的依赖由 LSE 在首次启动时安装。**服务器不能访问 npm 源时**：
+
+- 用发布页里的 **`CALL-<版本>-full.zip`**（已内置 `node_modules`），或
+- 在插件目录手动执行 `npm install --omit=dev`。
 
 ## 从旧版本升级
 

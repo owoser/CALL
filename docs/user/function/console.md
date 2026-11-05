@@ -11,7 +11,7 @@
 
 ## 导出结构 `export`
 #### 指令
-从玩家保存的结构中导出，导出到：`plugins/CALL/userdata/export` 文件夹
+从玩家保存的结构中导出，导出到：`plugins/CALL/data/export` 文件夹
 > /call \<export | ex :enum\> \<mcstructure :enum\> \<id :string\> \[includeEntity :boolean\] \[name :string\]
 - `mcstructure`：选择导出的格式为 .mcstructure
 - `id`：结构id, 可使用 /call list 查看所有结构的id
@@ -22,7 +22,7 @@
 表示导出id为c0001230111205510003的结构，包含实体，且文件名为：test.mcstructure
 
 ## 导入结构 `import`
-从 `plugins/CALL/userdata/import` 文件夹下选择文件导入为结构，导入到某个玩家的保存中
+从 `plugins/CALL/data/import` 文件夹下选择文件导入为结构，导入到某个玩家的保存中
 #### 指令
 > /call \<import | im :enum\> \<fileName :string\> \<playerName :string\> \[includeEntity :boolean\] \[name :string\]
 - `fileName`：需要导入文件的文件名，请包含后缀。例：test.mcstructure
@@ -31,7 +31,7 @@
 - `name`：导入结构的结构名，默认为当前时间 
 
 指令示例：ca import test.mcstructure steve true a  
-表示从 `plugins/CALL/userdata/import/test.mcstructure` 导入结构给玩家 steve，且保留实体，结构名为 a
+表示从 `plugins/CALL/data/import/test.mcstructure` 导入结构给玩家 steve，且保留实体，结构名为 a
 
 ## 重载配置 `reload`
 重新读取配置文件并重载语言包，等同于重启插件但不断线。3.x **不再提供自动更新**。

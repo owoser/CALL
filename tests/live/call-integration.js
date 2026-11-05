@@ -127,10 +127,12 @@ async function runSuite() {
     });
     check("paths.dirs", () => {
         const fs = require("fs");
-        for (const d of [M.Paths.CONFIG, M.Paths.DATA, M.Paths.NBT, M.Paths.PLUGINS]) {
+        const dirs = [M.Paths.ASSETS, M.Paths.CONFIG, M.Paths.DATA, M.Paths.NBT, M.Paths.SHAPES, M.Paths.IMPORT, M.Paths.EXPORT, M.Paths.BIN, M.Paths.LANG];
+        for (const d of dirs) {
+            assert(typeof d === "string" && d !== "", "Path constant is undefined: " + JSON.stringify(dirs));
             assert(fs.existsSync(d), "missing " + d);
         }
-        return "ok";
+        return "assets + config + data";
     });
     check("config.versions", () => "plugin=" + M.Config.PLUGIN_VERSION + " bds=" + M.Config.SERVER_VERSION + " lse=" + M.Config.LSE_VERSION);
 
@@ -146,9 +148,51 @@ async function runSuite() {
         return file;
     });
 
+    // --- 3.1 layout ---------------------------------------------------------
+    check("layout.freshInstall", () => {
+        const fs = require("fs");
+        const root = M.root;
+        const mustExist = [
+            "config/configs.json",
+            "assets/lang/zh_CN.lang",
+            "assets/check.json",
+            "assets/configs.default.json",
+            "data/nbt",
+            "data/shapes",
+            "data/import",
+            "data/export",
+        ];
+        for (const rel of mustExist) {
+            assert(fs.existsSync(path.join(root, rel)), "missing " + rel);
+        }
+        // the old mess must be gone
+        const mustNotExist = [
+            "userdata",
+            "userdata/temp",
+            "userdata/build",
+            "config/update.json",
+            "config/url.json",
+            "config/check.json",
+            "config/configs.default.json",
+        ];
+        for (const rel of mustNotExist) {
+            assert(!fs.existsSync(path.join(root, rel)), "still ships " + rel);
+        }
+        return "assets/ + config/ + data/, no userdata/";
+    });
+
+    check("layout.dependenciesInstalled", () => {
+        const fs = require("fs");
+        const nm = path.join(M.root, "node_modules");
+        assert(fs.existsSync(nm), "node_modules missing: the lean package relies on LSE running npm install");
+        const count = fs.readdirSync(nm).filter((n) => !n.startsWith(".")).length;
+        assert(count > 0, "node_modules is empty");
+        return count + " packages installed by LSE";
+    });
+
     check("config.templateShipped", () => {
         const fs = require("fs");
-        const p = path.join(M.root, "config", "configs.default.json");
+        const p = path.join(M.root, "assets", "configs.default.json");
         assert(fs.existsSync(p), "missing read-only template used for self-heal: " + p);
         return p;
     });

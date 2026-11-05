@@ -33,6 +33,42 @@
 
 默认是 `structure_block`（在原版里也是这样）。如果不想让世界中出现临时结构方块，可以改成 `text` 或 `off`。
 
+
+## 3.1.0：目录结构变更（自动迁移）
+
+3.1.0 把原来七零八落的目录拍平了：
+
+| 旧（3.0.x 及更早） | 新（3.1.0） |
+|---|---|
+| `plugins/CALL/userdata/config/configs.json` | `plugins/CALL/config/configs.json` |
+| `plugins/CALL/userdata/config/userlist.json` | `plugins/CALL/config/userlist.json` |
+| `plugins/CALL/userdata/config/stupid_permission_file.json` | `plugins/CALL/config/permission.json` |
+| `plugins/CALL/userdata/data/**` | `plugins/CALL/data/**~` |
+| `plugins/CALL/userdata/plugins/**` | `plugins/CALL/data/shapes/**` |
+| `plugins/CALL/userdata/import` / `export` | `plugins/CALL/data/import` / `export` |
+| `plugins/CALL/config/` 里的 check.json、lang/、icons.json、item_texture.json 等 | `plugins/CALL/assets/`（只读资源） |
+| `userdata/temp`、`userdata/build`、`config/update.json`、`config/url.json` | 已删除（本来就没用到） |
+
+**你不需要做任何事**：
+
+1. 直接覆盖 ~`~plugins/CALL~` 里的程序文件（保留 ~`~config/~`~、~`~data/~`~ 或旧的 ~`~userdata/~`~ 都行）；
+2. 启动服务器，插件会在打开任何文件之前自动迁移；
+3. 控制台会打印 ~`~[CALL] layout migrated: N file(s) moved...~`~ 和新的 ~`~[CALL] config: ...~`~ / ~`~[CALL] data: ...~`~ 路径。
+
+迁移的安全性：
+
+- **目标已存在就不覆盖**，旧文件会被改名成 ~`~*.old~`~ 保留给你检查；
+- 迁移失败时**保留原文件**并在控制台打 WARN，插件继续用新路径运行；
+- 迁移完成后 ~`~userdata/~`~ 只在**完全为空**时才会被删除。
+
+## 依赖安装方式的变化（3.1.0）
+
+发布包不再内置 ~`~node_modules~`~（省 2.1 MB）。首次启动时 LSE 会为插件执行
+~`~npm install --omit=dev~`~ 安装依赖：
+
+- 服务器能访问 npm 源：什么都不用做，首次启动会慢一点；
+- **离线服务器**：请用发布页的 ~`~CALL-<版本>-full.zip~`~（内置依赖），或在插件目录手动跑一次 ~`~npm install --omit=dev~`~。
+
 ## 已知限制
 
 见[已知限制](other/limitations.md)。其中最需要注意的是 **方块实体内容（箱子、告示牌）不会被恢复**，以及**含水方块会变干**。

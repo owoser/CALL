@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import { migrateLegacyLayout } from "./Layout";
 
 /**
  * Locates this plugin's own directory and exposes every path CALL writes to.
@@ -105,23 +106,56 @@ function detectServerRoot(root: string): string {
 const SERVER_ROOT = detectServerRoot(ROOT);
 const SERVER_STRUCTURES_DIR = path.join(SERVER_ROOT, "structures");
 
+/**
+ * 3.1 layout:
+ *
+ *   assets/   read-only resources shipped with the plugin (lang, icons, schemas, CLI)
+ *   config/   the user's configuration
+ *   data/     the user's data
+ *
+ * The old `userdata/{config,data,plugins,temp,build}` nesting is migrated once at
+ * startup, before anything opens a file - see common/Layout.ts.
+ */
+const ASSETS_DIR = path.join(ROOT, "assets");
 const CONFIG_DIR = path.join(ROOT, "config");
-const USERDATA_DIR = path.join(ROOT, "userdata");
-const DATA_DIR = path.join(USERDATA_DIR, "data");
-const USER_CONFIG_DIR = path.join(USERDATA_DIR, "config");
+const DATA_DIR = path.join(ROOT, "data");
+
+const LANG_DIR = path.join(ASSETS_DIR, "lang");
+const BIN_DIR = path.join(ASSETS_DIR, "bin");
+const NBT_DIR = path.join(DATA_DIR, "nbt");
+const SHAPES_DIR = path.join(DATA_DIR, "shapes");
+const IMPORT_DIR = path.join(DATA_DIR, "import");
+const EXPORT_DIR = path.join(DATA_DIR, "export");
+
+// One-shot migration of the 1.x/3.0 layout. Must run before the config handles below are
+// opened, otherwise they would create empty files at the new paths and the old data would
+// be treated as "already migrated".
+let layoutNotice: string | null = null;
+try {
+    layoutNotice = migrateLegacyLayout(ROOT, (msg) => {
+        try {
+            logger.warn("[CALL] layout: " + msg);
+        } catch {
+            // logger not ready
+        }
+    });
+} catch (e) {
+    try {
+        logger.warn("[CALL] layout migration failed, keeping the old files: " + (e && (e as any).message ? (e as any).message : e));
+    } catch {
+        // ignore
+    }
+}
 
 /** Directories that must exist before the plugin can read or write anything. */
 const REQUIRED_DIRS = [
+    ASSETS_DIR,
     CONFIG_DIR,
-    USERDATA_DIR,
-    USER_CONFIG_DIR,
     DATA_DIR,
-    path.join(DATA_DIR, "nbt"),
-    path.join(USERDATA_DIR, "plugins"),
-    path.join(USERDATA_DIR, "temp"),
-    path.join(USERDATA_DIR, "build"),
-    path.join(USERDATA_DIR, "import"),
-    path.join(USERDATA_DIR, "export"),
+    NBT_DIR,
+    SHAPES_DIR,
+    IMPORT_DIR,
+    EXPORT_DIR,
     SERVER_STRUCTURES_DIR,
 ];
 
@@ -129,18 +163,18 @@ let dirsEnsured = false;
 
 export default class Paths {
     public static readonly ROOT = ROOT;
+    public static readonly ASSETS = ASSETS_DIR;
     public static readonly CONFIG = CONFIG_DIR;
-    public static readonly LANG = path.join(CONFIG_DIR, "lang");
-    public static readonly BIN = path.join(ROOT, "bin");
-    public static readonly USERDATA = USERDATA_DIR;
-    public static readonly USER_CONFIG = USER_CONFIG_DIR;
+    public static readonly LANG = LANG_DIR;
+    public static readonly BIN = BIN_DIR;
     public static readonly DATA = DATA_DIR;
-    public static readonly NBT = path.join(DATA_DIR, "nbt");
-    public static readonly PLUGINS = path.join(USERDATA_DIR, "plugins");
-    public static readonly TEMP = path.join(USERDATA_DIR, "temp");
-    public static readonly BUILD = path.join(USERDATA_DIR, "build");
-    public static readonly IMPORT = path.join(USERDATA_DIR, "import");
-    public static readonly EXPORT = path.join(USERDATA_DIR, "export");
+    public static readonly NBT = NBT_DIR;
+    /** Third-party shape packs (was userdata/plugins). */
+    public static readonly SHAPES = SHAPES_DIR;
+    public static readonly IMPORT = IMPORT_DIR;
+    public static readonly EXPORT = EXPORT_DIR;
+    /** Result of the one-shot legacy layout migration, if it ran. */
+    public static readonly LAYOUT_NOTICE = layoutNotice;
 
     /**
      * The BDS root (`plugins/../..`) and its `structures` folder.

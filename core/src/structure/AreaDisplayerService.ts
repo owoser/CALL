@@ -27,7 +27,7 @@ import { describeError, logFailure, safeCall } from "../util/Safe";
  * SAFETY RULES for structure_block (this is what 1.x got wrong):
  *   1. never overwrite anything: the slot must be air, and not already used by another
  *      player's highlight;
- *   2. the original block NBT is journaled to `userdata/data/area_display.json` BEFORE
+ *   2. the original block NBT is journaled to `data/area_display.json` BEFORE
  *      the world is touched, so a crash / kill / `ll reload` can still be recovered -
  *      `releaseAll()` runs at startup and on unload;
  *   3. only the six bounding-box fields are written into the block entity, and every
@@ -54,7 +54,7 @@ interface DisplayState {
     record: StructureBlockRecord | null;
 }
 
-const JOURNAL_PATH = () => Paths.join("userdata", "data", "area_display.json");
+const JOURNAL_PATH = () => Paths.join("data", "area_display.json");
 
 function readJournal(): Record<string, StructureBlockRecord> {
     try {
@@ -67,7 +67,7 @@ function readJournal(): Record<string, StructureBlockRecord> {
 
 function writeJournalFile(data: Record<string, StructureBlockRecord>): void {
     try {
-        fs.mkdirSync(Paths.join("userdata", "data"), { recursive: true });
+        fs.mkdirSync(Paths.DATA, { recursive: true });
         fs.writeFileSync(JOURNAL_PATH(), JSON.stringify(data, null, 2), "utf8");
     } catch (e) {
         logFailure("AreaDisplay.journal", e);

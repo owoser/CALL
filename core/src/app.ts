@@ -249,9 +249,11 @@ function init(): boolean {
         ListenerHandler.init(); //init listener
         CACommand.register(); //register command
         logger.info("[CALL] " + Config.PLUGIN_VERSION.toString() + " ready (root: " + Paths.toPosix(Paths.ROOT) + ")");
-    // Print the config location: the upstream docs point at a path that never existed and
-    // users could not find the file at all.
+    // Print the locations: the upstream docs point at a config path that never existed, and
+    // since 3.1 the layout is assets/ (read-only) + config/ + data/.
     logger.info("[CALL] config: " + Paths.toPosix(Config.GLOBAL_FILE));
+    logger.info("[CALL] data  : " + Paths.toPosix(Paths.DATA));
+    if (Paths.LAYOUT_NOTICE != null) logger.warn("[CALL] " + Paths.LAYOUT_NOTICE);
     } catch (e) {
         logger.error("[CALL] init failed: " + describeError(e) + "\nstack:" + (e && e.stack ? e.stack : ""));
         return false;

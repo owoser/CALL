@@ -1,5 +1,6 @@
 import Config from "../common/Config";
 import * as fs from "fs";
+import * as path from "path";
 import { IPlugin, PluginTool } from "./Plugin";
 
 export class PluginLoader {
@@ -7,12 +8,13 @@ export class PluginLoader {
     public static pluginsMap = new Map<string, IPlugin>();
 
     public loadPlugins() {
-        const files = fs.readdirSync(Config.PLUGINS_PATH);
+        const files = fs.readdirSync(Config.SHAPES_PATH);
 
         for (const fileName of files) {
-            const fullPath = "../../../userdata/plugins/" + fileName;
-
             if (!fileName.endsWith(".js")) continue;
+            // Absolute path: the old code hardcoded "../../../userdata/plugins/", which
+            // silently broke every shape pack once the directory moved to data/shapes/.
+            const fullPath = path.join(Config.SHAPES_PATH, fileName);
 
             try {
                 const PluginClass: new (tool: PluginTool) => IPlugin = require(fullPath).default;

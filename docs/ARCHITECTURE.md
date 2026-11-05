@@ -27,7 +27,7 @@ Consequences: paste and shape generation killed the server on LL3.
 
 What CALL does instead:
 
-- **capture**: `mc.getStructure` → `.mcstructure` bytes in `userdata/data/nbt`;
+- **capture**: `mc.getStructure` → `.mcstructure` bytes in `data/nbt`;
 - **restore**: `core/src/io/NbtCodec.ts` parses those bytes and
   `StructurePlacement.placeLayoutAsync` writes blocks with `Block.setNbt()`, yielding
   every `placeBatchBlocks` (default 600) blocks so no tick stalls;
@@ -112,7 +112,7 @@ Notes:
 temporary structure block:
 
 - only into a verified air block that no other highlight uses - never over a build;
-- the displaced block's NBT is journaled to `userdata/data/area_display.json` **before**
+- the displaced block's NBT is journaled to `data/area_display.json` **before**
   the world is touched, and restored on logout, unload and next startup;
 - only the six bounding-box fields are written into the block entity.
 
