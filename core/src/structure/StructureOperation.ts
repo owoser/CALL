@@ -11,7 +11,7 @@ import { Pos } from "../temp/Pos";
 import Tr from "../util/Translator";
 import { MsgType, online, tell } from "../util/Msg";
 import { describeError } from "../util/Safe";
-import { Degrees, MirrorMode, degreesName, rotatedTargetAreas } from "./Rotate";
+import { Degrees, MirrorMode, degreesName, rotatedTargetAreas, rotatedUnion } from "./Rotate";
 
 export default class StructureOperation {
     private static setDimid(complex: any, distDimid: number): void {
@@ -49,6 +49,19 @@ export default class StructureOperation {
         } else {
             return { xuid, structid };
         }
+    }
+
+    /** Plain {start,end} corners (no dimid) -> a real Area3 in the target dimension. */
+    private static areaOf(
+        a: { start: { x: number; y: number; z: number }; end: { x: number; y: number; z: number } },
+        dimid: number
+    ): Area3 {
+        return Area3.fromArea3D(
+            new Area3(
+                new Pos3(a.start.x, a.start.y, a.start.z, dimid as any),
+                new Pos3(a.end.x, a.end.y, a.end.z, dimid as any)
+            )
+        );
     }
 
     public static checkTargetStruct(
@@ -153,13 +166,33 @@ export default class StructureOperation {
         } else {
             pos = Pos3.fromPos(res.IntPos);
         }
-        StructureOperation.checkTargetStruct(st.area, pos, caPlayer);
-        let targetArea = Area3.fromArea3D(st.area)
-            .relative()
-            .addBoth(pos.x, pos.y, pos.z);
+        // /ca load rotates/mirrors inside the placement pipeline, so the undo snapshot has to
+        // be the ROTATED destination box; moving the source box onto pos covers the wrong
+        // cells as soon as Degrees is not 0.
+        const degrees = (parseFloat(String(res.Degrees ?? "0")) || 0) as Degrees;
+        const mirror = String(res.Mirror ?? "none").toLowerCase() as MirrorMode;
+        const box = rotatedUnion({ st: structure }, pos, degrees, mirror);
+        if (box == null) {
+            throw new Error("无法计算粘贴目标区域");
+        }
+        StructureOperation.checkTargetStruct(
+            new Area3(
+                new Pos3(box.x1, box.y1, box.z1, pos.dimid),
+                new Pos3(box.x2, box.y2, box.z2, pos.dimid)
+            ),
+            pos,
+            caPlayer
+        );
+        let targetArea = new Area3(
+            new Pos3(box.x1, box.y1, box.z1, pos.dimid),
+            new Pos3(box.x2, box.y2, box.z2, pos.dimid)
+        );
+        const undoStructs = rotatedTargetAreas({ st: structure }, pos, degrees, mirror).map(
+            (a) => new Structure(StructureOperation.areaOf(a, pos.dimid))
+        );
         StructureOperation.setDimid({ st: structure }, pos.dimid); // set dimid to structure
         //save dist area
-        StructureService.undoSave(caPlayer, [new Structure(targetArea)], () => {
+        StructureService.undoSave(caPlayer, undoStructs, () => {
             StructureService.load(
                 caPlayer,
                 structure,
@@ -536,21 +569,16 @@ export default class StructureOperation {
             return;
         }
 
-        const targets = rotatedTargetAreas(data.copy, pos, degrees, mirror).map(
-            (a) => new Structure(Area3.fromArea3D(new Area3(Pos3.fromPos(a.start as any), Pos3.fromPos(a.end as any))))
-        );
+        // The snapshot must cover exactly the cells the paste writes. rotatedTargetAreas()
+        // derives them from the clipboard-relative transform - the same one
+        // StructureService.load() places the slices with - so undo and preview agree.
+        const areas = rotatedTargetAreas(data.copy, pos, degrees, mirror);
+        const targets = areas.map((a) => new Structure(StructureOperation.areaOf(a, pos.dimid)));
 
-        for (const target of rotatedTargetAreas(data.copy, pos, degrees, mirror)) {
-            StructureOperation.checkTargetStruct(
-                Area3.fromArea3D(
-                    new Area3(
-                        Pos3.fromPos(target.start as any),
-                        Pos3.fromPos(target.end as any)
-                    )
-                ),
-                pos,
-                caPlayer
-            );
+        // Bounds check on the DESTINATION box: the old loop fed the source's absolute
+        // coordinates through checkTargetStruct, which says nothing about the paste.
+        for (const target of targets) {
+            StructureOperation.checkTargetStruct(target.area, pos, caPlayer);
         }
 
         StructureOperation.setDimid(data.copy, pos.dimid);

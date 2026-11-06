@@ -7,12 +7,12 @@ import { Complex, Data, Structure } from "../common/Structure";
 import { Areas } from "../temp/Data";
 import StrFactory from "../util/StrFactory";
 import NBTService from "./NBTService";
-import { Matrix3D, Transform3 } from "../util/SimpleMatrix";
 import Tr from "../util/Translator";
 import { MsgType, online, tell } from "../util/Msg";
 import { describeError, logFailure, sleep } from "../util/Safe";
 import { acquire, isLoaded, waitLoaded } from "../game/Chunks";
 import { clipboardMin } from "./Clipboard";
+import { Degrees, MirrorMode, sliceDestMin, transformedSize } from "./Rotate";
 
 
 /**
@@ -321,24 +321,45 @@ export default class StructureService {
         }
         const areas = new Structure(area).getAreas();
         const degreeNum = parseFloat(degrees) || 0;
+        const rotateDeg = degreeNum as Degrees;
+        const mirrorMode = String(mirror ?? "none").toLowerCase() as MirrorMode;
         const lang = StructureService.langOf(caPlayer);
+        const boxW = area.end.x - area.start.x + 1;
+        const boxD = area.end.z - area.start.z + 1;
 
-        const trans = Transform3.getBasicRota(degreeNum).mul(Transform3.getMirror(mirror));
-        const sta2 = area.start.transform2D(trans as Matrix3D);
-        const end2 = area.end.transform2D(trans as Matrix3D);
-        const lens2 = [end2.x - sta2.x, end2.z - sta2.z];
-
+        // Where every slice goes. TWO transforms happen on the way to the world and they must
+        // not both move the paste:
+        //   * transformLayout() inside placeBytesAsync rotates the slice's own cells and
+        //     normalises the result to [0..w-1] x [0..d-1];
+        //   * this loop only decides the slice's minimum corner.
+        // The old code additionally transformed the slice areas with Transform3 and shifted
+        // them by (tx,tz) to undo the negative half of the rotation - but transformLayout
+        // already did that, so every rotated paste landed (edge-1) blocks away from both the
+        // preview and the requested position.
         for (let iz = 0; iz < preStructure.zSize; iz++) {
             for (let ix = 0; ix < preStructure.xSize; ix++) {
-                const a = areas[ix][iz].transform2D(trans as Matrix3D);
-                a.start.add(posInt.x, posInt.y, posInt.z);
-                a.end.add(posInt.x, posInt.y, posInt.z);
-                areas[ix][iz] = a;
+                const slice = areas[ix][iz];
+                const sw = slice.end.x - slice.start.x + 1;
+                const sd = slice.end.z - slice.start.z + 1;
+                const [dx, dz] = sliceDestMin(
+                    slice.start.x - area.start.x,
+                    slice.start.z - area.start.z,
+                    sw, sd,
+                    boxW, boxD,
+                    rotateDeg, mirrorMode
+                );
+                const [ow, od] = transformedSize(sw, sd, rotateDeg);
+                areas[ix][iz] = new Area3(
+                    new Pos3(posInt.x + dx, posInt.y, posInt.z + dz, posInt.dimid),
+                    new Pos3(
+                        posInt.x + dx + ow - 1,
+                        posInt.y + (area.end.y - area.start.y),
+                        posInt.z + dz + od - 1,
+                        posInt.dimid
+                    )
+                );
             }
         }
-
-        const tx = lens2[0] < 0 ? -lens2[0] : 0;
-        const tz = lens2[1] < 0 ? -lens2[1] : 0;
 
         await StructureService.traversal(
             caPlayer,
@@ -346,8 +367,7 @@ export default class StructureService {
             Tr._(lang, "dynamic.StructureManager.load.loading", `${index + 1}/${total}`),
             (x: number, z: number) => {
                 const saveid = structid + "_" + x + "_" + z;
-                const start = areas[x][z].start;
-                const target = new Pos3(start.x + tx, start.y, start.z + tz, start.dimid);
+                const target = areas[x][z].start;
                 // placement is asynchronous (block by block, yielding between batches)
                 return NBTService.loadAsync(caPlayer, saveid, target, mirror, degreeNum).then(() => true);
             },

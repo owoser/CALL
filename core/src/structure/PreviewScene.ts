@@ -5,8 +5,8 @@ import NBTService from "./NBTService";
 import StructureService from "./StructureService";
 import { parseStructureLayout } from "../io/NbtCodec";
 import { extractSurface, PreviewBlock, SliceInput } from "./SurfaceExtract";
-import { Degrees, MirrorMode, transformOffset } from "./Rotate";
-import { applyYCorrection, clipboardMin } from "./Clipboard";
+import { Degrees, MirrorMode, transformCell } from "./Rotate";
+import { applyYCorrection, clipboardBox } from "./Clipboard";
 import Area3 from "../common/Area3";
 import { Structure } from "../common/Structure";
 import ItemDisplay from "../holo/ItemDisplay";
@@ -22,7 +22,11 @@ import { describeError } from "../util/Safe";
  *     and the total is capped (previewMaxBlocks);
  *   - creation is spread over several ticks (previewBatchSize) so a big paste never freezes
  *     the server for a second;
- *   - rotating moves the existing displays instead of rebuilding them;
+ *   - rotating DESTROYS and rebuilds the displays (itemDisplaySetPosition did not move them
+ *     at runtime, only their own rotation changed); the block list is cached so this never
+ *     re-reads the slice files;
+ *   - positions come from transformCell(), the same mapping the paste uses, so the ghost is
+ *     always exactly where /ca preview confirm will write;
  *   - only the previewing player sees them (itemDisplaySetVisiblePlayer);
  *   - teardown destroys our ids one by one and NEVER calls itemDisplayDestroyAll(), which
  *     would also wipe displays belonging to other plugins.
@@ -30,6 +34,8 @@ import { describeError } from "../util/Safe";
 
 interface Scene {
     anchor: Pos3;
+    /** Clipboard extent, needed to normalise the rotation (see Rotate.transformCell). */
+    size: [number, number, number];
     /** Base (unrotated) offsets, so rotation never has to re-read the files. */
     blocks: PreviewBlock[];
     ids: number[];
@@ -89,9 +95,20 @@ function maxBlocks(): number {
     return Math.floor(num("previewMaxBlocks", 2000, 200, 20000));
 }
 
-/** World position of a block centre under the current transform. */
-function worldPos(anchor: Pos3, block: PreviewBlock, degrees: Degrees, mirror: MirrorMode): [number, number, number] {
-    const [dx, dz] = transformOffset(block.dx, block.dz, degrees, mirror);
+/**
+ * World position of a block centre under the current transform.
+ *
+ * The offset is normalised against the clipboard extent, exactly like the paste: the rotated
+ * box grows from the anchor instead of reaching into negative offsets.
+ */
+function worldPos(
+    anchor: Pos3,
+    block: PreviewBlock,
+    degrees: Degrees,
+    mirror: MirrorMode,
+    size: [number, number, number]
+): [number, number, number] {
+    const [dx, dz] = transformCell(block.dx, block.dz, size[0], size[2], degrees, mirror);
     return [
         anchor.x + dx + 0.5,
         // bottom centre: y is the block's own level, offY/measured correction lift the model
@@ -116,13 +133,21 @@ export interface BuildResult {
 
 export const PreviewScene = {
     /** Read the clipboard and turn it into surface blocks (no displays yet). */
-    gather(xuid: string): { slices: SliceInput[]; error?: string; tooBig?: boolean } {
+    gather(xuid: string): {
+        slices: SliceInput[];
+        size?: [number, number, number];
+        error?: string;
+        tooBig?: boolean;
+    } {
         const data = StructureService.getData(xuid) as any;
         const complex = data?.copy ?? {};
         const sids = Object.keys(complex);
         if (sids.length === 0) return { slices: [], error: "剪贴板是空的" };
 
-        const min = clipboardMin(complex);
+        const box = clipboardBox(complex);
+        if (box == null) return { slices: [], error: "剪贴板是空的" };
+        const min = box.min;
+        const size: [number, number, number] = [box.size.x, box.size.y, box.size.z];
         const slices: SliceInput[] = [];
         let cells = 0;
 
@@ -163,7 +188,7 @@ export const PreviewScene = {
         }
 
         if (slices.length === 0) return { slices: [], error: "切片文件读取失败" };
-        return { slices };
+        return { slices, size };
     },
 
     /**
@@ -197,6 +222,7 @@ export const PreviewScene = {
 
         const scene: Scene = {
             anchor,
+            size: gathered.size ?? [1, 1, 1],
             blocks: extracted.blocks,
             ids: [],
             degrees,
@@ -226,13 +252,16 @@ export const PreviewScene = {
 
         for (let i = scene.ids.length; i < end; i++) {
             const block = scene.blocks[i];
-            const [x, y, z] = worldPos(scene.anchor, block, scene.degrees, scene.mirror);
+            const [x, y, z] = worldPos(scene.anchor, block, scene.degrees, scene.mirror, scene.size);
             const id = ItemDisplay.create({
                 x, y, z, dim,
                 blockId: block.id,
                 scale,
                 offsetY: blockOffsetY(),
-                rotY: scene.degrees,
+                // NEVER rotated with the preview: transformLayout() only moves cells, it does
+                // not turn block states, so a turned model would show a facing the paste is
+                // not going to write. Pattern rotation is visible in the positions alone.
+                rotY: 0,
                 viewDistance: dist,
                 onlyPlayer: scene.playerName,
             });

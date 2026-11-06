@@ -114,6 +114,14 @@ The selection outline and the paste preview are drawn **client side** through Ho
 (DebugShape shapes and item displays): nothing is written to the world, the preview is visible
 to the previewing player only, and teardown never touches displays belonging to other plugins.
 
+The preview, the outline, the undo snapshot and the actual paste are driven by one cell mapping
+(`transformCell` in `core/src/structure/Rotate.ts`, the same table `transformLayout` writes
+with), so what you see is exactly what gets pasted. Rotation is anchored at the **minimum
+corner of the paste box**, which is the block you clicked: turning the clipboard rearranges it
+inside the box and swaps width/depth at 90°, but never slides the box sideways. Preview blocks
+are not model-rotated - the paste does not turn block states, so the ghost shows the facing that
+will really be written.
+
 ## Configuration
 
 Full reference: **<https://owoser.github.io/CALL/#/user/config>**

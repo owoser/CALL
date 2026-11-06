@@ -56,6 +56,11 @@ test('rotatedUnion swaps the footprint at 90/270 and keeps Y', () => {
     const turned = rotatedUnion(complex, pos(100, 64, 100), 90, 'none');
     assert.equal(Math.abs(turned.x2 - turned.x1), 1, 'x extent becomes the old z extent');
     assert.equal(Math.abs(turned.z2 - turned.z1), 3, 'z extent becomes the old x extent');
+    // the rotated box grows FROM the anchor: it never jumps to the negative side
+    assert.deepEqual(
+        [turned.x1, turned.z1, turned.x2, turned.z2],
+        [100, 100, 101, 103]
+    );
     assert.equal(turned.y1, 64);
     assert.equal(turned.y2, 64);
 });
@@ -69,10 +74,11 @@ test('rotatedUnion unions every slice and applies the mirror', () => {
     const box = rotatedUnion(complex, pos(10, 70, 10), 0, 'none');
     assert.deepEqual([box.x1, box.x2, box.y1, box.y2, box.z1, box.z2], [10, 15, 70, 72, 10, 11]);
 
-    // mirroring in X moves the far slice to the other side of the anchor
-    // mirror in X: the [0,1] slice lands at 9..10, the [4,5] slice at 5..6
+    // Mirroring rearranges the pattern INSIDE the box; the box itself still starts at the
+    // anchor. (It used to be computed from the slices' absolute coordinates, which put it at
+    // 5..10 - the bug that made the wireframe and the real paste disagree.)
     const mirrored = rotatedUnion(complex, pos(10, 70, 10), 0, 'x');
-    assert.deepEqual([mirrored.x1, mirrored.x2], [5, 10]);
+    assert.deepEqual([mirrored.x1, mirrored.x2], [10, 15]);
 });
 
 test('rotatedTargetAreas returns one area per slice, rotated', () => {

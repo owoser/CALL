@@ -39,8 +39,35 @@ Bundled tool items, a server-side selection wireframe, and a real fake-block pas
   of guessing model-unit offsets.
 - Previews are created with `itemDisplayCreateSeamless` so mode/view distance/visibility are
   set in the same packet (creating first and changing the mode respawns the display).
+- **Rotation is anchored at the minimum corner of the paste box** (= the block you clicked).
+  The rotated box grows from the anchor instead of reaching into negative offsets, so turning
+  a clipboard never slides it sideways. The preview, the outline, the undo snapshot and the
+  paste itself all use one mapping - `transformCell()` in `Rotate.ts`, whose rotation table is
+  a verbatim copy of `NbtCodec.transformLayout()`, the function that actually writes blocks.
+- Preview blocks are **not model-rotated** any more (`rotY = 0`). `transformLayout` only moves
+  cells, it does not turn block states, so a rotated model showed a facing the paste was never
+  going to write.
 
 ### Fixed
+
+- **Rotated paste landed (edge - 1) blocks away from the preview**, e.g. 3x1x3 turned 90° pasted
+  at x+2..x+4 while the ghost sat at x-2..x. `StructureService.load()` transformed the slice
+  areas with `Transform3` and then shifted them by `tx/tz` to undo the negative half of the
+  rotation - but `transformLayout` already normalises the result, so the rotation was applied
+  twice. `load()` now only decides each slice's minimum corner (`sliceDestMin`).
+- **The preview wireframe and the undo snapshot were computed from the clipboard's absolute
+  coordinates** instead of clipboard-relative ones: a clipboard copied 1200 blocks away drew its
+  box (and took its undo snapshot) thousands of blocks off, with Y counted twice. `rotatedUnion`
+  / `rotatedTargetAreas` now work off `clipboardBox()` (minimum + extent).
+- **Multi-slice paste**: slices of a rotated clipboard were placed with the whole-box shift
+  applied to each slice's start corner, which does not survive a mirror or a quarter turn. The
+  destination is now the minimum of the slice's two transformed corners, verified against
+  whole-box rotation for 64/65/100/130-block footprints.
+- **`/ca load ... <mirror> <degrees>`**: the undo snapshot was the unrotated source box moved
+  onto the target, so `/ca undo` restored a different region than the load wrote.
+- **Preview and paste disagreed on multi-slice clipboards**: the ghost used the clipboard
+  minimum as its origin while the paste used the absolute slice areas; both go through the same
+  relative mapping now.
 
 - **Preview could not read a clipboard at all** (`load.missingFile`): entries are keyed by
   structid, the files are `<structid>_<ix>_<iz>` from `Structure.getAreas()`. The preview now
@@ -61,8 +88,9 @@ Bundled tool items, a server-side selection wireframe, and a real fake-block pas
 
 ### Tests
 
-- Unit 67: layout migration, preview rotation maths, surface culling, chunk splitting, binding
-  lookup/migration, block-unit correction.
+- Unit 72: layout migration, preview rotation maths, **preview vs paste geometry** (7 clipboard
+  shapes x 4 angles x 4 mirrors, multi-slice tiling, undo-box coverage), surface culling, chunk
+  splitting, binding lookup/migration, block-unit correction.
 - Verified on BDS 1.26.60.6 / LSE nodejs 0.23.1 / HologramLib 26.60.1.
 
 ## [3.2.0] - 2026-11-06

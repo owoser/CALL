@@ -32,18 +32,49 @@ export interface SimpleBox {
     z2: number;
 }
 
-/** Minimum corner over every slice area (the clipboard's own origin). */
-export function clipboardMin(complex: Record<string, any>): { x: number; y: number; z: number } {
-    let x = Infinity, y = Infinity, z = Infinity;
+export interface ClipboardBox {
+    /** Minimum corner over every slice: the clipboard's own origin. */
+    min: { x: number; y: number; z: number };
+    /** Extent in blocks. */
+    size: { x: number; y: number; z: number };
+}
+
+/**
+ * Minimum corner + extent of a clipboard.
+ *
+ * The extent matters as much as the origin: every transform has to be expressed relative to
+ * it (a rotation maps 0..w-1 onto 0..w-1), and using the absolute world coordinates instead
+ * is what put the paste wireframe thousands of blocks away from the paste.
+ */
+export function clipboardBox(complex: Record<string, any>): ClipboardBox | null {
+    let minX = Infinity, minY = Infinity, minZ = Infinity;
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+
     for (const sid of Object.keys(complex ?? {})) {
         const area = complex[sid]?.area;
         if (area?.start == null) continue;
-        x = Math.min(x, area.start.x, area.end?.x ?? area.start.x);
-        y = Math.min(y, area.start.y, area.end?.y ?? area.start.y);
-        z = Math.min(z, area.start.z, area.end?.z ?? area.start.z);
+        const ex = area.end?.x ?? area.start.x;
+        const ey = area.end?.y ?? area.start.y;
+        const ez = area.end?.z ?? area.start.z;
+        minX = Math.min(minX, area.start.x, ex);
+        minY = Math.min(minY, area.start.y, ey);
+        minZ = Math.min(minZ, area.start.z, ez);
+        maxX = Math.max(maxX, area.start.x, ex);
+        maxY = Math.max(maxY, area.start.y, ey);
+        maxZ = Math.max(maxZ, area.start.z, ez);
     }
-    if (!Number.isFinite(x)) return { x: 0, y: 0, z: 0 };
-    return { x, y, z };
+    if (!Number.isFinite(minX) || !Number.isFinite(maxX)) return null;
+
+    return {
+        min: { x: minX, y: minY, z: minZ },
+        size: { x: maxX - minX + 1, y: maxY - minY + 1, z: maxZ - minZ + 1 },
+    };
+}
+
+/** Minimum corner over every slice area (the clipboard's own origin). */
+export function clipboardMin(complex: Record<string, any>): { x: number; y: number; z: number } {
+    const box = clipboardBox(complex);
+    return box == null ? { x: 0, y: 0, z: 0 } : box.min;
 }
 
 /** Union box of the destination, given the anchor and the (already known) size per slice. */
