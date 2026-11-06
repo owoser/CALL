@@ -112,8 +112,9 @@ restart is required; the console says so. Clients must receive the resource pack
 to show - set `texturepack-required=true` or hand out `/ca tools pack` (`.mcaddon`).
 
 The selection outline and the paste preview are drawn **client side** through HologramLib
-(DebugShape shapes and item displays): nothing is written to the world, the preview is visible
-to the previewing player only, and teardown never touches displays belonging to other plugins.
+(DebugShape shapes and `viewBlock` block overrides): nothing is written to the world, the
+preview is visible to the previewing player only, and teardown clears exactly its own cells -
+never `viewClearAll`, which would also drop another plugin's overrides for that player.
 
 The preview, the outline, the undo snapshot and the actual paste are driven by one cell mapping
 (`transformCell` in `core/src/structure/Rotate.ts`, the same table `transformLayout` writes
@@ -143,8 +144,8 @@ Keys added in 2.0.0 / 3.x:
 |---|---|---|
 | `areaDisplayMode` | `"wireframe"` | `wireframe` (server-side box, everyone sees it, no world writes) / `particle` / `text` / `structure_block` / `off`. |
 | `toolItems` | `true` | Install and enable the bundled tool items (first start needs one restart). |
-| `previewMode` | `"ghost"` | `ghost` = real fake-block preview, `wireframe` = outline only. |
-| `previewMaxBlocks` | `2000` | Surface-block budget; above it the preview falls back to the outline. |
+| `previewMode` | `"ghost"` | `ghost` = real block preview via per-client overrides, `wireframe` = outline only. |
+| `previewMaxBlocks` | `8000` | Surface-block budget; the rest is not drawn and the preview reports the truncation. |
 | `previewPivot` | `"inplace"` | `inplace` = the box stays on the anchor and only its contents turn; `anchor` = rotate around the clicked cell (the box swings into the next quadrant). |
 | `previewBlockYCorrection` | `0.4149` | Vertical alignment of the preview blocks, in blocks (calibrated). |
 | `areaTextTipInterval` | `1000` | Selection HUD refresh, ms (250-10000). |

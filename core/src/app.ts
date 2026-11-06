@@ -37,6 +37,10 @@ namespace ListenerHandler {
 
     function onJoinHandler(player: Player) {
         safeCall("onJoin", () => {
+            // Block overrides are remembered by player name, so a preview that was cancelled
+            // while the player was offline can only be undone now that they are back.
+            PreviewScene.retryCleanup();
+
             if (!Players.hasPermission(player)) return;
 
             Activity.onCreate(player.xuid);
@@ -319,7 +323,13 @@ function init(): boolean {
                         ItemDisplay.destroy(displayProbe);
                         logger.info("[CALL] HologramLib " + Holo.version() + " - wireframe + fake blocks ready");
                     } else {
-                        logger.warn("[CALL] HologramLib " + Holo.version() + " 线框可用，但 itemDisplay 创建失败（预览将只显示线框）");
+                        logger.warn("[CALL] HologramLib " + Holo.version() + " 线框可用，但 itemDisplay 创建失败（探针/校准不可用）");
+                    }
+                    // The preview itself now uses per-client block overrides.
+                    if (PreviewScene.backend().indexOf("viewBlock") === 0) {
+                        logger.info("[CALL] 预览渲染: viewBlock（逐客户端方块覆盖，无实体）");
+                    } else {
+                        logger.warn("[CALL] 预览渲染: " + PreviewScene.backend() + " —— 方块预览将不可用，只显示线框");
                     }
                 } else {
                     logger.warn("[CALL] HologramLib " + Holo.version() + " 已加载，但画框失败（版本不兼容？）");

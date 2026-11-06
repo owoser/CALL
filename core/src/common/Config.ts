@@ -145,6 +145,44 @@ function healMissingKeys(): void {
 
 healMissingKeys();
 
+/**
+ * Lift the 3.5 preview budget to what the block-override renderer can handle.
+ *
+ * The old numbers were tuned for one fake ENTITY per cell (2000 blocks, 200 per tick): a
+ * 2000-block cap is exactly why a large building previewed only partially, and 200 per tick
+ * made it crawl. A block override costs one small packet, so both are raised - but only when
+ * the value is still the untouched old default, and the console says what happened.
+ */
+function migratePreviewDefaults(): void {
+    try {
+        const current = JSON.parse(stripJsonComments(fs.readFileSync(GLOBAL_PATH, "utf8")));
+        const changes: string[] = [];
+        if (Number(current.previewMaxBlocks) === 2000) {
+            current.previewMaxBlocks = 8000;
+            changes.push("previewMaxBlocks 2000 → 8000");
+        }
+        if (Number(current.previewBatchSize) === 200) {
+            current.previewBatchSize = 1000;
+            changes.push("previewBatchSize 200 → 1000");
+        }
+        if (changes.length === 0) return;
+        fs.writeFileSync(GLOBAL_PATH, JSON.stringify(current, null, 4) + "\n", "utf8");
+        try {
+            logger.warn("[CALL] 预览上限/批量按新渲染方式上调: " + changes.join(", "));
+        } catch {
+            // logger may not be ready
+        }
+    } catch (e) {
+        try {
+            logger.warn("[CALL] cannot migrate preview defaults: " + (e && (e as any).message ? (e as any).message : e));
+        } catch {
+            // ignore
+        }
+    }
+}
+
+migratePreviewDefaults();
+
 // LegacyScriptEngine's own file APIs take paths relative to the BDS root.
 const CHECK_LSE = Paths.lse(CHECK_PATH);
 const ITEM_TEXTURE_LSE = Paths.lse(ITEM_TEXTURE_PATH);

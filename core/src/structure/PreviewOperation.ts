@@ -580,10 +580,11 @@ export default class PreviewOperation {
             "模式 " + PreviewOperation.mode() +
             " · 基准 " + (st != null ? st.pivot : defaultPivot()) +
             " · 偏移 " + (st != null ? st.offset.x + "/" + st.offset.y + "/" + st.offset.z : "0/0/0") +
-            " · 已生成 " + scene.blocks + " 个方块" + (scene.building ? "（生成中）" : "") +
-            " · 上限 " + Config.get(Config.GLOBAL, "previewMaxBlocks", 2000) +
-            " · 缩放 " + Config.get(Config.GLOBAL, "previewBlockScale", "1") +
-            " · 竖直修正 " + PreviewScene.correction() + " 格" +
+            " · 渲染 " + scene.backend +
+            " · 已覆盖 " + scene.applied + "/" + scene.blocks + " 格" +
+            (scene.building ? "（生成中，待发 " + scene.pending + "）" : "") +
+            (scene.failed > 0 ? "（" + scene.failed + " 格客户端不认识）" : "") +
+            " · 上限 " + Config.get(Config.GLOBAL, "previewMaxBlocks", 8000) +
             (scene.truncated ? " · 已截断" : "") +
             (st != null ? " · 落点 " + anchorOf(st).floor().toString() + " 旋转 " + st.degrees + "°" : " · 当前无预览")
         );

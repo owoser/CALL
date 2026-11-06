@@ -11,6 +11,44 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.6.0] - 2026-11-06
+
+The paste preview is drawn with **per-client block overrides** instead of one fake mob per
+block. Smaller, static, and it finally lets a big building preview as a whole.
+
+### Changed
+
+- **Preview renderer: `viewBlock()` (HologramLib) instead of `itemDisplay*`.**
+  `itemDisplay*` works by spawning a fake MOB that holds the block (the library's own
+  `itemDisplayEmitForEntity` spells out `AddActor(fox) + MobEquipment`), so every ghost block
+  inherited the mob's idle animation - the "假方块随风飘扬" report - and each one was a full
+  client entity, which is what collapsed the frame rate and made a large preview load only
+  partially. `viewBlock(player, x, y, z, id)` only tells ONE client "show that block at that
+  cell": no entity, no animation, correct model/lighting, and the cost is a block update.
+  There is deliberately **no entity fallback** any more.
+- **Only the difference is re-sent.** The scene tracks which cells it has applied, so rotate
+  and move send just the changed cells, and four quarter turns end with zero packets.
+- **Teardown clears exactly its own cells** (`viewClearBlock`), never `viewClearAll`, which
+  would also drop overrides another plugin registered for the same player. Clearing is batched
+  over ticks, and cells belonging to a player who left are retried when they rejoin (the
+  library keeps overrides by player name).
+- **`previewMaxBlocks` 2000 → 8000** (max 50000) and **`previewBatchSize` 200 → 1000**
+  (max 5000). The old numbers were sized for one entity per cell; they are the reason a large
+  preview looked truncated. An untouched old default is migrated automatically, and the console
+  says so.
+
+### Notes
+
+- `previewBlockScale` / `previewBlockOffsetY` / `previewBlockYCorrection` no longer affect the
+  ghost (a block override IS the block); they are still used by `/ca preview probe`, `trim`
+  and `calib`, which measure the item-display pose for their own debugging value.
+- A block override carries the block **id**, not its states - stairs still preview with the
+  default facing, exactly like the paste, which does not rotate states either.
+
+### Tests
+
+- Unit 84: adds the preview planner (cell mapping, diff-only rebuilds, four quarter turns =
+  zero packets, cleanup cell list).
 ## [3.5.2] - 2026-11-06
 
 ### Fixed

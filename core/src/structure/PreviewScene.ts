@@ -1,3 +1,24 @@
+/**
+ * The paste preview, drawn as per-client BLOCK OVERRIDES (HologramLib viewBlock).
+ *
+ * The previous implementation put one item display (a fake mob holding a block) on every
+ * surface cell. That is what users described as "假方块随风飘扬": the carrier mob breathes and
+ * idles, so the block bobs; and a few thousand of them crush the client's frame rate and hit
+ * the library's actor limits, which is why a big preview also loaded only partially.
+ *
+ * viewBlock() replaces that: the library tells ONE client "at this cell show that block". No
+ * entity, no animation, no model pose, correct light, and the cost is a block update packet.
+ *
+ * Rules this module keeps:
+ *   - only SURFACE cells are drawn (SurfaceExtract) and the total is capped (previewMaxBlocks);
+ *   - work is spread over ticks (previewBatchSize) so a big build never stalls a tick;
+ *   - the scene keeps the set of cells it has applied, so rotate/move send only the DIFF and
+ *     four quarter turns end with zero packets;
+ *   - teardown clears exactly our own cells - never viewClearAll(), which would also drop the
+ *     overrides another plugin registered for the same player;
+ *   - cells of an offline player are retried when they come back (the library keeps per-player
+ *     overrides by name).
+ */
 import Config from "../common/Config";
 import { Pos3 } from "../common/Pos3";
 import CAPlayer from "../user/CAPlayer";
@@ -5,32 +26,15 @@ import NBTService from "./NBTService";
 import StructureService from "./StructureService";
 import { parseStructureLayout } from "../io/NbtCodec";
 import { extractSurface, PreviewBlock, SliceInput } from "./SurfaceExtract";
-import { Degrees, MirrorMode, PivotMode, cellOffset } from "./Rotate";
-import { applyYCorrection, clipboardBox } from "./Clipboard";
+import { Degrees, MirrorMode, PivotMode } from "./Rotate";
+import { clipboardBox } from "./Clipboard";
 import Area3 from "../common/Area3";
 import { Structure } from "../common/Structure";
-import ItemDisplay from "../holo/ItemDisplay";
+import BlockView from "../holo/BlockView";
 import { MsgType, online, tell } from "../util/Msg";
 import StrFactory from "../util/StrFactory";
 import { describeError } from "../util/Safe";
-
-/**
- * The fake-block preview scene: one item display per visible block.
- *
- * Design constraints that shaped this:
- *   - one display per block is expensive, so only SURFACE blocks are drawn (SurfaceExtract)
- *     and the total is capped (previewMaxBlocks);
- *   - creation is spread over several ticks (previewBatchSize) so a big paste never freezes
- *     the server for a second;
- *   - rotating DESTROYS and rebuilds the displays (itemDisplaySetPosition did not move them
- *     at runtime, only their own rotation changed); the block list is cached so this never
- *     re-reads the slice files;
- *   - positions come from transformCell(), the same mapping the paste uses, so the ghost is
- *     always exactly where /ca preview confirm will write;
- *   - only the previewing player sees them (itemDisplaySetVisiblePlayer);
- *   - teardown destroys our ids one by one and NEVER calls itemDisplayDestroyAll(), which
- *     would also wipe displays belonging to other plugins.
- */
+import { PlanOp, appliedCells, diffPlacement, planCells } from "./PreviewPlan";
 
 interface Scene {
     anchor: Pos3;
@@ -38,7 +42,6 @@ interface Scene {
     size: [number, number, number];
     /** Base (unrotated) offsets, so rotation never has to re-read the files. */
     blocks: PreviewBlock[];
-    ids: number[];
     degrees: Degrees;
     mirror: MirrorMode;
     pivot: PivotMode;
@@ -47,6 +50,12 @@ interface Scene {
     visible: number;
     truncated: boolean;
     building: boolean;
+    /** cell key -> block id currently shown to this player by US. */
+    applied: Map<string, string>;
+    /** pending set/clear operations, drained previewBatchSize per tick. */
+    queue: PlanOp[];
+    /** cells the client refused (block id unknown to it). */
+    failed: number;
 }
 
 const scenes = new Map<string, Scene>();
@@ -59,70 +68,56 @@ function num(key: string, fallback: number, min: number, max: number): number {
     return Math.min(max, Math.max(min, raw));
 }
 
-function blockScale(): string {
-    const raw = Config.get(Config.GLOBAL, "previewBlockScale", "0.5");
-    return raw == null || raw === "" ? "0.5" : String(raw);
-}
-
 /**
- * offY in MODEL units (16 units = 1 block), NOT in blocks.
- * The documented block-mode pose is "-4"; see HologramLib's item-display docs.
- */
-function blockOffsetY(): string {
-    const raw = Config.get(Config.GLOBAL, "previewBlockOffsetY", "0");
-    return raw == null || String(raw) === "" ? "0" : String(raw);
-}
-
-/**
- * Residual vertical error, in BLOCKS (not model units).
+ * Residual vertical error of the item-display backend, in BLOCKS.
  *
- * Measured with /ca preview probe instead of guessed: whatever cell the probe block lands in
- * becomes -N here, which is a unit we fully understand.
+ * The block-override preview does not need it (the cell IS the block), it is kept for
+ * /ca preview probe and /ca preview trim, which still measure the item-display pose.
  */
 export function blockYCorrection(): number {
     const raw = Number(Config.get(Config.GLOBAL, "previewBlockYCorrection", 0));
     return Number.isFinite(raw) ? raw : 0;
 }
 
-function viewDistance(): number {
-    return num("previewViewDistance", 64, 16, 256);
-}
-
 function batchSize(): number {
-    return Math.floor(num("previewBatchSize", 200, 50, 1000));
+    return Math.floor(num("previewBatchSize", 1000, 50, 5000));
 }
 
 function maxBlocks(): number {
-    return Math.floor(num("previewMaxBlocks", 2000, 200, 20000));
-}
-
-/**
- * World position of a block centre under the current transform.
- *
- * The offset is normalised against the clipboard extent, exactly like the paste: the rotated
- * box grows from the anchor instead of reaching into negative offsets.
- */
-function worldPos(
-    anchor: Pos3,
-    block: PreviewBlock,
-    degrees: Degrees,
-    mirror: MirrorMode,
-    size: [number, number, number],
-    pivot: PivotMode
-): [number, number, number] {
-    const [dx, dz] = cellOffset(block.dx, block.dz, size[0], size[2], degrees, mirror, pivot);
-    return [
-        anchor.x + dx + 0.5,
-        // bottom centre: y is the block's own level, offY/measured correction lift the model
-        applyYCorrection(anchor.y + block.dy, blockYCorrection()),
-        anchor.z + dz + 0.5,
-    ];
+    return Math.floor(num("previewMaxBlocks", 8000, 200, 50000));
 }
 
 function tip(xuid: string, text: string, error = false): void {
     const player = online(xuid);
     if (player == null) return;
     tell(player, error ? StrFactory.cmdErr(text) : StrFactory.cmdMsg(text), MsgType.TIP);
+}
+
+// ---------------------------------------------------------------- deferred cleanup
+interface CleanupTask { playerName: string; cells: Array<[number, number, number]>; }
+const cleanups: CleanupTask[] = [];
+let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleCleanup(): void {
+    if (cleanupTimer != null) return;
+    cleanupTimer = setTimeout(() => {
+        cleanupTimer = null;
+        PreviewScene.drainCleanup();
+    }, 0);
+}
+
+function enqueueCleanup(playerName: string, cells: Array<[number, number, number]>): void {
+    if (cells.length === 0) return;
+    cleanups.push({ playerName, cells });
+    scheduleCleanup();
+}
+
+function playerOnline(name: string): boolean {
+    try {
+        return mc.getPlayer(name) != null;
+    } catch {
+        return false;
+    }
 }
 
 export interface BuildResult {
@@ -134,7 +129,7 @@ export interface BuildResult {
 }
 
 export const PreviewScene = {
-    /** Read the clipboard and turn it into surface blocks (no displays yet). */
+    /** Read the clipboard and turn it into surface blocks (nothing is sent yet). */
     gather(xuid: string): {
         slices: SliceInput[];
         size?: [number, number, number];
@@ -154,9 +149,8 @@ export const PreviewScene = {
         let cells = 0;
 
         // Mirror StructureService.load() exactly: a clipboard entry is keyed by STRUCTID and
-        // holds one whole area; the actual files are <structid>_<ix>_<iz>, split by
-        // Structure.getAreas() into MAX_LENGTH (64) chunks. Reading <structid>.mcstructure
-        // simply does not exist - that was the load.missingFile warning.
+        // holds one whole area; the files are <structid>_<ix>_<iz>, split by
+        // Structure.getAreas() into MAX_LENGTH (64) chunks.
         for (const structid of sids) {
             const entry = complex[structid];
             const area = Area3.fromArea3D(entry?.area);
@@ -192,12 +186,11 @@ export const PreviewScene = {
         if (slices.length === 0) return { slices: [], error: "切片文件读取失败" };
         return { slices, size };
     },
-
     /**
      * Build (or rebuild) the preview for a player.
      *
-     * Returns immediately after the first batch: the rest is created over the following
-     * ticks, and a progress tip tells the player how far along it is.
+     * Returns after the first batch; the rest is sent over the following ticks with a progress
+     * tip, so a big build never stalls a tick.
      */
     build(
         caPlayer: CAPlayer,
@@ -209,20 +202,28 @@ export const PreviewScene = {
         const xuid = caPlayer.xuid;
         PreviewScene.clear(xuid);
 
-        if (!ItemDisplay.available()) {
-            return { ok: false, blocks: 0, visible: 0, truncated: false, reason: "HologramLib 不可用" };
+        if (!BlockView.available()) {
+            return {
+                ok: false, blocks: 0, visible: 0, truncated: false,
+                reason: "需要 HologramLib 的 viewBlock 接口（1.30.0 / LL 26.51.4 起）",
+            };
+        }
+
+        const realName = String(caPlayer.$?.realName ?? "");
+        if (realName === "") {
+            return { ok: false, blocks: 0, visible: 0, truncated: false, reason: "无法解析玩家名" };
         }
 
         const gathered = PreviewScene.gather(xuid);
         if (gathered.slices.length === 0) {
             return {
                 ok: false, blocks: 0, visible: 0, truncated: false,
-                reason: gathered.tooBig ? "区域太大，无法生成方块预览（可调 previewBatchSize/previewMaxBlocks）" : (gathered.error ?? "无法读取剪贴板"),
+                reason: gathered.tooBig ? "区域太大，无法生成方块预览（可调 previewMaxBlocks）" : (gathered.error ?? "无法读取剪贴板"),
             };
         }
 
-        // Base (unrotated) extraction: rotation is applied when positioning, so rotating a
-        // live scene never has to re-read the slice files.
+        // Base (unrotated) extraction: the transform is applied when planning cells, so
+        // rotating a live scene never re-reads the slice files.
         const extracted = extractSurface(gathered.slices, 0, "none", maxBlocks());
         if (extracted.blocks.length === 0) {
             return { ok: false, blocks: 0, visible: 0, truncated: false, reason: "选区里没有可显示的方块" };
@@ -232,102 +233,81 @@ export const PreviewScene = {
             anchor,
             size: gathered.size ?? [1, 1, 1],
             blocks: extracted.blocks,
-            ids: [],
             degrees,
             mirror,
             pivot,
             cancelled: false,
-            playerName: String(caPlayer.$.realName ?? ""),
+            playerName: realName,
             visible: extracted.visible,
             truncated: extracted.truncated,
             building: true,
+            applied: new Map(),
+            queue: [],
+            failed: 0,
         };
         scenes.set(xuid, scene);
+        PreviewScene.plan(xuid);
         PreviewScene.pump(xuid);
 
         return { ok: true, blocks: extracted.blocks.length, visible: extracted.visible, truncated: extracted.truncated };
     },
 
-    /** Create the next batch, then yield to the server for a tick. */
+    /** Recompute the wanted cells and queue only the difference against what is applied. */
+    plan(xuid: string): void {
+        const scene = scenes.get(xuid);
+        if (scene == null) return;
+        const desired = planCells(scene.anchor, scene.size, scene.degrees, scene.mirror, scene.pivot, scene.blocks);
+        const ops = diffPlacement(scene.applied, desired);
+        if (ops.length > 0) scene.queue.push(...ops);
+        scene.failed = 0;
+        scene.building = scene.queue.length > 0;
+    },
+
+    /** Send the next batch, then yield to the server for a tick. */
     pump(xuid: string): void {
         const scene = scenes.get(xuid);
         if (scene == null || scene.cancelled) return;
 
-        const perTick = batchSize();
-        const dim = scene.anchor.dimid;
-        const scale = blockScale();
-        const dist = viewDistance();
-        const end = Math.min(scene.blocks.length, scene.ids.length + perTick);
-
-        for (let i = scene.ids.length; i < end; i++) {
-            const block = scene.blocks[i];
-            const [x, y, z] = worldPos(scene.anchor, block, scene.degrees, scene.mirror, scene.size, scene.pivot);
-            const id = ItemDisplay.create({
-                x, y, z, dim,
-                blockId: block.id,
-                scale,
-                offsetY: blockOffsetY(),
-                // NEVER rotated with the preview: transformLayout() only moves cells, it does
-                // not turn block states, so a turned model would show a facing the paste is
-                // not going to write. Pattern rotation is visible in the positions alone.
-                rotY: 0,
-                viewDistance: dist,
-                onlyPlayer: scene.playerName,
-            });
-            scene.ids.push(id > 0 ? id : 0);
+        const per = batchSize();
+        let done = 0;
+        while (scene.queue.length > 0 && done < per) {
+            const op = scene.queue.shift() as PlanOp;
+            if (op.op === "set") {
+                if (BlockView.set(scene.playerName, op.x, op.y, op.z, op.id)) scene.applied.set(op.key, op.id);
+                else scene.failed++;
+            } else {
+                BlockView.clear(scene.playerName, op.x, op.y, op.z);
+                scene.applied.delete(op.key);
+            }
+            done++;
         }
 
-        if (scene.ids.length < scene.blocks.length) {
-            const done = scene.ids.length;
-            const total = scene.blocks.length;
-            if (done % (perTick * 5) === 0 || done === total) {
-                tip(xuid, "生成预览 " + done + "/" + total);
-            }
+        if (scene.queue.length > 0) {
+            if (done >= per * 5) tip(xuid, "生成预览 " + scene.applied.size + "/" + scene.blocks.length);
             setTimeout(() => PreviewScene.pump(xuid), 0);
             return;
         }
 
         scene.building = false;
-        tip(
-            xuid,
-            "预览就绪：" + scene.blocks.length + " 个方块" +
-            (scene.truncated ? "（已按上限截断，实际可见 " + scene.visible + " 个）" : "")
-        );
+        const parts = [scene.applied.size + " 个方块"];
+        if (scene.truncated) parts.push("已按上限截断（可见 " + scene.visible + " 个）");
+        if (scene.failed > 0) parts.push(scene.failed + " 个显示不了（客户端不认识该方块）");
+        tip(xuid, "预览就绪：" + parts.join("，"));
     },
 
-    /**
-     * Rotate / mirror the live scene.
-     *
-     * This REBUILDS the displays instead of moving them: itemDisplaySetPosition did not
-     * actually move anything at runtime (the blocks stayed put while only their own rotation
-     * changed), and a rebuild is deterministic. Creation is batched, so the cost is the same
-     * as the first build.
-     */
+    /** Rotate / mirror / switch pivot in place: only the difference is re-sent. */
     rotate(caPlayer: CAPlayer, degrees: Degrees, mirror: MirrorMode, pivot: PivotMode): boolean {
         const scene = scenes.get(caPlayer.xuid);
         if (scene == null) return false;
         scene.degrees = degrees;
         scene.mirror = mirror;
         scene.pivot = pivot;
-        PreviewScene.rebuild(caPlayer.xuid);
+        PreviewScene.plan(caPlayer.xuid);
+        PreviewScene.pump(caPlayer.xuid);
         return true;
     },
 
-    /** Drop the current displays and create them again from the stored block list. */
-    rebuild(xuid: string): void {
-        const scene = scenes.get(xuid);
-        if (scene == null) return;
-        try {
-            ItemDisplay.destroyAll(scene.ids.filter((id) => id > 0));
-        } catch (e) {
-            logger.warn("[CALL][Preview] 重建前清理失败: " + describeError(e));
-        }
-        scene.ids = [];
-        scene.building = true;
-        PreviewScene.pump(xuid);
-    },
-
-    /** Move the whole scene to a new anchor (also a rebuild, for the same reason). */
+    /** Move the whole scene to a new anchor (same diff logic). */
     move(caPlayer: CAPlayer, anchor: Pos3, degrees: Degrees, mirror: MirrorMode, pivot: PivotMode): boolean {
         const scene = scenes.get(caPlayer.xuid);
         if (scene == null) return false;
@@ -335,36 +315,88 @@ export const PreviewScene = {
         scene.degrees = degrees;
         scene.mirror = mirror;
         scene.pivot = pivot;
-        PreviewScene.rebuild(caPlayer.xuid);
+        PreviewScene.plan(caPlayer.xuid);
+        PreviewScene.pump(caPlayer.xuid);
         return true;
     },
 
-    /** Destroy every display of one player's scene. */
+    /** Drop the scene and clear every cell it applied (batched, never viewClearAll). */
     clear(xuid: string): void {
         const scene = scenes.get(xuid);
         if (scene == null) return;
         scene.cancelled = true;
+        scene.queue = [];
         scenes.delete(xuid);
-        try {
-            ItemDisplay.destroyAll(scene.ids.filter((id) => id > 0));
-        } catch (e) {
-            logger.warn("[CALL][Preview] 清理失败: " + describeError(e));
+        enqueueCleanup(scene.playerName, appliedCells(scene.applied));
+        scene.applied.clear();
+    },
+
+    /**
+     * Undo the overrides in batches.
+     *
+     * A task is kept while its player is offline: the library remembers overrides by player
+     * name, so clearing them before they reconnect is not possible - retryCleanup() runs on
+     * join and picks the task up again.
+     */
+    drainCleanup(): void {
+        let work = batchSize();
+        while (cleanups.length > 0 && work > 0) {
+            const task = cleanups[0];
+            if (!playerOnline(task.playerName)) return;
+            while (task.cells.length > 0 && work > 0) {
+                const [x, y, z] = task.cells.pop() as [number, number, number];
+                BlockView.clear(task.playerName, x, y, z);
+                work--;
+            }
+            if (task.cells.length === 0) cleanups.shift();
         }
+        if (cleanups.length > 0) scheduleCleanup();
+    },
+
+    /** Hook for player join: retries overrides that could not be cleared while offline. */
+    retryCleanup(): void {
+        if (cleanups.length > 0) scheduleCleanup();
     },
 
     clearAll(): void {
         for (const xuid of [...scenes.keys()]) PreviewScene.clear(xuid);
     },
 
-    /** Current vertical correction in blocks (what the preview applies to every block). */
+    /** Kept for /ca preview probe and /ca preview trim (item-display calibration). */
     correction(): number {
         return blockYCorrection();
     },
 
-    info(xuid: string): { active: boolean; blocks: number; building: boolean; truncated: boolean } {
+    /** What /ca preview info reports. */
+    info(xuid: string): {
+        active: boolean;
+        blocks: number;
+        building: boolean;
+        truncated: boolean;
+        applied: number;
+        failed: number;
+        pending: number;
+        backend: string;
+    } {
         const scene = scenes.get(xuid);
-        if (scene == null) return { active: false, blocks: 0, building: false, truncated: false };
-        return { active: true, blocks: scene.blocks.length, building: scene.building, truncated: scene.truncated };
+        if (scene == null) {
+            return { active: false, blocks: 0, building: false, truncated: false, applied: 0, failed: 0, pending: cleanups.length, backend: PreviewScene.backend() };
+        }
+        return {
+            active: true,
+            blocks: scene.blocks.length,
+            building: scene.building,
+            truncated: scene.truncated,
+            applied: scene.applied.size,
+            failed: scene.failed,
+            pending: scene.queue.length,
+            backend: PreviewScene.backend(),
+        };
+    },
+
+    /** Which renderer the preview uses (there is no entity fallback any more). */
+    backend(): string {
+        return BlockView.available() ? "viewBlock" : "不可用（缺少 HologramLib viewBlock）";
     },
 };
 
