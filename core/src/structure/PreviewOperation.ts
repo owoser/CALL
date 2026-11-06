@@ -343,33 +343,55 @@ export default class PreviewOperation {
 
         const p = Pos3.fromPos(caPlayer.$.pos).floor();
 
-        // ruler: five 1x1x1 cells stacked upward from the feet
-        for (let i = 0; i < 5; i++) {
-            Wireframe.show(
-                "probe:" + i,
-                { x1: p.x, y1: p.y + i, z1: p.z, x2: p.x + 1, y2: p.y + i + 1, z2: p.z + 1 },
-                i === 0 ? COLOR.complete : COLOR.preview,
-                i === 0 ? "§a第 0 格（齐平）" : "§f+" + i
-            );
-        }
+        // Two cells side by side at the same height:
+        //   left  = the position the preview actually spawns at (correction applied)
+        //   right = raw anchor (correction NOT applied), for A/B
+        // Whatever the block does, the pair makes the answer obvious in one screenshot.
+        Wireframe.show(
+            "probe:0",
+            { x1: p.x, y1: p.y, z1: p.z, x2: p.x + 1, y2: p.y + 1, z2: p.z + 1 },
+            COLOR.complete,
+            "§a预览的位置"
+        );
+        Wireframe.show(
+            "probe:1",
+            { x1: p.x + 3, y1: p.y, z1: p.z, x2: p.x + 4, y2: p.y + 1, z2: p.z + 1 },
+            COLOR.incomplete,
+            "§e原始锚点（未修正）"
+        );
 
-        const id = ItemDisplay.create({
+        // Apply the SAME correction the real preview uses, otherwise this probe always shows
+        // the raw (uncorrected) position and looks permanently half a block off.
+        const correction = PreviewScene.correction();
+        const scale = String(Config.get(Config.GLOBAL, "previewBlockScale", "1"));
+        const onlyPlayer = String(caPlayer.$.realName ?? "");
+
+        // left cell: exactly what /ca preview does
+        const corrected = ItemDisplay.create({
             x: p.x + 0.5,
+            y: p.y + correction,
+            z: p.z + 0.5,
+            dim: p.dimid,
+            blockId: "minecraft:grass_block",
+            scale, offsetY: "0", rotY: 0, viewDistance: 64, onlyPlayer,
+        });
+        if (corrected > 0) probeIds.push(corrected);
+
+        // right cell: the raw anchor, so the difference is visible without moving the camera
+        const raw = ItemDisplay.create({
+            x: p.x + 3.5,
             y: p.y,
             z: p.z + 0.5,
             dim: p.dimid,
-            blockId: "minecraft:grass_block",   // top/bottom visible, unlike stone
-            scale: String(Config.get(Config.GLOBAL, "previewBlockScale", "1")),
-            offsetY: "0",
-            rotY: 0,
-            viewDistance: 64,
-            onlyPlayer: String(caPlayer.$.realName ?? ""),
+            blockId: "minecraft:stone",
+            scale, offsetY: "0", rotY: 0, viewDistance: 64, onlyPlayer,
         });
-        if (id > 0) probeIds.push(id);
+        if (raw > 0) probeIds.push(raw);
 
         output.success(
-            "已在脚下立起 5 格标尺（绿色框是最下面的第 0 格），并放了一个草方块。" +
-            "告诉我它落在第几格（高出几格就是几）、草是否朝上，然后 /ca preview probe <格数> 保存"
+            "左边绿框 = 预览实际位置（已修正 " + correction + " 格，里面是草方块）；" +
+            "右边黄框 = 原始锚点（未修正，里面是石头）。" +
+            "草方块若正好填满绿框就说明校准完成；否则告诉我它比绿框高/低多少"
         );
         setTimeout(() => PreviewOperation.clearProbe(), 180000);
     }
@@ -379,7 +401,7 @@ export default class PreviewOperation {
         if (probeIds.length > 0) {
             ItemDisplay.destroyAll(probeIds.splice(0, probeIds.length));
         }
-        for (let i = 0; i < 5; i++) Wireframe.hide("probe:" + i);
+        for (let i = 0; i < 4; i++) Wireframe.hide("probe:" + i);
     }
 
     /** Destroy calibration displays + wireframes. */
@@ -412,7 +434,8 @@ export default class PreviewOperation {
             "模式 " + PreviewOperation.mode() +
             " · 已生成 " + scene.blocks + " 个方块" + (scene.building ? "（生成中）" : "") +
             " · 上限 " + Config.get(Config.GLOBAL, "previewMaxBlocks", 2000) +
-            " · 缩放 " + Config.get(Config.GLOBAL, "previewBlockScale", "0.5") +
+            " · 缩放 " + Config.get(Config.GLOBAL, "previewBlockScale", "1") +
+            " · 竖直修正 " + PreviewScene.correction() + " 格" +
             (scene.truncated ? " · 已截断" : "") +
             (st != null ? " · 落点 " + st.pos.floor().toString() + " 旋转 " + st.degrees + "°" : " · 当前无预览")
         );

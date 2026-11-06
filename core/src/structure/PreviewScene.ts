@@ -307,6 +307,11 @@ export const PreviewScene = {
         for (const xuid of [...scenes.keys()]) PreviewScene.clear(xuid);
     },
 
+    /** Current vertical correction in blocks (what the preview applies to every block). */
+    correction(): number {
+        return blockYCorrection();
+    },
+
     info(xuid: string): { active: boolean; blocks: number; building: boolean; truncated: boolean } {
         const scene = scenes.get(xuid);
         if (scene == null) return { active: false, blocks: 0, building: false, truncated: false };
