@@ -105,12 +105,16 @@
         },
         "default.textureSelectorMode": {
             "type": "boolean"
-        }
-    }
-,
+        },
         "areaDisplayMode": {
             "type": "enum",
-            "values": ["wireframe", "particle", "text", "structure_block", "off"]
+            "values": [
+                "wireframe",
+                "particle",
+                "text",
+                "structure_block",
+                "off"
+            ]
         },
         "toolItems": {
             "type": "boolean"
@@ -122,16 +126,22 @@
         },
         "previewMode": {
             "type": "enum",
-            "values": ["ghost", "wireframe"]
+            "values": [
+                "ghost",
+                "wireframe"
+            ]
         },
         "previewPivot": {
             "type": "enum",
-            "values": ["inplace", "anchor"]
+            "values": [
+                "inplace",
+                "anchor"
+            ]
         },
         "previewMaxBlocks": {
             "type": "number",
             "min": 200,
-            "max": 50000
+            "max": 200000
         },
         "previewBatchSize": {
             "type": "number",
@@ -181,11 +191,48 @@
         },
         "chunkLoader": {
             "type": "enum",
-            "values": ["tickingarea", "none"]
+            "values": [
+                "tickingarea",
+                "none"
+            ]
         },
         "chunkLoadTimeout": {
             "type": "number",
             "min": 500,
             "max": 60000
+        },
+        "previewRadius": {
+            "type": "number",
+            "min": 16,
+            "max": 192
+        },
+        "previewUpdateDistance": {
+            "type": "number",
+            "min": 2,
+            "max": 32
+        },
+        "previewMaxCells": {
+            "type": "number",
+            "min": 40000,
+            "max": 4000000
+        },
+        "previewSliceCache": {
+            "type": "number",
+            "min": 2,
+            "max": 64
+        },
+        "previewPrefetch": {
+            "type": "number",
+            "min": 0,
+            "max": 64
+        },
+        "previewOutline": {
+            "type": "boolean"
+        },
+        "previewOutlineStep": {
+            "type": "number",
+            "min": 2,
+            "max": 32
         }
+    }
 }

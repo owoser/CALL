@@ -106,3 +106,107 @@ test('appliedCells turns tracked keys back into coordinates for cleanup', () => 
     const cells = appliedCells(new Map([['100,64,-200', 'minecraft:stone'], ['102,64,-198', 'minecraft:glass']]));
     assert.deepEqual(cells.sort(), [[100, 64, -200], [102, 64, -198]]);
 });
+
+// ------------------------------------------------------------- streaming window
+
+test('planGrid buckets cells by 16x16 column and keeps the total', () => {
+    const { planGrid, bucketKey } = load();
+    const blocks = [
+        block(0, 0, 0, 'minecraft:stone'),
+        block(15, 0, 15, 'minecraft:stone'),
+        block(16, 0, 0, 'minecraft:glass'),
+    ];
+    const grid = planGrid(anchor, [17, 1, 17], 0, 'none', 'inplace', blocks);
+    assert.equal(grid.total, 3);
+    assert.equal(bucketKey(0, 0), bucketKey(15, 15), 'same 16x16 column');
+    assert.notEqual(bucketKey(15, 0), bucketKey(16, 0), '16 crosses into the next column');
+    assert.equal(bucketKey(-1, -1), '-1,-1', 'negatives floor correctly');
+    // anchor is (100,64,-200): the three cells land on 100/-200, 115/-185 and 116/-200
+    let total = 0;
+    for (const list of grid.buckets.values()) total += list.length;
+    assert.equal(total, 3, 'no cell lost when bucketing');
+    assert.equal(grid.buckets.get(bucketKey(100, -200)).length, 1);
+    assert.equal(grid.buckets.get(bucketKey(116, -200)).length, 1);
+});
+
+test('windowCells keeps only the cube around the player, nearest first', () => {
+    const { planGrid, windowCells } = load();
+    // a 3x1x3 plane at the anchor; the window centre is the corner cell
+    const blocks = [
+        block(0, 0, 0, 'a'), block(1, 0, 0, 'a'), block(2, 0, 0, 'a'),
+        block(0, 0, 1, 'a'), block(1, 0, 1, 'a'), block(2, 0, 1, 'a'),
+        block(0, 0, 2, 'a'), block(1, 0, 2, 'a'), block(2, 0, 2, 'a'),
+    ];
+    const grid = planGrid(anchor, [3, 1, 3], 0, 'none', 'inplace', blocks);
+    const res = windowCells(grid, {
+        center: { x: anchor.x, y: anchor.y, z: anchor.z },
+        radius: 1,
+        budget: 100,
+    });
+    // radius 1 (Chebyshev) around (0,0,0) keeps 2x1x2 = 4 cells
+    assert.equal(res.inWindow, 4);
+    assert.equal(res.cells.length, 4);
+    assert.deepEqual([res.cells[0].x, res.cells[0].z], [anchor.x, anchor.z], 'nearest first');
+    for (const cell of res.cells) {
+        assert.ok(Math.abs(cell.x - anchor.x) <= 1 && Math.abs(cell.z - anchor.z) <= 1);
+    }
+});
+
+test('the budget crops the window to the nearest cells and reports the real count', () => {
+    const { planGrid, windowCells } = load();
+    const blocks = [];
+    for (let dx = 0; dx < 9; dx++) for (let dz = 0; dz < 9; dz++) blocks.push(block(dx, 0, dz, 'a'));
+    const grid = planGrid(anchor, [9, 1, 9], 0, 'none', 'inplace', blocks);
+
+    const res = windowCells(grid, { center: { x: anchor.x + 4, y: anchor.y, z: anchor.z + 4 }, radius: 4, budget: 5 });
+    assert.equal(res.inWindow, 81, 'everything is inside the radius');
+    assert.equal(res.cells.length, 5, 'but only the budget is drawn');
+    assert.deepEqual([res.cells[0].x, res.cells[0].z], [anchor.x + 4, anchor.z + 4], 'centre first');
+});
+
+test('prefetch extends the window on the facing side only', () => {
+    const { planGrid, windowCells } = load();
+    const blocks = [];
+    for (let dx = 0; dx < 10; dx++) blocks.push(block(dx, 0, 0, 'a'));
+    const grid = planGrid(anchor, [10, 1, 1], 0, 'none', 'inplace', blocks);
+    const base = windowCells(grid, { center: { x: anchor.x, y: anchor.y, z: anchor.z }, radius: 1, budget: 100 });
+    const ahead = windowCells(grid, {
+        center: { x: anchor.x, y: anchor.y, z: anchor.z },
+        radius: 1,
+        budget: 100,
+        prefetch: { dx: 1, dz: 0, amount: 4 },
+    });
+    assert.equal(base.inWindow, 2);
+    assert.equal(ahead.inWindow, 6, '+4 cells ahead on +X');
+});
+
+test('untransformCell is the exact inverse of cellOffset (all angles and mirrors)', () => {
+    const { untransformCell } = load();
+    const R = require(join(ROOT, 'dist', 'call', 'core', 'src', 'structure', 'Rotate.js'));
+    const w = 5, d = 3;
+    for (const deg of [0, 90, 180, 270]) {
+        for (const mirror of ['none', 'x', 'z', 'xz']) {
+            for (const pivot of ['inplace', 'anchor']) {
+                for (let dx = 0; dx < w; dx++) {
+                    for (let dz = 0; dz < d; dz++) {
+                        const [wx, wz] = R.cellOffset(dx, dz, w, d, deg, mirror, pivot);
+                        const [bx, bz] = untransformCell(wx, wz, w, d, deg, mirror, pivot);
+                        assert.deepEqual([bx, bz], [dx, dz],
+                            `deg ${deg} mirror ${mirror} pivot ${pivot} cell ${dx},${dz}`);
+                    }
+                }
+            }
+        }
+    }
+});
+
+test('sampleOutline thins the surface and respects its cap', () => {
+    const { sampleOutline } = load();
+    const blocks = [];
+    for (let i = 0; i < 100; i++) blocks.push(block(i % 10, 0, Math.floor(i / 10), 'a'));
+    const step4 = sampleOutline(blocks, anchor, [10, 1, 10], 0, 'none', 'inplace', 4, 1500);
+    assert.equal(step4.length, 25, 'every 4th block of 100');
+    const capped = sampleOutline(blocks, anchor, [10, 1, 10], 0, 'none', 'inplace', 1, 7);
+    assert.equal(capped.length, 7);
+    assert.equal(sampleOutline(blocks, anchor, [10, 1, 10], 0, 'none', 'inplace', 1, 0).length, 0);
+});

@@ -11,6 +11,48 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.7.0] - 2026-11-06
+
+Huge builds finally preview properly: the ghost streams the part of the clipboard around the
+player instead of stopping at a hard cap.
+
+### Added
+
+- **Streaming preview with three automatic modes**:
+  - `full` - surface blocks <= `previewMaxBlocks`: draw everything (unchanged);
+  - `window` - more than that: draw only the cells within `previewRadius` (default 48) of the
+    player, nearest first, and follow them as they walk (the window is recomputed when they
+    move `previewUpdateDistance`, default 8);
+  - `lazy` - the clipboard itself is bigger than `previewMaxCells` (default 800k cells): only
+    the 64-block slices that intersect the window are parsed, LRU cached
+    (`previewSliceCache`, never evicting a slice that is still on screen). Before this, such
+    a selection simply reported "region too large" and drew nothing.
+- **Look-direction prefetch** (`previewPrefetch`, default 16) and a **low-detail shell**
+  (`previewOutline` / `previewOutlineStep`) so the whole shape still reads from a distance.
+- `/ca preview refresh` and `/ca preview radius <16-192>`.
+
+### Fixed
+
+- **`assets/check.json` had 18 specs outside `configs`** (`areaDisplayMode` ...
+  `chunkLoadTimeout`, `previewMaxBlocks` among them). Both the runtime check and
+  `check:config` only read `check.configs`, so those keys were never validated - which is why
+  `previewMaxBlocks: 800000000` loaded happily and was silently clamped at runtime instead of
+  being reported. The specs are back under `configs`, and `check-config.mjs` now fails if any
+  spec lands at the root again.
+- **A bad value no longer disables the plugin**: `checkConfig()` clamps numbers into range and
+  falls back to the template for unknown enum values, logging what it fixed, instead of
+  throwing and refusing to load.
+
+### Changed
+
+- `previewMaxBlocks` is now the **on-screen budget** (default 12000, max 200000); the old
+  "draw the top slice and drop the rest" truncation is gone. Old defaults 2000/8000 are
+  migrated to 12000.
+
+### Tests
+
+- Unit 91: adds the streaming helpers (16x16 bucketing, window query with distance order and
+  budget crop, prefetch, exact inverse transform for windows, outline sampling).
 ## [3.6.1] - 2026-11-06
 
 ### Fixed

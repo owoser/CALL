@@ -214,37 +214,70 @@ namespace Other {
                 Tr._c("console.Config.check.notFind", Paths.toPosix(Paths.join("assets", "check.json")))
             );
         }
+        const repairs: string[] = [];
+        const put = (key: string, value: any, why: string) => {
+            try {
+                Config.set(Config.GLOBAL, key, value);
+            } catch {
+                // file may be read only; the in-memory value still gets used
+            }
+            repairs.push(key + " (" + why + " → " + JSON.stringify(value) + ")");
+        };
+
         Object.keys(check).forEach((k) => {
             const spec = check[k];
-            const data = Config.get(Config.GLOBAL, k);
-            if (data == null)
-                throw new Error(Tr._c("console.Config.check.notFind", k));
-            // A numeric setting written as "0.414" (some older code paths did that) must not
-            // brick the plugin: accept a numeric string for a number field.
-            const numericString = spec.type === "number"
-                && typeof data === "string"
-                && data.trim() !== ""
-                && Number.isFinite(Number(data));
-            if (spec.type != "enum" && !numericString && typeof data != spec.type)
-                throw new Error(Tr._c("console.Config.check.type", k, spec.type));
-            switch (spec.type) {
-                case "number":
-                    if (data < spec.min)
-                        throw new Error(Tr._c("console.Config.check.less", k, String(spec.min)));
-                    if (data > spec.max)
-                        throw new Error(Tr._c("console.Config.check.greater", k, String(spec.max)));
-                    break;
-                case "enum": {
-                    let has = false;
-                    (spec.values ?? []).forEach((v: any) => {
-                        if (v == data) has = true;
-                    });
-                    if (!has)
-                        throw new Error(Tr._c("console.Config.check.enum", k, String(spec.values)));
-                    break;
+            const tpl = Config.templateValue(k);
+            const raw = Config.get(Config.GLOBAL, k);
+
+            if (raw == null) {
+                if (tpl === undefined) throw new Error(Tr._c("console.Config.check.notFind", k));
+                put(k, tpl, "缺失");
+                return;
+            }
+
+            // Numbers: a numeric string is accepted (older builds wrote 0.414 as a string).
+            // Out of range is CLAMPED with a warning instead of disabling the plugin - a
+            // typo in one number must not turn into "CALL will not load".
+            if (spec.type === "number") {
+                const asNumber = typeof raw === "number"
+                    ? raw
+                    : (typeof raw === "string" && raw.trim() !== "" && Number.isFinite(Number(raw)) ? Number(raw) : null);
+                if (asNumber == null) {
+                    if (typeof tpl === "number") {
+                        put(k, tpl, "不是数字");
+                        return;
+                    }
+                    throw new Error(Tr._c("console.Config.check.type", k, spec.type));
                 }
+                let value = asNumber;
+                if (typeof spec.min === "number" && value < spec.min) value = spec.min;
+                if (typeof spec.max === "number" && value > spec.max) value = spec.max;
+                if (typeof raw !== "number" || value !== raw) put(k, value, "越界/类型");
+                return;
+            }
+
+            if (spec.type === "enum") {
+                const values: any[] = Array.isArray(spec.values) ? spec.values : [];
+                if (!values.includes(raw)) {
+                    const fallback = values.includes(tpl) ? tpl : values[0];
+                    put(k, fallback, "非法枚举");
+                }
+                return;
+            }
+
+            if (typeof raw !== spec.type) {
+                if (typeof tpl === spec.type) {
+                    put(k, tpl, "类型错误");
+                    return;
+                }
+                throw new Error(Tr._c("console.Config.check.type", k, spec.type));
             }
         });
+
+        if (repairs.length > 0) {
+            const shown = repairs.slice(0, 8).join("; ") + (repairs.length > 8 ? " …" : "");
+            logger.warn("[CALL] configs.json 按校验规则修正 " + repairs.length + " 项: " + shown);
+        }
     }
 
     /**

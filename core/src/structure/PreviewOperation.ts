@@ -164,9 +164,14 @@ export default class PreviewOperation {
             return;
         }
         if (scene != null && scene.ok) {
+            const mode = scene.mode ?? "full";
+            const how = mode === "full"
+                ? scene.blocks + " 个方块"
+                : mode === "window"
+                    ? "大建筑：窗口加载（表面 " + scene.blocks + " 个，走进范围逐个出现）"
+                    : "超大建筑：按切片懒解析（走到哪解析到哪）";
             output.success(
-                "预览就绪: " + scene.blocks + " 个方块" +
-                (scene.truncated ? "（已按上限截断）" : "") +
+                "预览就绪: " + how +
                 "，旋转 " + st.degrees + "°（再右键旋转，潜行右键确认）"
             );
             return;
@@ -573,19 +578,56 @@ export default class PreviewOperation {
         output.success("竖直修正: " + current + " → " + next + " 格（没有活动预览，已重新摆出探针）");
     }
 
+    /** Force a window recompute (`/ca preview refresh`) - also the way to recover after a hitch. */
+    public static recompute(output: any, caPlayer: CAPlayer): void {
+        if (!states.has(caPlayer.xuid)) {
+            output.error("当前没有预览");
+            return;
+        }
+        PreviewScene.refreshWindow(caPlayer.xuid, true);
+        const scene = PreviewScene.info(caPlayer.xuid);
+        output.success("已重算预览窗口：模式 " + scene.mode + " · 窗口 " + scene.windowCount +
+            " · 已覆盖 " + scene.applied + " 格 · 半径 " + scene.radius);
+    }
+
+    /** Runtime window radius override (`/ca preview radius <16-192>`). */
+    public static radius(output: any, caPlayer: CAPlayer, value?: number): void {
+        if (!states.has(caPlayer.xuid)) {
+            output.error("当前没有预览");
+            return;
+        }
+        const wanted = Number(value);
+        if (!Number.isFinite(wanted)) {
+            output.error("用法: /ca preview radius <16-192>");
+            return;
+        }
+        const applied = PreviewScene.setRadius(caPlayer.xuid, wanted);
+        if (applied == null) {
+            output.error("当前没有预览");
+            return;
+        }
+        output.success("预览窗口半径: " + applied + " 格（已重算）");
+    }
+
     public static info(output: any, caPlayer: CAPlayer): void {
         const scene = PreviewScene.info(caPlayer.xuid);
         const st = states.get(caPlayer.xuid);
+        const modeText = scene.mode === "full" ? "全量"
+            : scene.mode === "window" ? "窗口"
+            : scene.mode === "lazy" ? "懒解析" : "-";
         output.success(
-            "模式 " + PreviewOperation.mode() +
+            "模式 " + PreviewOperation.mode() + "/" + modeText +
             " · 基准 " + (st != null ? st.pivot : defaultPivot()) +
             " · 偏移 " + (st != null ? st.offset.x + "/" + st.offset.y + "/" + st.offset.z : "0/0/0") +
             " · 渲染 " + scene.backend +
-            " · 已覆盖 " + scene.applied + "/" + scene.blocks + " 格" +
-            (scene.building ? "（生成中，待发 " + scene.pending + "）" : "") +
+            " · 已覆盖 " + scene.applied + " 格" +
+            (scene.mode === "lazy"
+                ? " · 切片 " + scene.total + "（待解析 " + scene.loading + "）"
+                : " · 总表面 " + scene.total + " · 窗口 " + scene.windowCount) +
+            (scene.pending > 0 ? "（待发 " + scene.pending + "）" : "") +
             (scene.failed > 0 ? "（" + scene.failed + " 格客户端不认识）" : "") +
-            " · 上限 " + Config.get(Config.GLOBAL, "previewMaxBlocks", 8000) +
-            (scene.truncated ? " · 已截断" : "") +
+            " · 上限 " + Config.get(Config.GLOBAL, "previewMaxBlocks", 12000) +
+            " · 半径 " + scene.radius +
             (st != null ? " · 落点 " + anchorOf(st).floor().toString() + " 旋转 " + st.degrees + "°" : " · 当前无预览")
         );
     }

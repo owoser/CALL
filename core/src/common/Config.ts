@@ -157,9 +157,12 @@ function migratePreviewDefaults(): void {
     try {
         const current = JSON.parse(stripJsonComments(fs.readFileSync(GLOBAL_PATH, "utf8")));
         const changes: string[] = [];
-        if (Number(current.previewMaxBlocks) === 2000) {
-            current.previewMaxBlocks = 8000;
-            changes.push("previewMaxBlocks 2000 → 8000");
+        // 2000 was the item-display default, 8000 the first block-override default; both are
+        // too small once the premier becomes a streaming window budget.
+        const budget = Number(current.previewMaxBlocks);
+        if (budget === 2000 || budget === 8000) {
+            current.previewMaxBlocks = 12000;
+            changes.push("previewMaxBlocks " + budget + " → 12000");
         }
         if (Number(current.previewBatchSize) === 200) {
             current.previewBatchSize = 1000;
@@ -256,6 +259,16 @@ export default class Config {
 
     /** Absolute path of the user-editable global config (printed at startup). */
     public static readonly GLOBAL_FILE = GLOBAL_PATH;
+
+    /** The shipped template value for a (dotted) config key, or undefined. */
+    public static templateValue(key: string): any {
+        let cur: any = templateConfig();
+        for (const part of String(key).split(".")) {
+            if (cur == null || typeof cur !== "object") return undefined;
+            cur = cur[part];
+        }
+        return cur;
+    }
 
     /**
      * Bindings for the bundled tool items: the shipped template with the server's own

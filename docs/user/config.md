@@ -62,8 +62,15 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 | `previewTimeout` | `60` | 10 – 600 | 预览魔杖多久没操作就自动取消（秒） |
 | `previewMode` | `"ghost"` | `ghost` / `wireframe` | `ghost` = 真方块预览（`viewBlock` 逐客户端方块覆盖，不写世界）+ 线框；`wireframe` = 只线框 |
 | `previewPivot` | `"inplace"` | `inplace` / `anchor` | 旋转基准。`inplace` = 框停在落点、只转框内排布；`anchor` = 绕你点的那一格转，框会甩到相邻象限（可到落点负方向）。`/ca preview pivot` 切换，调整魔杖左键也能切 |
-| `previewMaxBlocks` | `8000` | 200 – 50000 | 预览最多画多少个表面方块，超过的部分不画并提示已截断（3.6.0 起默认 8000） |
-| `previewBatchSize` | `1000` | 50 – 5000 | 每 tick 发多少格覆盖，越小越平滑（3.6.0 起默认 1000） |
+| `previewMaxBlocks` | `12000` | 200 – 200000 | **同屏上限（窗口预算）**。表面方块 ≤ 它：整块全量显示；超过：进入窗口模式，只显示玩家周围半径内的方块，按距离取前 N 个 |
+| `previewRadius` | `48` | 16 – 192 | 窗口半径（格，玩家为中心的立方范围） |
+| `previewUpdateDistance` | `8` | 2 – 32 | 玩家位移超过这么多格才重算窗口 |
+| `previewMaxCells` | `800000` | 40000 – 4000000 | 选区格子数 ≤ 它：整块解析后按窗口显示；超过：自动切**按 64 切片懒解析**（任意大建筑都能看） |
+| `previewSliceCache` | `8` | 2 – 64 | 懒解析模式缓存多少个已解析切片（LRU，只淘汰没有在显示的） |
+| `previewPrefetch` | `16` | 0 – 64 | 朝玩家朝向那一侧多取几格，走动时前方不空白 |
+| `previewOutline` | `true` | true / false | 窗口模式下额外画一层抽样「骨架」，站远处也能看出轮廓（懒解析模式下只有线框） |
+| `previewOutlineStep` | `8` | 2 – 32 | 骨架抽样步长（越大越稀） |
+| `previewBatchSize` | `1000` | 50 – 5000 | 每 tick 发多少格覆盖，越小越平滑 |
 | `previewViewDistance` | `64` | 16 – 256 | 预览方块的可见距离 |
 | `previewBlockScale` | `"1"` | 字符串 | 一个展示等于一个方块的缩放 |
 | `previewBlockOffsetY` | `"0"` | 模型单位 | 库的模型偏移参数，一般保持 0 |

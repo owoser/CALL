@@ -88,9 +88,9 @@ export default class CACommand {
         cmd.setEnum("pv_pos", ["set", "se", "click", "ck", "move", "mv"]);
         cmd.setEnum("pv_plain", [
             "rotate", "rt", "mirror", "mi", "confirm", "ok", "cancel", "cc", "info", "in",
-            "nudgeface", "nf"
+            "nudgeface", "nf", "refresh", "rf"
         ]);
-        cmd.setEnum("pv_num", ["calib", "ca", "probe", "pb", "trim", "tm"]);
+        cmd.setEnum("pv_num", ["calib", "ca", "probe", "pb", "trim", "tm", "radius", "rd"]);
         cmd.setEnum("pv_mode", ["mode", "mo"]);
         cmd.setEnum("pv_mode_val", ["ghost", "wireframe"]);
         cmd.setEnum("pv_pivot", ["pivot", "pvt"]);
@@ -621,6 +621,14 @@ export default class CACommand {
                     case "nudgeface":
                     case "nf":
                         PreviewOperation.nudgeFace(output, caPlayer);
+                        return;
+                    case "refresh":
+                    case "rf":
+                        PreviewOperation.recompute(output, caPlayer);
+                        return;
+                    case "radius":
+                    case "rd":
+                        PreviewOperation.radius(output, caPlayer, res.delta);
                         return;
                 }
                 output.error("用法: /ca preview set|click|move|rotate|mirror|confirm|cancel|mode|calib|info");

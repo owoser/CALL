@@ -74,6 +74,16 @@ const getPath = (obj, dotted) => {
 
 let problems = 0;
 const specs = check.configs ?? {};
+
+// The specs MUST live under "configs". An edit once moved 18 of them to the root by
+// accident: both this script and the runtime read only check.configs, so those 18 keys -
+// previewMaxBlocks among them - were silently never validated, and an out-of-range value
+// looked fine until it was clamped at runtime.
+const strayRoot = Object.keys(check).filter((k) => k !== 'configs');
+if (strayRoot.length > 0) {
+    console.log('STRUCTURE check.json: ' + strayRoot.length + ' spec(s) outside "configs": ' + strayRoot.join(', '));
+    problems++;
+}
 for (const key of Object.keys(specs)) {
     const value = getPath(configs, key);
     if (value === undefined) {
