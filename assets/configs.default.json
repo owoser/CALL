@@ -522,7 +522,7 @@
     * ###Preview block scale###   (new in 3.3.0)
     *   The library docs suggest "0.5" for block mode; /ca preview calib settles it.
     */
-    "previewBlockScale": "0.5",
+    "previewBlockScale": "1",
 
     /*
     *   ###预览方块模型偏移Y###   (3.3.0 新增)
@@ -531,7 +531,7 @@
     * ###Preview block model offset Y###   (new in 3.3.0)
     *   MODEL units (16 = 1 block). The documented block-mode pose is "-4".
     */
-    "previewBlockOffsetY": "-4",
+    "previewBlockOffsetY": "8",
 
     /*
     *   ###线框最远渲染距离###   (3.2.0 新增)

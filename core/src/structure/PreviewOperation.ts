@@ -243,23 +243,24 @@ export default class PreviewOperation {
         const p = Pos3.fromPos(caPlayer.$.pos).floor();
         // Scale is already settled (1.0 fills a block); what is left is the vertical
         // anchor, because a block model hangs off its BOTTOM centre.
-        const baseScale = Number(Config.get(Config.GLOBAL, "previewBlockScale", "0.5"));
-        const candidates = [...new Set([0.5, 0.75, 1.0, baseScale])].sort((x, y) => x - y);
-        const offsetY = String(Config.get(Config.GLOBAL, "previewBlockOffsetY", "-4"));
+        // Scale is settled (1.0 fills exactly one block); what is left is the vertical anchor,
+        // so sweep offY alone: each step of 4 model units should move the block 0.25 block.
+        const scale = String(Config.get(Config.GLOBAL, "previewBlockScale", "1"));
+        const offsets = ["0", "4", "8", "12", "16"];
         let placed = 0;
 
-        for (let i = 0; i < candidates.length; i++) {
+        for (let i = 0; i < offsets.length; i++) {
             const cx = p.x + 2 + i * 2;
             const cy = p.y;
             const cz = p.z;
-            const scale = String(candidates[i]);
+            const offsetY = offsets[i];
 
             // 1x1x1 wireframe = the reference cell the block has to fill exactly
             Wireframe.show(
                 "calib:" + i,
                 { x1: cx, y1: cy, z1: cz, x2: cx + 1, y2: cy + 1, z2: cz + 1 },
                 COLOR.preview,
-                "§fscale " + scale
+                "§foffY " + offsetY
             );
 
             const id = ItemDisplay.create({
@@ -281,8 +282,8 @@ export default class PreviewOperation {
         }
 
         output.success(
-            "已摆出 " + placed + " 组校准石块（文档姿态 offY " + offsetY + "，scale " +
-            candidates.join(" / ") + "）：哪个刚好填满线框且不越界，就报那个 scale（/ca preview cancel 清理）"
+            "已摆出 " + placed + " 组校准石块（scale " + scale + "，offY " + offsets.join(" / ") +
+            "，步长 4 单位 = 0.25 格）：哪个刚好填满线框，就报那个 offY（/ca preview cancel 清理）"
         );
         // clean up on its own so a forgotten calibration never litters the world
         setTimeout(() => PreviewOperation.clearCalib(), 120000);
@@ -293,7 +294,7 @@ export default class PreviewOperation {
         if (calibIds.length > 0) {
             ItemDisplay.destroyAll(calibIds.splice(0, calibIds.length));
         }
-        for (let i = 0; i < 4; i++) Wireframe.hide("calib:" + i);
+        for (let i = 0; i < 6; i++) Wireframe.hide("calib:" + i);
     }
 
     public static modeCommand(output: any, caPlayer: CAPlayer, arg: string | undefined): void {

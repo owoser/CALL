@@ -6,7 +6,9 @@ import StructureService from "./StructureService";
 import { parseStructureLayout } from "../io/NbtCodec";
 import { extractSurface, PreviewBlock, SliceInput } from "./SurfaceExtract";
 import { Degrees, MirrorMode, transformOffset } from "./Rotate";
-import { clipboardMin, sliceOrigin } from "./Clipboard";
+import { clipboardMin } from "./Clipboard";
+import Area3 from "../common/Area3";
+import { Structure } from "../common/Structure";
 import ItemDisplay from "../holo/ItemDisplay";
 import { MsgType, online, tell } from "../util/Msg";
 import StrFactory from "../util/StrFactory";
@@ -113,23 +115,40 @@ export const PreviewScene = {
         const slices: SliceInput[] = [];
         let cells = 0;
 
-        for (const sid of sids) {
-            let layout;
-            try {
-                layout = parseStructureLayout(NBTService.readBytes(sid));
-            } catch (e) {
-                logger.warn("[CALL][Preview] 读取切片失败 " + sid + ": " + describeError(e));
-                continue;
-            }
-            cells += layout.size[0] * layout.size[1] * layout.size[2];
-            if (cells > MAX_CELLS) return { slices: [], tooBig: true };
+        // Mirror StructureService.load() exactly: a clipboard entry is keyed by STRUCTID and
+        // holds one whole area; the actual files are <structid>_<ix>_<iz>, split by
+        // Structure.getAreas() into MAX_LENGTH (64) chunks. Reading <structid>.mcstructure
+        // simply does not exist - that was the load.missingFile warning.
+        for (const structid of sids) {
+            const entry = complex[structid];
+            const area = Area3.fromArea3D(entry?.area);
+            if (area == null) continue;
+            area.start.x -= min.x;
+            area.start.y -= min.y;
+            area.start.z -= min.z;
+            area.end.x -= min.x;
+            area.end.y -= min.y;
+            area.end.z -= min.z;
 
-            const area = complex[sid]?.area;
-            const fallback = sliceOrigin(sid);
-            const origin: [number, number, number] = area?.start != null
-                ? [area.start.x - min.x, area.start.y - min.y, area.start.z - min.z]
-                : fallback;
-            slices.push({ origin, layout });
+            const chunks = new Structure(area).getAreas();
+            for (let ix = 0; ix < chunks.length; ix++) {
+                const row = chunks[ix];
+                for (let iz = 0; iz < row.length; iz++) {
+                    const sid = structid + "_" + ix + "_" + iz;
+                    let layout;
+                    try {
+                        layout = parseStructureLayout(NBTService.readBytes(sid));
+                    } catch (e) {
+                        logger.warn("[CALL][Preview] 读取切片失败 " + sid + ": " + describeError(e));
+                        continue;
+                    }
+                    cells += layout.size[0] * layout.size[1] * layout.size[2];
+                    if (cells > MAX_CELLS) return { slices: [], tooBig: true };
+
+                    const chunk = row[iz];
+                    slices.push({ origin: [chunk.start.x, chunk.start.y, chunk.start.z], layout });
+                }
+            }
         }
 
         if (slices.length === 0) return { slices: [], error: "切片文件读取失败" };

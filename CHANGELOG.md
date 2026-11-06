@@ -11,6 +11,32 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.3.2] - 2026-11-06
+
+### Fixed - the preview could not read a clipboard at all
+
+`WRN [CALL][Preview] 读取切片失败 <id>: load.missingFile`. A clipboard entry is keyed by its
+**structid** and holds one whole area; the files on disk are `<structid>_<ix>_<iz>.mcstructure`,
+split by `Structure.getAreas()` into 64-block chunks. The preview was calling
+`readBytes(<structid>)`, a file that never exists.
+
+`PreviewScene.gather()` now mirrors `StructureService.load()` step by step (same area
+relativity, same `getAreas()` split, same file names), so the preview geometry is by
+construction the geometry the paste will use.
+
+### Changed - calibration is a single-variable sweep
+
+`scale` is settled: 1.0 fills exactly one block (both screenshots agree, the docs' "0.5" is a
+different context). So `/ca preview calib` now pins `scale=1` and sweeps `offY`
+0 / 4 / 8 / 12 / 16 model units (4 units = 0.25 block), which identifies the vertical anchor in
+one screenshot instead of two rounds.
+
+### Tests
+
+- Unit 65 (was 61): adds `preview-chunks.test.mjs` - single-chunk small areas, the 2x2 split of
+  a 100x100 selection at 0/64, clipboard-relative offsets, and the `<structid>_<ix>_<iz>` id
+  format that `save()`/`load()` use.
+
 ## [3.3.1] - 2026-11-06
 
 ### Fixed - the preview blocks sat half a block too high
