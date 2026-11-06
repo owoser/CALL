@@ -127,13 +127,25 @@ export class ToolItems {
         }
 
         let given = 0;
+        const skipped: string[] = [];
         for (const spec of TOOL_SPECS) {
             const item = ToolItems.create(spec.id);
-            if (item == null) continue;
+            if (item == null) {
+                skipped.push(spec.id);
+                continue;
+            }
             player.giveItem(item);
             given++;
         }
         output.success("已发放 " + given + " 个建造工具，右键试用；绑定见 /ca tools list");
+        if (skipped.length > 0) {
+            // A tool that cannot be created is invisible, not broken: say so instead of
+            // reporting a smaller number and letting the player wonder.
+            output.error(
+                "有 " + skipped.length + " 个工具没能生成（" + skipped.join(", ") + "）：物品包可能还没生效。" +
+                "确认 configs.json 的 toolItems = true，然后重启服务器（写入世界包列表后还需再重启一次）"
+            );
+        }
         tell(player, StrFactory.cmdSuccess("§a已获得建造工具（" + given + " 件）"), MsgType.TIP);
     }
 
@@ -186,7 +198,47 @@ export class ToolItems {
      * rebound (or removed) something keeps their choice.
      */
     public static migrateBindings(settings: any): boolean {
-        return mergeToolBindings(settings, Config.get(Config.GLOBAL, "default"), TOOL_IDS);
+        // The SHIPPED template is the source of truth for our own items: `default.items` in
+        // configs.json is written once and never grows, so a tool released later would have
+        // no binding to copy no matter how often the player reconnects.
+        return mergeToolBindings(settings, { items: Config.toolBindingDefaults() }, TOOL_IDS);
+    }
+
+    /**
+     * Write any missing bundled-tool binding into configs.json's `default.items`.
+     *
+     * Purely config hygiene: the click path already heals the player's own settings, but an
+     * admin who opens configs.json should see the tools that actually ship. Only missing ids
+     * are added - a customised binding is never touched.
+     */
+    public static healDefaultBindings(): string[] {
+        try {
+            const defaults = Config.toolBindingDefaults();
+            const live = Config.get(Config.GLOBAL, "default.items") ?? {};
+            const missing: string[] = [];
+            for (const kind of ["onUseItemOn", "onStartDestroyBlock"]) {
+                for (const id of TOOL_IDS) {
+                    if (defaults?.[kind]?.[id] == null) continue;
+                    if (live?.[kind]?.[id] == null) missing.push(id + " (" + kind + ")");
+                }
+            }
+            if (missing.length === 0) return [];
+
+            Config.set(Config.GLOBAL, "default.items", defaults);
+            try {
+                logger.warn("[CALL] configs.json 补全内置工具绑定: " + missing.join(", "));
+            } catch {
+                // logger may not be ready
+            }
+            return missing;
+        } catch (e) {
+            try {
+                logger.warn("[CALL] cannot fill in tool bindings: " + describeError(e));
+            } catch {
+                // ignore
+            }
+            return [];
+        }
     }
 
     /** What the click pipeline will actually see for the held item. */

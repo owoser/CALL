@@ -77,6 +77,47 @@ test('migration is a no-op once everything is present', () => {
     assert.equal(mergeToolBindings(settings, defaults, TOOLS), false);
 });
 
+// ------------------------------------------------------- template fallback
+
+test('mergeDefaults fills keys only the shipped template knows about', () => {
+    const { mergeDefaults } = load();
+    const template = {
+        items: { onUseItemOn: { 'call:wand_adjust': binding('nudge'), 'call:gear': binding('menu') } },
+    };
+    const live = { items: { onUseItemOn: { 'call:gear': binding('my menu') } } };
+
+    const merged = mergeDefaults(template, live);
+    assert.equal(merged.items.onUseItemOn['call:wand_adjust'].cmds[0], 'nudge', 'new tool appears');
+    assert.equal(merged.items.onUseItemOn['call:gear'].cmds[0], 'my menu', 'customisation wins');
+    // inputs must survive untouched: the live config object is a JsonConfigFile node
+    assert.equal(live.items.onUseItemOn['call:wand_adjust'], undefined);
+    assert.equal(template.items.onUseItemOn['call:gear'].cmds[0], 'menu');
+});
+
+test('a tool that the live defaults never heard of still gets bound', () => {
+    const { mergeDefaults, mergeToolBindings } = load();
+    // exactly the 3.5.0 situation: configs.json predates call:wand_adjust
+    const templateItems = { onUseItemOn: { 'call:wand_adjust': binding('call preview nudgeface') } };
+    const liveItems = { onUseItemOn: { 'call:gear': binding('call menu') } };
+    const settings = { items: { onUseItemOn: { 'call:gear': binding('call menu') } } };
+
+    const changed = mergeToolBindings(settings, { items: mergeDefaults(templateItems, liveItems) }, ['call:wand_adjust']);
+    assert.equal(changed, true);
+    assert.equal(settings.items.onUseItemOn['call:wand_adjust'].cmds[0], 'call preview nudgeface');
+});
+
+test('mergeDefaults replaces arrays wholesale and never shares references', () => {
+    const { mergeDefaults } = load();
+    const template = { a: { b: [1, 2] }, c: 1 };
+    const live = { a: { b: [3] } };
+    const out = mergeDefaults(template, live);
+
+    assert.deepEqual(out.a.b, [3], 'arrays are replaced, not merged element-wise');
+    assert.equal(out.c, 1, 'template-only scalar survives');
+    out.a.b.push(4);
+    assert.deepEqual(live.a.b, [3], 'override untouched');
+});
+
 test('migration ignores ids it was not asked about', () => {
     const { mergeToolBindings } = load();
     const defaults = { items: { onUseItemOn: { 'minecraft:clock': binding('call') } } };

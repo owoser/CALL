@@ -43,11 +43,7 @@ export default class CAPlayer {
         // Players who registered before the bundled tools existed have their own snapshot of
         // default.items without the call:* entries, so their tools would silently do nothing.
         if (ToolItems.migrateBindings(this.settings)) {
-            try {
-                Config.set(Config.PLAYERS_SETTINGS, `player.${xuid}`, this.settings);
-            } catch (e) {
-                describeError(e);
-            }
+            this.persistSettings();
         }
     }
 
@@ -100,6 +96,21 @@ export default class CAPlayer {
 
     public forgetWarnings(): void {
         warned.delete(this.xuid);
+    }
+
+    /**
+     * Write this player's settings back.
+     *
+     * Shared by the login-time binding migration and the click-time fallback in
+     * ToolOperation: a tool that shipped after the player's snapshot must be usable without
+     * waiting for a reconnect.
+     */
+    public persistSettings(): void {
+        try {
+            Config.set(Config.PLAYERS_SETTINGS, `player.${this.xuid}`, this.settings);
+        } catch (e) {
+            describeError(e);
+        }
     }
 
     public setDefaultSettings() {

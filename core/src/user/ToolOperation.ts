@@ -10,6 +10,8 @@ import * as estraverse from "estraverse";
 import Tr from "../util/Translator";
 import BlockType from "../common/BlockType";
 import { matchBinding } from "./Bindings";
+import { ToolItems } from "./ToolItems";
+import { MsgType, tell } from "../util/Msg";
 
 type ToolVariable = {
     readonly pos: Pos3;
@@ -137,6 +139,22 @@ export class ToolOperation {
         return arr;
     }
 
+    /** Warn about a tool that has no binding, once per player and item. */
+    private static warnedUnbound = new Set<string>();
+
+    private static warnUnbound(caPlayer: CAPlayer, type: string): void {
+        const key = caPlayer.xuid + "|" + type;
+        if (ToolOperation.warnedUnbound.has(key)) return;
+        ToolOperation.warnedUnbound.add(key);
+        const player = caPlayer.$;
+        if (player == null) return;
+        tell(
+            player,
+            StrFactory.cmdErr("这个工具还没有绑定：/ca tools give 重新领取，或重进一次服务器"),
+            MsgType.RAW
+        );
+    }
+
     public static onClick(type: ToolType, caPlayer: CAPlayer, item: Item, block: Block, posFloat: FloatPos) {
         let items = ToolOperation.getItems(caPlayer, type);
         let name = "";
@@ -151,13 +169,27 @@ export class ToolOperation {
         // empty string. Tools shipped with the plugin have no display name, but a renamed tool
         // (or a player who named it themselves) must still find its type binding - otherwise a
         // click silently does nothing.
-        const binding = matchBinding<any>(items[item.type], name);
-        if (binding != null) {
-            const itemArr = caPlayer.$.getInventory().getAllItems();
-            ToolOperation.cmdsTranslator(caPlayer, itemArr, caPlayer.settings.barReplace, caPlayer.settings.barReplaced, binding.cmds, block, posFloat).forEach((cmd) => {
-                Players.silenceCmd(caPlayer, cmd);
-            });
+        let binding = matchBinding<any>(items[item.type], name);
+
+        if (binding == null && ToolItems.isTool(String(item.type))) {
+            // A tool that shipped AFTER this settings snapshot (or after this server's
+            // configs.json was written) has no entry at all. Merge the shipped bindings right
+            // here so the wand works on the next click instead of being a dead item until the
+            // player reconnects - and never silently: the report was "点击了无反应，也没有报错".
+            if (ToolItems.migrateBindings(caPlayer.settings)) caPlayer.persistSettings();
+            items = ToolOperation.getItems(caPlayer, type);
+            binding = matchBinding<any>(items[item.type], name);
         }
+
+        if (binding == null) {
+            if (ToolItems.isTool(String(item.type))) ToolOperation.warnUnbound(caPlayer, String(item.type));
+            return;
+        }
+
+        const itemArr = caPlayer.$.getInventory().getAllItems();
+        ToolOperation.cmdsTranslator(caPlayer, itemArr, caPlayer.settings.barReplace, caPlayer.settings.barReplaced, binding.cmds, block, posFloat).forEach((cmd) => {
+            Players.silenceCmd(caPlayer, cmd);
+        });
     }
 
     public static bind(output: CommandOutput, caPlayer: CAPlayer, item: Item, type: ToolType, cmd: string, describe: string, name: string) {

@@ -11,6 +11,25 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.5.1] - 2026-11-06
+
+### Fixed
+
+- **A newly shipped tool item did nothing when clicked, with no error** (the adjust wand in
+  3.5.0). Its bindings were never delivered to an existing install: `healMissingKeys()` only
+  fills *top-level* config keys, and `mergeToolBindings()` can only copy an entry that
+  `configs.json -> default.items` already contains - which is written once and never grows.
+  Clicking then fell through `matchBinding()` and returned silently.
+  Now:
+  - `Config.toolBindingDefaults()` merges the **shipped template** with the server's own
+    `default.items` (customisations win, the template fills what it does not know), so every
+    bundled tool always has a source;
+  - the settings migration reads that merged set;
+  - `ToolOperation.onClick()` merges on the spot for a bundled tool with no binding, so the
+    wand works on the next click without a reconnect, and if it still cannot resolve it tells
+    the player instead of doing nothing;
+  - startup writes the missing bundled bindings back into `configs.json`;
+  - `/ca tools give` reports when fewer items than expected could be created.
 ## [3.5.0] - 2026-11-06
 
 Preview content that finally matches the paste, a selectable rotation pivot, and one

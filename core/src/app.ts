@@ -348,6 +348,12 @@ function init(): boolean {
             } else {
                 logger.warn("[CALL] 内置工具物品不可用: " + addon.message);
             }
+
+            // Keep configs.json honest: a tool released after this config was written has no
+            // entry in default.items, and reading only that file is what left new wands unbound.
+            // The click path also heals the player's own snapshot, so this is for the admin's
+            // copy of the file rather than for the click itself.
+            ToolItems.healDefaultBindings();
         }
     } catch (e) {
         logger.error("[CALL] init failed: " + describeError(e) + "\nstack:" + (e && e.stack ? e.stack : ""));

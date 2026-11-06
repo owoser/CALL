@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import Version from "../util/Version";
 import Paths from "./Paths";
+import { mergeDefaults } from "../user/Bindings";
 
 export enum PermissionsType {
     ALL = "all",
@@ -92,6 +93,19 @@ function stripJsonComments(text: string): string {
     return out;
 }
 
+/** Parsed copy of the shipped template (cached: it is read-only). */
+let templateCache: any = null;
+function templateConfig(): any {
+    if (templateCache != null) return templateCache;
+    try {
+        const raw = fs.readFileSync(CONFIG_TEMPLATE_PATH, "utf8");
+        templateCache = JSON.parse(stripJsonComments(raw));
+    } catch {
+        templateCache = null;
+    }
+    return templateCache;
+}
+
 /**
  * Fill in configuration keys that this version added.
  *
@@ -102,8 +116,8 @@ function stripJsonComments(text: string): string {
 let addedKeys: string[] = [];
 function healMissingKeys(): void {
     try {
-        const raw = fs.readFileSync(CONFIG_TEMPLATE_PATH, "utf8");
-        const template = JSON.parse(stripJsonComments(raw));
+        const template = templateConfig();
+        if (template == null) return;
         // The user's file may still carry the template's comments (it is seeded by copying it),
         // so it needs the same stripping. Rewriting drops those comments - the annotated
         // template stays available in assets/configs.default.json.
@@ -204,6 +218,26 @@ export default class Config {
 
     /** Absolute path of the user-editable global config (printed at startup). */
     public static readonly GLOBAL_FILE = GLOBAL_PATH;
+
+    /**
+     * Bindings for the bundled tool items: the shipped template with the server's own
+     * `default.items` layered on top (the server's customisation wins, the template fills
+     * whatever it does not know about).
+     *
+     * Reading only the live config is what left a newly shipped tool without any binding on
+     * every upgraded server: `default.items` was written years of releases ago and never grew
+     * the new entry, so the migration had nothing to copy.
+     */
+    public static toolBindingDefaults(): Record<string, any> {
+        const tpl = (templateConfig()?.default?.items) ?? {};
+        let live: any = null;
+        try {
+            live = Config.get(Config.GLOBAL, "default.items");
+        } catch {
+            live = null;
+        }
+        return mergeDefaults(tpl, live ?? {});
+    }
 
     // ---- versions ---------------------------------------------------------
     /** Oldest BDS this build supports. */

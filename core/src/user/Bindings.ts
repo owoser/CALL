@@ -22,6 +22,35 @@ export function matchBinding<T>(byType: Record<string, T> | null | undefined, na
 }
 
 /**
+ * Deep copy of `template` with every key `override` is missing filled in.
+ *
+ * `override` always wins for keys it has, so a player's or an admin's customisation is never
+ * replaced - but a key that only the shipped template knows about still appears. That is what
+ * lets a NEW bundled tool reach an old config: the user's `default.items` predates the item,
+ * the template does not.
+ */
+export function mergeDefaults<T>(template: T, override: any): any {
+    if (template == null) return cloneValue(override);
+    if (override == null) return cloneValue(template);
+    if (Array.isArray(template) || Array.isArray(override)) return cloneValue(override);
+    if (typeof template !== "object" || typeof override !== "object") return override;
+
+    const out: any = {};
+    for (const key of Object.keys(template as any)) out[key] = cloneValue((template as any)[key]);
+    for (const key of Object.keys(override)) {
+        out[key] = key in (template as any)
+            ? mergeDefaults((template as any)[key], override[key])
+            : cloneValue(override[key]);
+    }
+    return out;
+}
+
+function cloneValue<T>(value: T): T {
+    if (value == null || typeof value !== "object") return value;
+    return JSON.parse(JSON.stringify(value)) as T;
+}
+
+/**
  * Merge the bundled tools' default bindings into a player's settings.
  *
  * Only the given ids are considered and an existing entry is never overwritten; returns true
