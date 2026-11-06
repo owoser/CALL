@@ -33,8 +33,9 @@ import {
   stat,
   writeFile,
 } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createZip, walk } from './zip.mjs';
 
@@ -256,6 +257,18 @@ async function pack(pkg, suffix = '') {
   log('packed ' + relative(ROOT, zipPath) + ' (' + res.files + ' files, ' + mb + ' MB)');
 }
 
+/**
+ * Deploy into a BDS server.
+ *
+ * `config/` and `data/` inside plugins/CALL are the SERVER's state (its configs.json, saved
+ * structures, undo history, player data), not build output. A plain rm -rf + copy wipes them
+ * on every deploy, which is how a dev server loses the setup it was calibrated with - so they
+ * are moved aside and put back around the copy.
+ *
+ * The target is validated first: LeviLamina refuses to load a plugin whose manifest name
+ * differs from its folder, and deleting some unrelated folder because of a typo in bdsDir
+ * would be unacceptable.
+ */
 async function deploy(pkg) {
   const cfg = (await readJson(join(ROOT, 'build.json'))) || {};
   const bdsDir = cfg.bdsDir;
@@ -263,10 +276,39 @@ async function deploy(pkg) {
     log('deploy skipped: set "bdsDir" in build.json');
     return;
   }
-  const target = join(resolve(bdsDir), 'plugins', cfg.pluginDir || PLUGIN_NAME);
+  const serverDir = resolve(bdsDir);
+  const pluginDir = cfg.pluginDir || PLUGIN_NAME;
+  const target = join(serverDir, 'plugins', pluginDir);
+
+  if (!existsSync(join(serverDir, 'bedrock_server_mod.exe')) && !existsSync(join(serverDir, 'bedrock_server.exe'))) {
+    throw new Error('bdsDir is not a BDS server (no bedrock_server*.exe): ' + serverDir);
+  }
+  if (existsSync(join(target, 'manifest.json'))) {
+    const man = JSON.parse(readFileSync(join(target, 'manifest.json'), 'utf8'));
+    if (man.name !== pluginDir) {
+      throw new Error('refusing to replace ' + target + ': its manifest name is ' + man.name);
+    }
+  }
+
+  // ---- keep the server's own state
+  const KEEP = ['config', 'data'];
+  const stash = join(tmpdir(), 'call-deploy-' + Date.now());
+  const kept = [];
+  for (const d of KEEP) {
+    if (!existsSync(join(target, d))) continue;
+    await cp(join(target, d), join(stash, d), { recursive: true });
+    kept.push(d);
+  }
+
   await rm(target, { recursive: true, force: true });
   await cp(OUT, target, { recursive: true });
-  log('deployed to ' + target);
+
+  for (const d of kept) {
+    await cp(join(stash, d), join(target, d), { recursive: true, force: true });
+  }
+  await rm(stash, { recursive: true, force: true });
+
+  log('deployed to ' + target + (kept.length > 0 ? ' (kept ' + kept.join(' + ') + ')' : ''));
 }
 
 async function main() {

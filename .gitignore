@@ -15,9 +15,6 @@ cli/CALL-CLI/bin
 cli/**/bin/Release
 cli/**/bin/Debug
 
-# local test server copy (npm run deploy uses build.json instead)
-/.testserver/
-
 # runtime noise
 *.log
 *.dmp

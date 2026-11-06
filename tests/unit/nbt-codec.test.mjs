@@ -19,9 +19,25 @@ const require = createRequire(import.meta.url);
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const CODEC = join(ROOT, 'dist', 'call', 'core', 'src', 'io', 'NbtCodec.js');
 
-// A local LeviLamina install is needed for the real fixtures; skip gracefully without one.
-const SERVER = process.env.CALL_TEST_SERVER ||
-    join(ROOT, '.testserver');
+// A real Levilamina install is needed for these fixtures; skip gracefully without one.
+//
+// The server comes from CALL_TEST_SERVER, else from build.json -> bdsDir - the same place
+// `npm run deploy` and `npm run test:live` write to, so there is exactly ONE dev server to
+// keep in sync instead of a copy inside the repo.
+function resolveServer() {
+    if (process.env.CALL_TEST_SERVER) return process.env.CALL_TEST_SERVER;
+    try {
+        const cfg = JSON.parse(readFileSync(join(ROOT, 'build.json'), 'utf8'));
+        if (cfg != null && typeof cfg.bdsDir === 'string' && cfg.bdsDir !== '') {
+            return resolve(ROOT, cfg.bdsDir);
+        }
+    } catch {
+        // no build.json / not JSON: the fixtures simply get skipped
+    }
+    return join(ROOT, 'server');
+}
+
+const SERVER = resolveServer();
 
 const FIXTURES = [
     // [relative path, expected min size]

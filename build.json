@@ -1,5 +1,5 @@
 {
-  "_comment": "Local deploy target used by `npm run deploy`. Leave bdsDir empty to disable.",
-  "bdsDir": "E:/code/LL3/Plugins/CALL/.testserver",
+  "_comment": "Local deploy target used by npm run deploy and npm run test:live. Leave bdsDir empty to disable. config/ + data/ inside plugins/<pluginDir> are preserved across deploys.",
+  "bdsDir": "D:/MCserver/SER-DEV",
   "pluginDir": "CALL"
 }

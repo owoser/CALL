@@ -194,6 +194,11 @@ npm run test:live       # boots the server, runs tests/live, prints PASS/FAIL
 npm run server:dev      # headless server with a console inbox (.console-in)
 ```
 
+There is exactly **one** server: `build.json -> bdsDir` is the single source of truth for
+deploy, `test:live` and the real-fixture unit tests. Keep no copy of a server inside the
+repository - `dist/` is build output and `plugins/CALL/config` + `plugins/CALL/data` belong
+to that server, so `npm run deploy` moves them aside and puts them back instead of wiping them.
+
 `npm run test:live` is the regression net for the placement work: it asserts slicing
 geometry, structure capture, `.mcstructure` round trips, shape placement and
 copy -> paste, all against a real LeviLamina process.
