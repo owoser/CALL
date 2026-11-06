@@ -120,6 +120,28 @@
             "min": 10,
             "max": 600
         },
+        "previewMode": {
+            "type": "enum",
+            "values": ["ghost", "wireframe"]
+        },
+        "previewMaxBlocks": {
+            "type": "number",
+            "min": 200,
+            "max": 20000
+        },
+        "previewBatchSize": {
+            "type": "number",
+            "min": 50,
+            "max": 1000
+        },
+        "previewViewDistance": {
+            "type": "number",
+            "min": 16,
+            "max": 256
+        },
+        "previewBlockScale": {
+            "type": "string"
+        },
         "holoMaxRenderDistance": {
             "type": "number",
             "min": 16,

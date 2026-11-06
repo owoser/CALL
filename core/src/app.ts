@@ -14,8 +14,10 @@ import Tr from "./util/Translator";
 import CACommand from "./CACommand";
 import { AddonInstaller } from "./addon/AddonInstaller";
 import PreviewOperation from "./structure/PreviewOperation";
+import PreviewScene from "./structure/PreviewScene";
 import Wireframe from "./holo/Wireframe";
 import Holo from "./holo/Holo";
+import ItemDisplay from "./holo/ItemDisplay";
 import { ToolItems } from "./user/ToolItems";
 
 import { MsgType, tell } from "./util/Msg";
@@ -297,7 +299,19 @@ function init(): boolean {
                 const probe = Number(Holo.call("shapeCreateBox", 0, -64, 0, 1, -63, 1));
                 if (probe > 0) {
                     Holo.call("shapeDestroy", probe);
-                    logger.info("[CALL] HologramLib " + Holo.version() + " - wireframe ready");
+                    // Same idea for the fake-block path used by the paste preview.
+                    const displayProbe = ItemDisplay.create({
+                        x: 0.5, y: -63.5, z: 0.5, dim: 0,
+                        blockId: "minecraft:stone",
+                        scale: String(Config.get(Config.GLOBAL, "previewBlockScale", "0.5")),
+                        viewDistance: 16,
+                    });
+                    if (displayProbe > 0) {
+                        ItemDisplay.destroy(displayProbe);
+                        logger.info("[CALL] HologramLib " + Holo.version() + " - wireframe + fake blocks ready");
+                    } else {
+                        logger.warn("[CALL] HologramLib " + Holo.version() + " 线框可用，但 itemDisplay 创建失败（预览将只显示线框）");
+                    }
                 } else {
                     logger.warn("[CALL] HologramLib " + Holo.version() + " 已加载，但画框失败（版本不兼容？）");
                 }
@@ -349,6 +363,7 @@ export default function main() {
             safeCall("onUnload", () => {
                 safeCall("onUnload.wireframe", () => {
                     PreviewOperation.cancelAll();
+                    PreviewScene.clearAll();
                     Wireframe.hideAll();
                 });
                 stopEverything();

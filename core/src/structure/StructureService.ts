@@ -12,6 +12,7 @@ import Tr from "../util/Translator";
 import { MsgType, online, tell } from "../util/Msg";
 import { describeError, logFailure, sleep } from "../util/Safe";
 import { acquire, isLoaded, waitLoaded } from "../game/Chunks";
+import { clipboardMin } from "./Clipboard";
 
 
 /**
@@ -300,10 +301,24 @@ export default class StructureService {
         waterlogged = false,
         integrity = 100,
         seed = "",
-        overCallback: () => void
+        overCallback: () => void,
+        clipboardOrigin: { x: number; y: number; z: number } | null = null
     ): Promise<number> {
         let failedSlices = 0;
-        const area = Area3.fromArea3D(preStructure.area).relative();
+        // A slice keeps its offset inside the clipboard: subtracting the clipboard's minimum
+        // corner (instead of Area3.relative(), which zeroes the origin) is what makes
+        // multi-slice copies land next to each other instead of on top of each other.
+        const area = Area3.fromArea3D(preStructure.area);
+        if (clipboardOrigin != null) {
+            area.start.x -= clipboardOrigin.x;
+            area.start.y -= clipboardOrigin.y;
+            area.start.z -= clipboardOrigin.z;
+            area.end.x -= clipboardOrigin.x;
+            area.end.y -= clipboardOrigin.y;
+            area.end.z -= clipboardOrigin.z;
+        } else {
+            area.relative();
+        }
         const areas = new Structure(area).getAreas();
         const degreeNum = parseFloat(degrees) || 0;
         const lang = StructureService.langOf(caPlayer);
@@ -636,12 +651,14 @@ export default class StructureService {
         const keys = Object.keys(complex);
         if (keys.length === 0) throw new Error("nothing to paste");
 
+        const origin = clipboardMin(complex);
         for (let i = 0; i < keys.length; i++) {
             const sid = keys[i];
             await StructureService.load(
                 caPlayer, complex[sid], sid, pos, i, keys.length,
                 mirror, degrees, false, true, false, 100, "",
-                () => { /* per-slice */ }
+                () => { /* per-slice */ },
+                origin
             );
         }
         overCallback();

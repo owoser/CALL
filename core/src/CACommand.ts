@@ -79,11 +79,12 @@ export default class CACommand {
 
         //preview (3.2.0)
         cmd.setEnum("preview", ["preview", "pv"]);
-        cmd.setEnum("preview_act", ["set", "se", "click", "ck", "move", "mv", "rotate", "rt", "mirror", "mi", "confirm", "ok", "cancel", "cc"]);
+        cmd.setEnum("preview_act", ["set", "se", "click", "ck", "move", "mv", "rotate", "rt", "mirror", "mi", "confirm", "ok", "cancel", "cc", "mode", "mo", "calib", "ca", "info", "in"]);
         cmd.mandatory("action", ParamType.Enum, "preview", "preview_man", 1);
         cmd.mandatory("enum_1", ParamType.Enum, "preview_act", "preview_act_man", 1);
         cmd.overload(["preview_man", "preview_act_man"]);
         cmd.overload(["preview_man", "preview_act_man", "IntPos"]);
+        cmd.overload(["preview_man", "preview_act_man", "option_opt"]);
 
         //tools (3.2.0)
         cmd.setEnum("tools", ["tools", "tl"]);
@@ -553,8 +554,20 @@ export default class CACommand {
                     case "cc":
                         PreviewOperation.cancel(output, caPlayer);
                         return;
+                    case "mode":
+                    case "mo":
+                        PreviewOperation.modeCommand(output, caPlayer, res.option);
+                        return;
+                    case "calib":
+                    case "ca":
+                        PreviewOperation.calib(output, caPlayer);
+                        return;
+                    case "info":
+                    case "in":
+                        PreviewOperation.info(output, caPlayer);
+                        return;
                 }
-                output.error("用法: /ca preview set|rotate|mirror|confirm|cancel");
+                output.error("用法: /ca preview set|click|move|rotate|mirror|confirm|cancel|mode|calib|info");
                 return;
             case "tools":
             case "tl":

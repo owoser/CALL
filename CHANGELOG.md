@@ -11,6 +11,63 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.3.0] - 2026-11-06
+
+### Added - real fake-block paste preview
+
+The preview now draws the actual blocks instead of only an outline, using HologramLib's
+`itemDisplay` domain (one display per visible block, client side only). My earlier claim that
+this was impossible was wrong: I had only looked at DebugShape, which really can only draw
+untextured geometry. Thanks to the HologramLib author for pointing at itemDisplay / sulfur.
+
+- `previewMode`: `ghost` (default, blocks + wireframe) or `wireframe` (outline only).
+- Rotating moves the existing displays (`itemDisplaySetPosition` + rotation), it does not
+  rebuild the scene.
+- Teardown destroys our own ids one by one and **never** calls `itemDisplayDestroyAll()`,
+  which would wipe displays belonging to other plugins.
+
+### Performance - culling and budget
+
+One display per block is not free, so every layer has a guard:
+
+- **surface culling**: blocks with all six neighbours occupied are dropped
+  (a solid 20x20x20 goes from 8000 to ~2400);
+- **`previewMaxBlocks`** (default 2000): above it the preview falls back to the wireframe;
+- **`previewBatchSize`** (default 200 per tick): creation is spread over ticks with progress;
+- **`previewViewDistance`** (default 64) on every display, and only the previewing player can
+  see them (`itemDisplaySetVisiblePlayer`);
+- displays are created with hitbox 0, so a preview never eats player clicks.
+
+### Known limitation
+
+Item displays have no block states: stairs/slabs/fences/torches show their default
+orientation. Position, size, block type and overall rotation are correct. Documented in
+`docs/user/tools.md`.
+
+### Added - calibration and diagnostics
+
+- `/ca preview calib` lays out three candidate scales inside 1x1x1 wireframes so one
+  screenshot decides the right `previewBlockScale` (the docs say 0.5, the author's screenshot
+  suggests 1.0 - this settles it).
+- `/ca preview info`, `/ca preview mode ghost|wireframe`.
+- Startup self-test now also creates and destroys one item display, so a library/version
+  mismatch is reported instead of failing silently:
+  `[CALL] HologramLib 1.35.0 - wireframe + fake blocks ready`.
+
+### Fixed - multi-slice paste stacked every slice on top of each other
+
+`StructureService.load` called `Area3.relative()` on each slice, which zeroes the slice
+origin, so copying more than `MAX_LENGTH` (64) blocks in X or Z pasted every slice onto the
+same anchor. The clipboard minimum is now passed in (`Clipboard.clipboardMin`) and subtracted
+instead, so slices land next to each other - including rotated pastes.
+
+### Tests
+
+- Unit 55 (was 46): adds `preview-surface.test.mjs` (shell culling across slices, air
+  filtering, budget truncation keeping the top layers, 90-degree footprint swap, slice
+  offsets from the file name, clipboard min/box).
+- Verified on BDS 1.26.60.6 / LSE nodejs 0.23.1 / HologramLib 26.60.1.
+
 ## [3.2.0] - 2026-11-06
 
 ### Added - bundled tool items

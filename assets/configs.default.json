@@ -478,6 +478,52 @@
     "previewTimeout": 60,
 
     /*
+    *   ###预览渲染方式###   (3.3.0 新增)
+    *   "ghost"      [解析] 真方块预览（用 HologramLib 的物品展示，客户端可见、不写世界）+ 线框
+    *   "wireframe"  [解析] 只画线框，不生成方块（老行为，省性能）
+    *
+    * ###Preview renderer###   (new in 3.3.0)
+    *   "ghost"      real block preview via item displays (client side, no world writes)
+    *   "wireframe"  outline only
+    */
+    "previewMode": "ghost",
+
+    /*
+    *   ###预览方块上限###   (3.3.0 新增)
+    *   [范围] 200--20000   [建议] 2000
+    *   [解析] 一个方块 = 一个展示对象，超过上限只显示线框
+    *
+    * ###Preview block budget###   (new in 3.3.0)
+    */
+    "previewMaxBlocks": 2000,
+
+    /*
+    *   ###预览分批生成数量###   (3.3.0 新增)
+    *   [范围] 50--1000   [建议] 200
+    *   [解析] 每 tick 生成多少个方块展示，越小越平滑
+    *
+    * ###Preview batch size per tick###   (new in 3.3.0)
+    */
+    "previewBatchSize": 200,
+
+    /*
+    *   ###预览可见距离###   (3.3.0 新增)
+    *   [范围] 16--256   [建议] 64
+    *
+    * ###Preview view distance###   (new in 3.3.0)
+    */
+    "previewViewDistance": 64,
+
+    /*
+    *   ###预览方块缩放###   (3.3.0 新增)
+    *   [解析] 让一个展示刚好等于一个方块大小；用 /ca preview calib 校准
+    *
+    * ###Preview block scale###   (new in 3.3.0)
+    *   Use /ca preview calib to find the value that fills one block exactly.
+    */
+    "previewBlockScale": "0.5",
+
+    /*
     *   ###线框最远渲染距离###   (3.2.0 新增)
     *   [范围] 16--512   [建议] 256
     *   [解析] HologramLib 线框超过这个距离客户端不再渲染

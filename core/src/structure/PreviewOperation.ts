@@ -1,6 +1,8 @@
 import Config from "../common/Config";
 import { Pos3 } from "../common/Pos3";
 import Wireframe, { COLOR } from "../holo/Wireframe";
+import PreviewScene from "./PreviewScene";
+import ItemDisplay from "../holo/ItemDisplay";
 import StructureService from "./StructureService";
 import StructureOperation from "./StructureOperation";
 import { Box, Degrees, MirrorMode, rotatedUnion } from "./Rotate";
@@ -30,6 +32,8 @@ interface PreviewState {
 }
 
 const states = new Map<string, PreviewState>();
+/** Display ids of the current /ca preview calib run. */
+const calibIds: number[] = [];
 
 function timeoutSeconds(): number {
     const raw = Number(Config.get(Config.GLOBAL, "previewTimeout", 60));
@@ -70,6 +74,25 @@ export default class PreviewOperation {
         );
     }
 
+    /** "ghost" = real block preview + wireframe, "wireframe" = outline only. */
+    private static mode(): "ghost" | "wireframe" {
+        const raw = String(Config.get(Config.GLOBAL, "previewMode", "ghost") ?? "").toLowerCase();
+        return raw === "wireframe" ? "wireframe" : "ghost";
+    }
+
+    private static syncScene(caPlayer: CAPlayer, st: PreviewState, rebuild: boolean) {
+        if (PreviewOperation.mode() === "wireframe") {
+            PreviewScene.clear(caPlayer.xuid);
+            return null;
+        }
+        if (rebuild) {
+            const result = PreviewScene.build(caPlayer, st.pos, st.degrees, st.mirror);
+            return result;
+        }
+        PreviewScene.rotate(caPlayer, st.degrees, st.mirror);
+        return null;
+    }
+
     private static arm(caPlayer: CAPlayer, st: PreviewState): void {
         clearTimer(st);
         st.timer = setTimeout(() => {
@@ -105,7 +128,21 @@ export default class PreviewOperation {
             output.error("无法显示预览：需要 HologramLib（服务端形状发包）");
             return;
         }
+
+        const scene = PreviewOperation.syncScene(caPlayer, st, true);
         PreviewOperation.arm(caPlayer, st);
+        if (scene != null && !scene.ok) {
+            output.success("预览落点: " + pos.floor().toString() + "（方块预览不可用：" + scene.reason + "，仅显示线框）");
+            return;
+        }
+        if (scene != null && scene.ok) {
+            output.success(
+                "预览就绪: " + scene.blocks + " 个方块" +
+                (scene.truncated ? "（已按上限截断）" : "") +
+                "，旋转 " + st.degrees + "°（再右键旋转，潜行右键确认）"
+            );
+            return;
+        }
         output.success("预览落点: " + pos.floor().toString() + "，旋转 " + st.degrees + "°（再右键旋转，潜行右键确认）");
     }
 
@@ -148,6 +185,7 @@ export default class PreviewOperation {
         }
         st.degrees = (((st.degrees + 90) % 360) as Degrees);
         PreviewOperation.render(caPlayer, st);
+        PreviewOperation.syncScene(caPlayer, st, false);
         PreviewOperation.arm(caPlayer, st);
         output.success("预览旋转: " + st.degrees + "°");
     }
@@ -162,6 +200,7 @@ export default class PreviewOperation {
         const order: MirrorMode[] = ["none", "x", "z", "xz"];
         st.mirror = order[(order.indexOf(st.mirror) + 1) % order.length];
         PreviewOperation.render(caPlayer, st);
+        PreviewOperation.syncScene(caPlayer, st, false);
         PreviewOperation.arm(caPlayer, st);
         output.success("预览镜像: " + st.mirror);
     }
@@ -185,7 +224,98 @@ export default class PreviewOperation {
         }
     }
 
+    /**
+     * Calibration helper.
+     *
+     * The right "one block" scale for an item display is not documented consistently
+     * (0.5 in the library notes, 1.0 in the author's screenshot), and the model origin has to
+     * match too. This lays out three candidate scales inside a 1x1x1 wireframe each, so one
+     * screenshot decides it.
+     */
+    public static calib(output: any, caPlayer: CAPlayer): void {
+        PreviewOperation.clearCalib();
+
+        if (!ItemDisplay.available()) {
+            output.error("校准需要 HologramLib");
+            return;
+        }
+
+        const p = Pos3.fromPos(caPlayer.$.pos).floor();
+        const candidates = ["0.5", "0.75", "1.0"];
+        let placed = 0;
+
+        for (let i = 0; i < candidates.length; i++) {
+            const cx = p.x + 2 + i * 2;
+            const cy = p.y;
+            const cz = p.z;
+
+            Wireframe.show(
+                "calib:" + i,
+                { x1: cx, y1: cy, z1: cz, x2: cx + 1, y2: cy + 1, z2: cz + 1 },
+                COLOR.preview,
+                "§fscale " + candidates[i]
+            );
+
+            const id = ItemDisplay.create({
+                x: cx + 0.5, y: cy + 0.5, z: cz + 0.5,
+                dim: p.dimid,
+                blockId: "minecraft:stone",
+                scale: candidates[i],
+                viewDistance: 64,
+                onlyPlayer: String(caPlayer.$.realName ?? ""),
+            });
+            if (id > 0) {
+                calibIds.push(id);
+                placed++;
+            }
+        }
+
+        output.success(
+            "已摆出 " + placed + " 组校准石块（每个都在一个 1×1×1 线框里）：scale 0.5 / 0.75 / 1.0。" +
+            "哪个刚好填满线框就是正确值，截图告诉我即可（/ca preview cancel 清理）"
+        );
+        // clean up on its own so a forgotten calibration never litters the world
+        setTimeout(() => PreviewOperation.clearCalib(), 120000);
+    }
+
+    /** Destroy calibration displays + wireframes. */
+    public static clearCalib(): void {
+        if (calibIds.length > 0) {
+            ItemDisplay.destroyAll(calibIds.splice(0, calibIds.length));
+        }
+        for (let i = 0; i < 3; i++) Wireframe.hide("calib:" + i);
+    }
+
+    public static modeCommand(output: any, caPlayer: CAPlayer, arg: string | undefined): void {
+        const value = String(arg ?? "").toLowerCase();
+        if (value !== "ghost" && value !== "wireframe") {
+            output.error("用法: /ca preview mode ghost|wireframe（当前 " + PreviewOperation.mode() + "）");
+            return;
+        }
+        Config.set(Config.GLOBAL, "previewMode", value);
+        const st = states.get(caPlayer.xuid);
+        if (st != null) {
+            if (value === "wireframe") PreviewScene.clear(caPlayer.xuid);
+            else PreviewScene.build(caPlayer, st.pos, st.degrees, st.mirror);
+        }
+        output.success("预览模式: " + value + "（已写入 configs.json）");
+    }
+
+    public static info(output: any, caPlayer: CAPlayer): void {
+        const scene = PreviewScene.info(caPlayer.xuid);
+        const st = states.get(caPlayer.xuid);
+        output.success(
+            "模式 " + PreviewOperation.mode() +
+            " · 已生成 " + scene.blocks + " 个方块" + (scene.building ? "（生成中）" : "") +
+            " · 上限 " + Config.get(Config.GLOBAL, "previewMaxBlocks", 2000) +
+            " · 缩放 " + Config.get(Config.GLOBAL, "previewBlockScale", "0.5") +
+            (scene.truncated ? " · 已截断" : "") +
+            (st != null ? " · 落点 " + st.pos.floor().toString() + " 旋转 " + st.degrees + "°" : " · 当前无预览")
+        );
+    }
+
     public static cancel(output: any, caPlayer: CAPlayer): void {
+        PreviewOperation.clearCalib();
         if (!states.has(caPlayer.xuid)) {
             output.error("当前没有预览");
             return;
@@ -203,6 +333,11 @@ export default class PreviewOperation {
         }
         try {
             Wireframe.hide("preview:" + xuid);
+        } catch {
+            // ignore
+        }
+        try {
+            PreviewScene.clear(xuid);
         } catch {
             // ignore
         }
