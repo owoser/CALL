@@ -90,7 +90,13 @@ Boss 条万一不刷新（`/ca preview bar` 能看出原因），倒计时会**�
 | 完全不显示 | `previewCountdown: "off"` |
 | 提前取消（不等超时） | 潜行 + 预览魔杖左键点方块；或 `/ca preview cancel` |
 
-没有 HologramLib 时倒计时回退到动作栏（只在最后 20 秒出现，避免盖住选区提示）。
+### Boss 条为什么是「重建」而不是「刷新」
+
+HologramLib 的 `bossBar*` 用 `bossBarAdd` 返回的 **64 位 id** 去更新/删除，而这个 id 经脚本层会丢精度（实测 `0x7000000000000000` → 传回去变成 `…929000`），`setTitle`/`setHealth`/`remove` 一律返回 false、`getInfo` 说 `not_found`——条建出来就再也改不了。
+
+所以 CALL 的处理是：先用原样 id 试一次；不行就**每秒整条重建**（`bossBarRemoveAll` + `bossBarAdd`），倒计时照样走、结束时清干净。重建只影响该玩家自己的条；如果服务器上还有别的插件在用 Boss 条，把 `previewBossBarRebuild` 设为 `false`，倒计时会自动改用动作栏。
+
+没有 HologramLib 时同样回退动作栏。
 
 ## 方块是怎么画出来的（3.6.0 起）
 

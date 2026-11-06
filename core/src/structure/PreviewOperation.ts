@@ -59,7 +59,7 @@ interface PreviewState {
     /** Consecutive failed bar updates; 2 in a row means the id is dead. */
     barFails: number;
     /** HUD actually in use for this preview: the boss bar, or the action-bar fallback. */
-    hud: "bar" | "actionbar";
+    hud: "bar" | "noid" | "actionbar";
     /** Last tick this bar was verified against bossBarGetInfo. */
     barVerifiedAt: number;
     /** How many times the bar had to be rebuilt before giving up on it. */
@@ -98,8 +98,12 @@ const HUD_INTERVAL_MS = 500;
 const BAR_VERIFY_MS = 2000;
 let hudTimer: number | null = null;
 
-/** "bar" = boss bar, "actionbar" = the fallback that needs no library at all. */
-type HudKind = "bar" | "actionbar";
+    /**
+     * "bar"     = boss bar, updated by id (only when the id survives the round trip)
+     * "noid"    = boss bar, RE-CREATED once per second because the id cannot be used again
+     * "actionbar" = last resort, needs no library at all
+     */
+type HudKind = "bar" | "noid" | "actionbar";
 
 function hudPreference(): HudKind {
     const raw = String(Config.get(Config.GLOBAL, "previewCountdownHud", "auto") ?? "").toLowerCase();
@@ -130,6 +134,10 @@ function dropBar(st: PreviewState, xuid: string): void {
     if (st.barId != null) {
         BossBar.remove(st.barId);
         st.barId = null;
+    }
+    if (st.hud === "noid" && st.playerName !== "") {
+        // the only handle we have for a rebuilt bar is the player name
+        BossBar.removeAll(st.playerName);
     }
     st.lastTitle = "";
     st.barFails = 0;
@@ -165,6 +173,24 @@ function hudFor(xuid: string, st: PreviewState, now: number): void {
     const style = bossBarStyle(remaining);
     const percent = bossBarProgress(remaining, timeoutSeconds() * 1000);
 
+    if (st.hud === "noid") {
+        // Rebuild once per second: remove the previous bar by NAME (the only key that works)
+        // and create it again with the new title and fill.
+        if (title === st.lastTitle) return;
+        BossBar.removeAll(st.playerName);
+        const fresh = BossBar.add(st.playerName, title, percent, style.color, style.overlay);
+        if (fresh == null) {
+            st.hud = "actionbar";
+            PreviewHudLock.hold(xuid);
+            st.lastTitle = "";
+            tell(player, StrFactory.cmdWarn("Boss 条重建失败，倒计时改用动作栏"), MsgType.TIP);
+            return;
+        }
+        st.lastTitle = title;
+        st.barVerifiedAt = now;
+        return;
+    }
+
     if (st.barId == null) {
         const raw = BossBar.add(st.playerName, title, percent, style.color, style.overlay);
         if (raw == null) {
@@ -187,12 +213,26 @@ function hudFor(xuid: string, st: PreviewState, now: number): void {
             }
         }
         if (chosen == null) {
-            BossBar.remove(raw);
+            const rebuild = Config.get(Config.GLOBAL, "previewBossBarRebuild", true) !== false;
+            if (!rebuild) {
+                BossBar.removeAll(st.playerName);
+                st.hud = "actionbar";
+                PreviewHudLock.hold(xuid);
+                st.lastTitle = "";
+                tell(player, StrFactory.cmdWarn("Boss 条 id 不可回传，倒计时改用动作栏"), MsgType.TIP);
+                return;
+            }
+            // The runtime gave us a rounded 64-bit id, so it cannot be used to address this
+            // bar again. Rather than lose the boss bar entirely, fall back to REBUILDING it:
+            // the title only changes once per second anyway, so one removeAll + add per second
+            // reproduces a countdown without ever touching an id.
             BossBar.removeAll(st.playerName);
-            st.hud = "actionbar";
-            PreviewHudLock.hold(xuid);
+            st.hud = "noid";
+            st.barId = null;
             st.lastTitle = "";
-            tell(player, StrFactory.cmdWarn("Boss 条的 id 无法回传，倒计时改用动作栏"), MsgType.TIP);
+            st.barFails = 0;
+            st.barVerifiedAt = now;
+            hudFor(xuid, st, now);
             return;
         }
 
@@ -831,7 +871,10 @@ export default class PreviewOperation {
         const lines: string[] = [
             "Boss 条可用: " + (BossBar.available() ? "是" : "否"),
             "本玩家条数: " + (BossBar.count(name) ?? "?"),
-            "本预览: " + (st == null ? "无预览" : (st.hud === "bar" ? "Boss 条" : "动作栏") +
+            "本预览: " + (st == null ? "无预览"
+                : (st.hud === "bar" ? "Boss 条(按 id 更新)"
+                    : st.hud === "noid" ? "Boss 条(每秒重建，id 不可回传)"
+                        : "动作栏") +
                 "，id=" + describeId(st.barId) +
                 "，失败=" + st.barFails + "，重建=" + st.barRebuilds),
         ];
@@ -919,6 +962,12 @@ export default class PreviewOperation {
                 stopTimer(timer);
                 const removed = BossBar.remove(id);
                 push("remove -> " + removed + "，剩余 " + (BossBar.count(name) ?? "?"));
+                // Whatever the id did, prove the rebuild strategy: remove by name, add again.
+                BossBar.removeAll(name);
+                const again = BossBar.add(name, "§e重建测试", 0.5, 3, 0);
+                push("rebuild: removeAll + add -> " + describeId(again) + "，条数 " + (BossBar.count(name) ?? "?"));
+                BossBar.removeAll(name);
+                push("清理后条数 " + (BossBar.count(name) ?? "?"));
                 output.success(lines.join("\n"));
             }
         });

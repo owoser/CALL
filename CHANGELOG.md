@@ -11,6 +11,27 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.9.4] - 2026-11-07
+
+The third live run showed the id is unusable, not just rounded:
+
+```text
+add -> 8070450532247928832(number, 已超出 2^53)
+  8070450532247928832(bigint) -> setTitle=false info=?      ← 参数类型不匹配（variant#1）
+  "8070450532247928832"(string) -> setTitle=false info=false  ← 同样不接受
+  8070450532247928832(number) -> setTitle=false info=not_found
+```
+
+Only a **number** is accepted, and the number is a rounded view of a 64-bit id, so the low
+bits are gone and the library can never find the bar again.
+
+### Added
+
+- **Boss bar rebuild mode**: when the id cannot be used, the countdown is reproduced by
+  `bossBarRemoveAll` + `bossBarAdd` once per second (the title only changes once per second
+  anyway). The bar counts down and disappears at the end without ever addressing an id.
+  `previewBossBarRebuild` (default true) turns it off, which falls back to the action bar.
+- `/ca preview bartest` now ends with a rebuild check, so one run proves the fallback works.
 ## [3.9.3] - 2026-11-07
 
 Second live run confirmed the runtime hands over the bar id as a **Number**:

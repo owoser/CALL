@@ -254,6 +254,9 @@
                 "bar",
                 "actionbar"
             ]
+        },
+        "previewBossBarRebuild": {
+            "type": "boolean"
         }
     }
 }

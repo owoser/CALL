@@ -62,6 +62,7 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 | `previewTimeout` | `60` | 10 – 600 | 预览魔杖多久没操作就自动取消（秒） |
 | `previewCountdown` | `"always"` | `always` / `auto` / `off` | 预览倒计时显示：`always` = 全程（默认），`auto` = 最后 20 秒，`off` = 不显示 |
 | `previewCountdownHud` | `"auto"` | `auto` / `bar` / `actionbar` | 倒计时用哪种 HUD：`auto` = 能建 Boss 条就用（失败自动退动作栏），`bar` = 只用 Boss 条，`actionbar` = 只用动作栏（不依赖任何库，最稳） |
+| `previewBossBarRebuild` | `true` | true / false | 库的 Boss 条 id 是 64 位值、过 JS 会丢精度而无法再寻址，`true` = 每秒整条重建一次（条照常倒计时）；若还有别的插件在用 Boss 条就设 `false`，倒计时改用动作栏 |
 | `previewMode` | `"ghost"` | `ghost` / `wireframe` | `ghost` = 真方块预览（`viewBlock` 逐客户端方块覆盖，不写世界）+ 线框；`wireframe` = 只线框 |
 | `previewPivot` | `"inplace"` | `inplace` / `anchor` | 旋转基准。`inplace` = 框停在落点、只转框内排布；`anchor` = 绕你点的那一格转，框会甩到相邻象限（可到落点负方向）。`/ca preview pivot` 切换，调整魔杖左键也能切 |
 | `previewMaxBlocks` | `12000` | 200 – 200000 | **同屏上限（窗口预算）**。表面方块 ≤ 它：整块全量显示；超过：进入窗口模式，只显示玩家周围半径内的方块，按距离取前 N 个 |
