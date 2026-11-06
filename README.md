@@ -87,23 +87,50 @@ Everything is available as `/call ...` and `/ca ...`.
 | Clipboard | `copy`, `paste`, `undo`, `redo` |
 | Structures | `save`, `load`, `list`, `delete`, `public`, `private` |
 | Shapes | `shape list`, `shape load <pack> <index>` |
+| Tools | `tools` (give the bundled wands), `tools list`, `tools status`, `tools pack`, `tools debug` |
+| Preview | `preview set / click / move / rotate / mirror / confirm / cancel`, `preview mode`, `preview probe`, `preview trim`, `preview info` |
 | Misc | `menu`, `tool`, `texture`, `block`, `setting`, `help`, `on`, `off` |
 | Console | `add <player>`, `ban <player>`, `list`, `import`, `export`, `shape list` |
+
+## Tool items and the paste preview
+
+CALL ships its own addon (`assets/addon/CALL_Tools_BP` + `CALL_Tools_RP`) defining five items
+in the `call:` namespace - no vanilla id is reused, so nothing can collide with another pack:
+
+| Item | Left click | Right click |
+|---|---|---|
+| `call:gear` | - | open the menu |
+| `call:wand_select` | point A | point B |
+| `call:wand_copy` | - | copy the selection |
+| `call:wand_paste` | - | paste at the clicked block |
+| `call:wand_preview` | move anchor | set anchor / rotate 90 degrees (sneak = confirm) |
+
+`/ca tools` hands them out (creative only, no recipe). The packs are installed into
+`behavior_packs`/`resource_packs` and enabled in the world pack lists on first start, then one
+restart is required; the console says so. Clients must receive the resource pack for the icons
+to show - set `texturepack-required=true` or hand out `/ca tools pack` (`.mcaddon`).
+
+The selection outline and the paste preview are drawn **client side** through HologramLib
+(DebugShape shapes and item displays): nothing is written to the world, the preview is visible
+to the previewing player only, and teardown never touches displays belonging to other plugins.
 
 ## Configuration
 
 Full reference: **<https://owoser.github.io/CALL/#/user/config>**
 
-`plugins/CALL/assets/configs.json` (JSON with comments) - note that the original
-project's documentation claims `CALL/assets/configs.json`, which is a **documentation
-error**: upstream's own code has always written it under `config`. The shipped
-`config/` folder holds read-only resources only.
+`plugins/CALL/config/configs.json` (JSON with comments). Since 3.1 the layout is
+`assets/` (read-only resources) + `config/` (your configuration) + `data/` (your data);
+an existing install is migrated automatically on first start.
 
 Keys added in 2.0.0 / 3.x:
 
 | Key | Default | Meaning |
 |---|---|---|
-| `areaDisplayMode` | `"structure_block"` | `particle` / `text` / `structure_block` / `off`. Non-destructive by default. |
+| `areaDisplayMode` | `"wireframe"` | `wireframe` (server-side box, everyone sees it, no world writes) / `particle` / `text` / `structure_block` / `off`. |
+| `toolItems` | `true` | Install and enable the bundled tool items (first start needs one restart). |
+| `previewMode` | `"ghost"` | `ghost` = real fake-block preview, `wireframe` = outline only. |
+| `previewMaxBlocks` | `2000` | Surface-block budget; above it the preview falls back to the outline. |
+| `previewBlockYCorrection` | `0.4149` | Vertical alignment of the preview blocks, in blocks (calibrated). |
 | `areaTextTipInterval` | `1000` | Selection HUD refresh, ms (250-10000). |
 | `maxPlaceBlocks` | `40000` | Refuse a single restore larger than this instead of freezing. |
 | `placeBatchBlocks` | `600` | Blocks written between scheduler yields. |
