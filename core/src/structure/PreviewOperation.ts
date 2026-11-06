@@ -323,7 +323,7 @@ export default class PreviewOperation {
         const chosen = pick != null && pick !== "" ? String(pick).trim() : "";
         if (chosen !== "") {
             if (!/^-?\d+(\.\d+)?$/.test(chosen)) {
-                output.error("用法: /ca preview probe [落点格数]（不带参数=测量，带参数=保存修正）");
+                output.error("用法: /ca preview probe [格数]（不带参数=测量；带参数=保存修正，可填小数如 0.5）");
                 return;
             }
             // landed N cells too high -> shift everything down by N

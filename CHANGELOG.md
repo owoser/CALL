@@ -11,156 +11,58 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
-## [3.3.3] - 2026-11-06
+## [3.4.0] - 2026-11-06
 
-### Fixed - blocks were flung far away from their cell
-
-Block mode applies a SECOND transform on top of the main one: `itemDisplaySetExtend(id, scale,
-rx, ry)`, whose defaults are `scale=1, rx=-90, ry=0`. CALL never set it, so every preview block
-carried an extra -90 degree X rotation and landed several blocks away from its anchor - which is
-why no amount of `offY` tuning fixed the offset (the last screenshot showed all five calibration
-blocks flying in a diagonal line). Displays are now created with `extend(1, 0, 0)`.
-
-### Changed - measure instead of guess
-
-Three rounds of parameter guessing wasted the tester's time, so residual misalignment is now
-measured:
-
-- `/ca preview probe` draws a ruler of five stacked 1x1x1 wireframes plus one grass block (its
-  top/bottom is visible, unlike stone) in the most neutral pose available;
-- the tester reports which cell it landed in;
-- `/ca preview probe <n>` stores `previewBlockYCorrection = -n`, in BLOCKS - a unit that can be
-  read straight off the ruler instead of the library's unclear model units.
-
-`previewBlockOffsetY` now defaults to `"0"`; `previewBlockYCorrection` is new (number, blocks).
-
-### Tests
-
-- Unit 67 (was 65): adds `preview-correction.test.mjs` for the block-unit correction, including
-  the "broken config must not produce NaN" case.
-
-## [3.3.2] - 2026-11-06
-
-### Fixed - the preview could not read a clipboard at all
-
-`WRN [CALL][Preview] 读取切片失败 <id>: load.missingFile`. A clipboard entry is keyed by its
-**structid** and holds one whole area; the files on disk are `<structid>_<ix>_<iz>.mcstructure`,
-split by `Structure.getAreas()` into 64-block chunks. The preview was calling
-`readBytes(<structid>)`, a file that never exists.
-
-`PreviewScene.gather()` now mirrors `StructureService.load()` step by step (same area
-relativity, same `getAreas()` split, same file names), so the preview geometry is by
-construction the geometry the paste will use.
-
-### Changed - calibration is a single-variable sweep
-
-`scale` is settled: 1.0 fills exactly one block (both screenshots agree, the docs' "0.5" is a
-different context). So `/ca preview calib` now pins `scale=1` and sweeps `offY`
-0 / 4 / 8 / 12 / 16 model units (4 units = 0.25 block), which identifies the vertical anchor in
-one screenshot instead of two rounds.
-
-### Tests
-
-- Unit 65 (was 61): adds `preview-chunks.test.mjs` - single-chunk small areas, the 2x2 split of
-  a 100x100 selection at 0/64, clipboard-relative offsets, and the `<structid>_<ix>_<iz>` id
-  format that `save()`/`load()` use.
-
-## [3.3.1] - 2026-11-06
-
-### Fixed - the preview blocks sat half a block too high
-
-The item display was created with the wrong pose. HologramLib's own block-mode example is
-`seamless(100.5, 66, -200.5, 0, "minecraft:diamond_block", 0, "0", "-4", "0", "180", "0", "180", "0.5", 2, ...)`:
-
-| | was | now |
-|---|---|---|
-| rotation | `rotX=0, rotZ=0` | `180 / 180` (block-mode pose) |
-| position | cell centre (`y+0.5`) | cell BOTTOM centre (`y` integer) |
-| offset | `offY=0` | `offY="-4"` model units (16 = 1 block) |
-| creation | `CreateFull` then `SetMode(2)` | `CreateSeamless(..., mode=2, ...)` - one packet, no respawn that can discard the pose |
-
-The invented `previewBlockYOffset` (block units) is replaced by `previewBlockOffsetY`
-(model units, default `"-4"`), matching the library's vocabulary.
-
-### Fixed - clicking a tool did nothing
-
-Two independent causes:
-
-1. **Per-player settings were a stale snapshot.** `CAPlayer` copies `default` when the player
-   first registers, so players who existed before the tools shipped had no `call:*` bindings at
-   all. They are now merged in on login - only for the bundled tool ids, and only when the
-   entry is missing, so a player who rebound something keeps it.
-2. **Bindings are keyed by the item's display name.** The tools were given a custom name, so
-   the lookup key ("§e⚙ 建造助手 · 菜单") never matched the default empty-name entry. Lookup now
-   falls back to the empty-name entry, and the given tools no longer set a display name.
+Bundled tool items, a server-side selection wireframe, and a real fake-block paste preview.
 
 ### Added
 
-- `/ca tools debug`: prints the held item, its display name, which binding left/right click
-  resolves to, the addon state and `texturepack-required` - one command for "my tool does
-  nothing".
-- `/ca preview calib` now uses the documented pose and sweeps `scale` 0.5 / 0.75 / 1.0.
+- **Tool items** (own `call:` namespace addon, no vanilla id reused): gear, selection wand,
+  copy wand, paste wand, preview wand. Creative-only, no recipe, cannot break or place blocks.
+- **Selection wireframe** (`areaDisplayMode: wireframe`, the new default): a box outline every
+  player sees, drawn client-side by HologramLib, no world writes.
+- **Real fake-block paste preview** (`previewMode: ghost`): the actual blocks are drawn on the
+  client through `itemDisplay`, so you see what will be pasted before confirming. Surface
+  culling, a block budget, per-tick batching, view distance and per-player visibility keep it
+  cheap; teardown only ever destroys our own display ids.
+- `/ca preview set|click|move|rotate|mirror|confirm|cancel|mode|probe|calib|info`.
+- `/ca tools [give|list|status|pack|debug]`.
+
+### How the preview is aligned (and why it took a few rounds)
+
+- Block mode applies **two** transforms; the second one (`itemDisplaySetExtend`) defaults to
+  `rx=-90`, which flung every block several blocks away from its anchor. It is now pinned to
+  `extend(1, 0, 0)`.
+- The display's model hangs half a block below its anchor: measured with `/ca preview probe`
+  (a 5-cell wireframe ruler plus one grass block) and applied as
+  `previewBlockYCorrection = 0.5` **in blocks** - a unit that can be read off the ruler, instead
+  of guessing model-unit offsets.
+- Previews are created with `itemDisplayCreateSeamless` so mode/view distance/visibility are
+  set in the same packet (creating first and changing the mode respawns the display).
+
+### Fixed
+
+- **Preview could not read a clipboard at all** (`load.missingFile`): entries are keyed by
+  structid, the files are `<structid>_<ix>_<iz>` from `Structure.getAreas()`. The preview now
+  follows `StructureService.load()` exactly.
+- **Clicking a tool did nothing**: per-player settings are a snapshot taken at registration, so
+  older players had no `call:*` bindings; they are merged in on login (only for our ids, only
+  when missing). Bindings are also keyed by the item's display name, so the lookup now falls
+  back to the empty-name entry.
+- **Tool icons rendered blank**: the item JSON had `menu_category.group` without a namespace, so
+  BDS refused to parse all five items (found via the content log).
+- **Multi-slice paste stacked every slice on the same anchor**: `load()` zeroed each slice's
+  origin with `Area3.relative()`; the clipboard minimum is subtracted instead.
+- **Config upgrades disabled the plugin**: `checkConfig()` throws on keys declared in check.json
+  but missing from configs.json. Missing keys are now filled in from the template on startup.
+- `Paths.SERVER_ROOT` detection for LL 26.60, where `plugins` is a junction to `mods` and the
+  script engine reports the real `mods/<plugin>` path (CALL used to create a stray
+  `D:\structures` folder).
 
 ### Tests
 
-- Unit 61 (was 55): adds `tool-bindings.test.mjs` (name -> empty-name fallback, migration only
-  fills gaps, never overwrites, ignores other ids).
-
-## [3.3.0] - 2026-11-06
-
-### Added - real fake-block paste preview
-
-The preview now draws the actual blocks instead of only an outline, using HologramLib's
-`itemDisplay` domain (one display per visible block, client side only). My earlier claim that
-this was impossible was wrong: I had only looked at DebugShape, which really can only draw
-untextured geometry. Thanks to the HologramLib author for pointing at itemDisplay / sulfur.
-
-- `previewMode`: `ghost` (default, blocks + wireframe) or `wireframe` (outline only).
-- Rotating moves the existing displays (`itemDisplaySetPosition` + rotation), it does not
-  rebuild the scene.
-- Teardown destroys our own ids one by one and **never** calls `itemDisplayDestroyAll()`,
-  which would wipe displays belonging to other plugins.
-
-### Performance - culling and budget
-
-One display per block is not free, so every layer has a guard:
-
-- **surface culling**: blocks with all six neighbours occupied are dropped
-  (a solid 20x20x20 goes from 8000 to ~2400);
-- **`previewMaxBlocks`** (default 2000): above it the preview falls back to the wireframe;
-- **`previewBatchSize`** (default 200 per tick): creation is spread over ticks with progress;
-- **`previewViewDistance`** (default 64) on every display, and only the previewing player can
-  see them (`itemDisplaySetVisiblePlayer`);
-- displays are created with hitbox 0, so a preview never eats player clicks.
-
-### Known limitation
-
-Item displays have no block states: stairs/slabs/fences/torches show their default
-orientation. Position, size, block type and overall rotation are correct. Documented in
-`docs/user/tools.md`.
-
-### Added - calibration and diagnostics
-
-- `/ca preview calib` lays out three candidate scales inside 1x1x1 wireframes so one
-  screenshot decides the right `previewBlockScale` (the docs say 0.5, the author's screenshot
-  suggests 1.0 - this settles it).
-- `/ca preview info`, `/ca preview mode ghost|wireframe`.
-- Startup self-test now also creates and destroys one item display, so a library/version
-  mismatch is reported instead of failing silently:
-  `[CALL] HologramLib 1.35.0 - wireframe + fake blocks ready`.
-
-### Fixed - multi-slice paste stacked every slice on top of each other
-
-`StructureService.load` called `Area3.relative()` on each slice, which zeroes the slice
-origin, so copying more than `MAX_LENGTH` (64) blocks in X or Z pasted every slice onto the
-same anchor. The clipboard minimum is now passed in (`Clipboard.clipboardMin`) and subtracted
-instead, so slices land next to each other - including rotated pastes.
-
-### Tests
-
-- Unit 55 (was 46): adds `preview-surface.test.mjs` (shell culling across slices, air
-  filtering, budget truncation keeping the top layers, 90-degree footprint swap, slice
-  offsets from the file name, clipboard min/box).
+- Unit 67: layout migration, preview rotation maths, surface culling, chunk splitting, binding
+  lookup/migration, block-unit correction.
 - Verified on BDS 1.26.60.6 / LSE nodejs 0.23.1 / HologramLib 26.60.1.
 
 ## [3.2.0] - 2026-11-06
