@@ -59,6 +59,9 @@ export default class CACommand {
         cmd.optional("IntPos", ParamType.BlockPos, "", "intPos_opt");
         cmd.optional("AxisPos", ParamType.BlockPos, "", "axisPos_opt");
         cmd.optional("Name", ParamType.String, "", "name_opt");
+        // Numbers (including negatives like -0.25) must be a real numeric parameter: a String
+        // parameter makes the vanilla parser treat a leading "-" as an option flag.
+        cmd.optional("delta", ParamType.Float, "", "delta_opt");
         cmd.optional("BlockEntity", ParamType.JsonValue, "", "blockEntity_man");
 
         //menu
@@ -85,6 +88,7 @@ export default class CACommand {
         cmd.overload(["preview_man", "preview_act_man"]);
         cmd.overload(["preview_man", "preview_act_man", "IntPos"]);
         cmd.overload(["preview_man", "preview_act_man", "option_opt"]);
+        cmd.overload(["preview_man", "preview_act_man", "delta_opt"]);
 
         //tools (3.2.0)
         cmd.setEnum("tools", ["tools", "tl"]);
@@ -560,15 +564,15 @@ export default class CACommand {
                         return;
                     case "calib":
                     case "ca":
-                        PreviewOperation.calib(output, caPlayer, res.option);
+                        PreviewOperation.calib(output, caPlayer, res.delta);
                         return;
                     case "probe":
                     case "pb":
-                        PreviewOperation.probe(output, caPlayer, res.option);
+                        PreviewOperation.probe(output, caPlayer, res.delta);
                         return;
                     case "trim":
                     case "tm":
-                        PreviewOperation.trim(output, caPlayer, res.option);
+                        PreviewOperation.trim(output, caPlayer, res.delta);
                         return;
                     case "info":
                     case "in":

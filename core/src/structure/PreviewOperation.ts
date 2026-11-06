@@ -238,14 +238,11 @@ export default class PreviewOperation {
      * `/ca preview calib` shows the sweep; `/ca preview calib 8` stores the picked value so the
      * admin can finish the calibration without waiting for anyone.
      */
-    public static calib(output: any, caPlayer: CAPlayer, pick?: string): void {
-        const chosen = pick != null && pick !== "" ? String(pick).trim() : "";
-        if (chosen !== "") {
-            if (!/^\d+(\.\d+)?$/.test(chosen)) {
-                output.error("用法: /ca preview calib [scale 数字]（不带参数=摆出候选，带参数=保存该缩放）");
-                return;
-            }
-            Config.set(Config.GLOBAL, "previewBlockScale", chosen);
+    public static calib(output: any, caPlayer: CAPlayer, pick?: number): void {
+        const numeric = Number(pick);
+        const chosen = pick != null && Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+        if (chosen !== null) {
+            Config.set(Config.GLOBAL, "previewBlockScale", String(chosen));
             PreviewOperation.clearCalib();
             const st = states.get(caPlayer.xuid);
             if (st != null) PreviewScene.build(caPlayer, st.pos, st.degrees, st.mirror);
@@ -319,19 +316,16 @@ export default class PreviewOperation {
      *
      * `/ca preview probe 3` stores "-3 blocks" and rebuilds the live preview.
      */
-    public static probe(output: any, caPlayer: CAPlayer, pick?: string): void {
-        const chosen = pick != null && pick !== "" ? String(pick).trim() : "";
-        if (chosen !== "") {
-            if (!/^-?\d+(\.\d+)?$/.test(chosen)) {
-                output.error("用法: /ca preview probe [格数]（不带参数=测量；带参数=保存修正，可填小数如 0.5）");
-                return;
-            }
+    public static probe(output: any, caPlayer: CAPlayer, pick?: number): void {
+        const numeric = Number(pick);
+        const chosen = pick != null && Number.isFinite(numeric) ? numeric : null;
+        if (chosen !== null) {
             // landed N cells too high -> shift everything down by N
-            Config.set(Config.GLOBAL, "previewBlockYCorrection", String(-Number(chosen)));
+            Config.set(Config.GLOBAL, "previewBlockYCorrection", String(-chosen));
             PreviewOperation.clearProbe();
             const st = states.get(caPlayer.xuid);
             if (st != null) PreviewScene.build(caPlayer, st.pos, st.degrees, st.mirror);
-            output.success("已保存 previewBlockYCorrection = " + (-Number(chosen)) + " 格（预览已重建）");
+            output.success("已保存 previewBlockYCorrection = " + (-chosen) + " 格（预览已重建）");
             return;
         }
 
@@ -433,14 +427,14 @@ export default class PreviewOperation {
      * Once the probe is within a fraction of a block, guessing absolute values is wasteful -
      * this lets the tester dial it in while looking at the result.
      */
-    public static trim(output: any, caPlayer: CAPlayer, delta?: string): void {
-        const raw = String(delta ?? "").trim();
-        if (!/^[+-]?\d+(\.\d+)?$/.test(raw)) {
+    public static trim(output: any, caPlayer: CAPlayer, delta?: number): void {
+        const raw = Number(delta);
+        if (delta == null || !Number.isFinite(raw)) {
             output.error("用法: /ca preview trim <±格数>，例如 /ca preview trim -0.25");
             return;
         }
         const current = PreviewScene.correction();
-        const next = Math.round((current + Number(raw)) * 1000) / 1000;
+        const next = Math.round((current + raw) * 1000) / 1000;
         Config.set(Config.GLOBAL, "previewBlockYCorrection", String(next));
 
         PreviewOperation.clearProbe();
