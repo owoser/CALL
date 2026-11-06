@@ -541,7 +541,7 @@
     * ###Preview block vertical correction (blocks)###   (new in 3.3.3)
     *   In BLOCKS. Measured with /ca preview probe: landed N cells high -> -N here.
     */
-    "previewBlockYCorrection": 0.25,
+    "previewBlockYCorrection": 0.4149,
 
     /*
     *   ###线框最远渲染距离###   (3.2.0 新增)

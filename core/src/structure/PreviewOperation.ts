@@ -321,7 +321,7 @@ export default class PreviewOperation {
         const chosen = pick != null && Number.isFinite(numeric) ? numeric : null;
         if (chosen !== null) {
             // landed N cells too high -> shift everything down by N
-            Config.set(Config.GLOBAL, "previewBlockYCorrection", String(-chosen));
+            Config.set(Config.GLOBAL, "previewBlockYCorrection", -chosen);
             PreviewOperation.clearProbe();
             const st = states.get(caPlayer.xuid);
             if (st != null) PreviewScene.build(caPlayer, st.pos, st.degrees, st.mirror);
@@ -435,14 +435,19 @@ export default class PreviewOperation {
         }
         const current = PreviewScene.correction();
         const next = Math.round((current + raw) * 1000) / 1000;
-        Config.set(Config.GLOBAL, "previewBlockYCorrection", String(next));
+        Config.set(Config.GLOBAL, "previewBlockYCorrection", next);
 
         PreviewOperation.clearProbe();
         const st = states.get(caPlayer.xuid);
-        if (st != null) PreviewScene.build(caPlayer, st.pos, st.degrees, st.mirror);
-        output.success(
-            "竖直修正: " + current + " → " + next + " 格（预览已重建；再 /ca preview probe 看是否齐平）"
-        );
+        if (st != null) {
+            PreviewScene.build(caPlayer, st.pos, st.degrees, st.mirror);
+            output.success("竖直修正: " + current + " → " + next + " 格（预览已重建）");
+            return;
+        }
+        // No live preview: re-place the probe so the new value is visible immediately instead
+        // of leaving the player adjusting a number they cannot see.
+        PreviewOperation.probe(output, caPlayer);
+        output.success("竖直修正: " + current + " → " + next + " 格（没有活动预览，已重新摆出探针）");
     }
 
     public static info(output: any, caPlayer: CAPlayer): void {

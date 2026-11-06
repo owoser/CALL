@@ -212,7 +212,13 @@ namespace Other {
             const data = Config.get(Config.GLOBAL, k);
             if (data == null)
                 throw new Error(Tr._c("console.Config.check.notFind", k));
-            if (spec.type != "enum" && typeof data != spec.type)
+            // A numeric setting written as "0.414" (some older code paths did that) must not
+            // brick the plugin: accept a numeric string for a number field.
+            const numericString = spec.type === "number"
+                && typeof data === "string"
+                && data.trim() !== ""
+                && Number.isFinite(Number(data));
+            if (spec.type != "enum" && !numericString && typeof data != spec.type)
                 throw new Error(Tr._c("console.Config.check.type", k, spec.type));
             switch (spec.type) {
                 case "number":
