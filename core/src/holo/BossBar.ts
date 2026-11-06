@@ -37,35 +37,46 @@ export const BossBar = {
         return addFn != null && titleFn != null && healthFn != null && removeFn != null;
     },
 
-    /** Create a bar for one player; returns the id or null when the API is missing. */
-    add(playerName: string, title: string, percent: number, color: number, overlay: number): number | null {
+    /**
+     * Create a bar for one player; returns the id EXACTLY as the library gave it.
+     *
+     * Never convert it. A real session returned 0x7000000000000000 = 8070450532247928832;
+     * turning that into a JS Number rounds it to 8070450532247929000, and every later call
+     * (setTitle / setHealth / setStyle / remove all take the id back) then answers false while
+     * getInfo says "not_found". That is precisely why 3.9.0 created a bar, never updated it,
+     * and could not remove it.
+     */
+    add(playerName: string, title: string, percent: number, color: number, overlay: number): any | null {
         if (!BossBar.available()) return null;
         try {
-            const id = Number(addFn(playerName, title, percent, color, overlay));
-            // The docs say failure is -1; ids start at 0. Requiring > 0 would silently orphan
-            // the very first bar of a session, so only a negative/NaN answer counts as failure.
-            return Number.isFinite(id) && id >= 0 ? id : null;
+            const id = addFn(playerName, title, percent, color, overlay);
+            // Whatever the runtime hands back - number, bigint or a decimal string - it goes
+            // back in unchanged. Round-tripping through JS arithmetic is what broke it.
+            if (typeof id === "bigint") return id >= BigInt(0) ? id : null;
+            if (typeof id === "number") return Number.isFinite(id) && id >= 0 ? id : null;
+            if (typeof id === "string" && /^-?\d+$/.test(id.trim()) && !id.trim().startsWith("-")) return id.trim();
+            return null;
         } catch {
             addFn = undefined;
             return null;
         }
     },
 
-    setTitle(id: number, title: string): boolean {
+    setTitle(id: any, title: string): boolean {
         return BossBar.safe(() => titleFn(id, title) === true);
     },
 
-    setHealth(id: number, percent: number): boolean {
+    setHealth(id: any, percent: number): boolean {
         return BossBar.safe(() => healthFn(id, percent) === true);
     },
 
-    setStyle(id: number, color: number, overlay: number): boolean {
+    setStyle(id: any, color: number, overlay: number): boolean {
         bind();
         if (styleFn == null) return false;
         return BossBar.safe(() => styleFn(id, color, overlay) === true);
     },
 
-    remove(id: number | null | undefined): boolean {
+    remove(id: any): boolean {
         if (id == null) return false;
         bind();
         if (removeFn == null) return false;
@@ -73,7 +84,7 @@ export const BossBar = {
     },
 
     /** One update call: title + fill + colour. True only when all three landed. */
-    update(id: number, title: string, percent: number, color: number, overlay: number): boolean {
+    update(id: any, title: string, percent: number, color: number, overlay: number): boolean {
         const a = BossBar.setTitle(id, title);
         const b = BossBar.setHealth(id, percent);
         const c = BossBar.setStyle(id, color, overlay);
@@ -81,7 +92,7 @@ export const BossBar = {
     },
 
     /** What the library thinks this bar looks like ("not_found" when the id is gone). */
-    getInfo(id: number): string | null {
+    getInfo(id: any): string | null {
         const fn = Holo.bind("bossBarGetInfo");
         if (fn == null) return null;
         try {
@@ -89,6 +100,21 @@ export const BossBar = {
         } catch {
             return null;
         }
+    },
+
+    /**
+     * Remove every bar this player owns.
+     *
+     * Only for an explicit user command: it cannot tell our bars from another plugin's. It is
+     * the only way to clear bars that were created with an id we can no longer address.
+     */
+    removeAll(playerName: string): boolean {
+        const fn = Holo.bind("bossBarRemoveAll");
+        if (fn == null) return false;
+        return BossBar.safe(() => {
+            fn(playerName);
+            return true;
+        });
     },
 
     /** How many bars this player currently has (diagnostics only). */

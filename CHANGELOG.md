@@ -11,6 +11,25 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.9.2] - 2026-11-07
+
+`/ca preview bartest` on a live client showed the real failure:
+
+```text
+add -> 8070450532247929000
+第1秒 update=false info=not_found   … 第6秒一样
+remove -> false，剩余 1        (每次都多一条)
+```
+
+- **The bar id is a 64-bit value** (`0x7000000000000000` = 8070450532247928832). It was being
+  converted with `Number()`, and the value handed back is what the library looks up - so every
+  `setTitle` / `setHealth` / `setStyle` / `remove` missed, `getInfo` answered `not_found`,
+  and each test run left another orphan bar on screen. The id is now passed through exactly as
+  the runtime returned it (number, bigint or decimal string), never re-computed.
+- `/ca preview bartest` prints the raw id **and its type**, so one run tells us whether the
+  runtime gives us a lossless bigint or an already-rounded number.
+- `/ca preview barclear` now also clears bars whose id can no longer be addressed
+  (`bossBarRemoveAll`) and says when it had to fall back to that.
 ## [3.9.1] - 2026-11-07
 
 The 3.9.0 countdown froze at the value it was created with and the bar survived the preview.

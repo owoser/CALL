@@ -811,7 +811,8 @@ export default class PreviewOperation {
             "Boss 条可用: " + (BossBar.available() ? "是" : "否"),
             "本玩家条数: " + (BossBar.count(name) ?? "?"),
             "本预览: " + (st == null ? "无预览" : (st.hud === "bar" ? "Boss 条" : "动作栏") +
-                "，id=" + (st.barId ?? "-") + "，失败=" + st.barFails + "，重建=" + st.barRebuilds),
+                "，id=" + (st.barId == null ? "-" : String(st.barId) + "(" + typeof st.barId + ")") +
+                "，失败=" + st.barFails + "，重建=" + st.barRebuilds),
         ];
         if (st?.barId != null) lines.push("库内记录: " + (BossBar.getInfo(st.barId) ?? "?"));
         const probe = Holo.bind("bossBarProbe");
@@ -827,16 +828,26 @@ export default class PreviewOperation {
 
     /** `/ca preview bar clear` - remove this player's bar without touching anything else. */
     public static barClear(output: any, caPlayer: CAPlayer): void {
+        const name = String(caPlayer.$?.realName ?? "");
         const st = states.get(caPlayer.xuid);
-        if (st == null || st.barId == null) {
-            output.success("当前没有由 CALL 管理的 Boss 条");
-            return;
+        const lines: string[] = [];
+        if (st?.barId != null) {
+            const removed = BossBar.remove(st.barId);
+            lines.push("delete id=" + String(st.barId) + " -> " + removed);
+            st.barId = null;
+            st.lastTitle = "";
+        } else {
+            lines.push("当前预览没有 CALL 管理的条");
         }
-        const id = st.barId;
-        BossBar.remove(id);
-        st.barId = null;
-        st.lastTitle = "";
-        output.success("已删除 Boss 条 id=" + id + "（剩余条数 " + (BossBar.count(String(caPlayer.$?.realName ?? "")) ?? "?") + "）");
+        const left = BossBar.count(name);
+        if (left != null && left > 0) {
+            // Bars made with an unaddressable id can only be cleared wholesale. This is an
+            // explicit user command, so it is allowed to do that - and it says so.
+            const ok = BossBar.removeAll(name);
+            lines.push("仍有 " + left + " 条无法按 id 删除，已整玩家清空 -> " + ok);
+        }
+        lines.push("剩余条数: " + (BossBar.count(name) ?? "?") + "（只清 CALL 自己的；removeAll 会连别的插件的一起清）");
+        output.success(lines.join("\n"));
     }
 
     /**
@@ -862,7 +873,7 @@ export default class PreviewOperation {
             }
         };
         const id = BossBar.add(name, "§e自检 6", 1, 1, 0);
-        push("add -> " + (id ?? "失败"));
+        push("add -> " + (id == null ? "失败" : String(id) + " (" + typeof id + ")"));
         if (id == null) {
             output.success(lines.join("\n"));
             return;
