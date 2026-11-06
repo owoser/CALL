@@ -261,6 +261,24 @@ export type CmdErrorClass = "not-loaded" | "noop" | "other";
  * world" (verified: the same /fill succeeds once a ticking area covers the region), and it
  * reports a fill that changed nothing as a failure too. Neither is a real error.
  */
+/**
+ * Does this output SAY the command succeeded?
+ *
+ * BDS 1.26.51 reports `success: false` for a /fill that completed, while printing the success
+ * message - and on a server whose console has no language pack that message is the raw key
+ * ("commands.fill.success"). Trusting the flag alone marked every slab of a fill as failed,
+ * so a perfectly good fill ended up reported as an error (and /ca clear logged the same).
+ */
+export function isSuccessOutput(out: string): boolean {
+    const text = String(out ?? "");
+    if (text === "") return false;
+    // raw translation key: commands.fill.success / commands.clone.success ...
+    if (/commands\.[a-z0-9_.]*\.success\b/i.test(text)) return true;
+    // localised success text (en / zh)
+    if (/successfully|已填充|已复制|已放置|已清除/i.test(text)) return true;
+    return false;
+}
+
 export function classifyCmdError(out: string, ok: boolean): CmdErrorClass {
     if (ok) return "other";
     const text = String(out ?? "");

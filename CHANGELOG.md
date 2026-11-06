@@ -11,6 +11,18 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.6.1] - 2026-11-06
+
+### Fixed
+
+- **Every fill step was reported as failed on LL 26.51** (`[FillService.fill] /fill ... ->
+  commands.fill.success`): BDS 1.26.51 answers a completed `/fill` with `success: false` while
+  printing the success message, and with no console language pack that message is the raw key
+  (`commands.fill.success`). The code trusted the flag, so each 8-high slab was logged as an
+  error and the whole operation reported failure even though the world was filled correctly.
+  The message is now authoritative: `SafeArgs.isSuccessOutput()` recognises the translation key
+  and the localised texts, and `run` / `runNow` treat such an output as success. This also
+  covers `/clone`, `/setblock` and any other command whose flag disagrees with its message.
 ## [3.6.0] - 2026-11-06
 
 The paste preview is drawn with **per-client block overrides** instead of one fake mob per

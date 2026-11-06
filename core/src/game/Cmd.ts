@@ -1,6 +1,6 @@
 import Config from "../common/Config";
 import { Pos3 } from "../common/Pos3";
-import { normaliseBlockName, normaliseBlockStates, splitBlockToken, clampY, dimensionId, MAX_FILL_VOLUME, volumeOf } from "./SafeArgs";
+import { normaliseBlockName, normaliseBlockStates, splitBlockToken, clampY, dimensionId, isSuccessOutput, MAX_FILL_VOLUME, volumeOf } from "./SafeArgs";
 import { describeError, logFailure, sleep } from "../util/Safe";
 
 /**
@@ -57,7 +57,10 @@ export async function run(cmd: string): Promise<CmdResult> {
     try {
         const res = mc.runcmdEx(text) as { success?: boolean; output?: string } | boolean;
         if (typeof res === "boolean") return { ok: res, out: "", cmd: text };
-        return { ok: res?.success !== false, out: String(res?.output ?? ""), cmd: text };
+        const out = String(res?.output ?? "");
+        // The message is authoritative: BDS 1.26.51 answers a completed /fill with
+        // success:false while printing the success key (see SafeArgs.isSuccessOutput).
+        return { ok: res?.success !== false || isSuccessOutput(out), out, cmd: text };
     } catch (e) {
         logFailure("cmd.run", e);
         return { ok: false, out: describeError(e), cmd: text };
@@ -72,7 +75,10 @@ export function runNow(cmd: string): CmdResult {
     try {
         const res = mc.runcmdEx(text) as { success?: boolean; output?: string } | boolean;
         if (typeof res === "boolean") return { ok: res, out: "", cmd: text };
-        return { ok: res?.success !== false, out: String(res?.output ?? ""), cmd: text };
+        const out = String(res?.output ?? "");
+        // The message is authoritative: BDS 1.26.51 answers a completed /fill with
+        // success:false while printing the success key (see SafeArgs.isSuccessOutput).
+        return { ok: res?.success !== false || isSuccessOutput(out), out, cmd: text };
     } catch (e) {
         logFailure("cmd.runNow", e);
         return { ok: false, out: describeError(e), cmd: text };

@@ -64,3 +64,19 @@ test('BDS messages are classified correctly', () => {
     assert.equal(C.classifyCmdError('语法错误', false), 'other');
     assert.equal(C.classifyCmdError('', false), 'other');
 });
+
+test('a success MESSAGE wins over a false success flag', () => {
+    load();
+    const C = S;
+
+    // the exact shape LL 26.51 produced: success:false, output = raw translation key
+    assert.equal(C.isSuccessOutput('commands.fill.success'), true);
+    assert.equal(C.isSuccessOutput('commands.clone.success'), true);
+    assert.equal(C.isSuccessOutput('32656 个方块已填充'), true);
+    assert.equal(C.isSuccessOutput('Successfully filled 32656 blocks'), true);
+
+    assert.equal(C.isSuccessOutput(''), false);
+    assert.equal(C.isSuccessOutput('语法错误'), false);
+    assert.equal(C.isSuccessOutput('Cannot place blocks outside of the world'), false);
+    assert.equal(C.isSuccessOutput('Filled 0 blocks'), false);
+});

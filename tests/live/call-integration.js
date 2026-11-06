@@ -413,10 +413,17 @@ async function runSuite() {
         return "8x4x8 region filled via /ca fill path, no horizontal teleport";
     });
 
-    // --- selection highlight (structure_block, default mode) ---------------
+    // --- selection highlight (structure_block; opt-in since 3.2.0) ---------
+    // The default mode is a client-side wireframe now, so this test has to ask for the
+    // world-writing mode explicitly - otherwise it was asserting a highlight that is
+    // deliberately not drawn any more.
     await checkAsync("ca.selectionDisplay", async () => {
         const fs = require("fs");
+        const Config = require(path.join(M.root, "core", "src", "common", "Config.js")).default;
         const AreaDisplayer = require(path.join(M.root, "core", "src", "structure", "AreaDisplayerService.js")).default;
+        const previous = Config.get(Config.GLOBAL, "areaDisplayMode", "wireframe");
+        Config.set(Config.GLOBAL, "areaDisplayMode", "structure_block");
+        try {
         const t = spot(12);
         fillBox(t.x, t.y, t.z, 4, 4, 4, "minecraft:air");
 
@@ -444,6 +451,9 @@ async function runSuite() {
         AreaDisplayer.remove(cap);
         assert(blockTypeAt(t.x, foundAt, t.z) === "minecraft:air", "highlight was not restored");
         return "placed at y+" + (foundAt - t.y) + " and restored";
+        } finally {
+            Config.set(Config.GLOBAL, "areaDisplayMode", previous);
+        }
     });
 
     // --- UNDO of a large region (reported: "structure too large to place block
