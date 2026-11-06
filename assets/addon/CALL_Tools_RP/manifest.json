@@ -1,0 +1,30 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "CALL Tools",
+    "description": "CALL 建造助手的内置工具贴图",
+    "uuid": "b7c1f2a4-1d3e-4a55-9a10-6c0f5e7d8a03",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      26,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "description": "CALL tools textures",
+      "uuid": "b7c1f2a4-1d3e-4a55-9a10-6c0f5e7d8a04",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+item.call:gear=CALL Builder - Menu
+item.call:wand_select=CALL Selection Wand
+item.call:wand_copy=CALL Copy Wand
+item.call:wand_paste=CALL Paste Wand
+item.call:wand_preview=CALL Preview Wand

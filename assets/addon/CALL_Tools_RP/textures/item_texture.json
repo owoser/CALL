@@ -1,0 +1,21 @@
+{
+  "resource_pack_name": "call_tools",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "call:gear": {
+      "textures": "textures/items/call_gear"
+    },
+    "call:wand_select": {
+      "textures": "textures/items/call_wand_select"
+    },
+    "call:wand_copy": {
+      "textures": "textures/items/call_wand_copy"
+    },
+    "call:wand_paste": {
+      "textures": "textures/items/call_wand_paste"
+    },
+    "call:wand_preview": {
+      "textures": "textures/items/call_wand_preview"
+    }
+  }
+}

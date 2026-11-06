@@ -12,6 +12,11 @@ import { ToolType } from "./temp/Tool";
 import StrFactory from "./util/StrFactory";
 import Tr from "./util/Translator";
 import CACommand from "./CACommand";
+import { AddonInstaller } from "./addon/AddonInstaller";
+import PreviewOperation from "./structure/PreviewOperation";
+import Wireframe from "./holo/Wireframe";
+import Holo from "./holo/Holo";
+import { ToolItems } from "./user/ToolItems";
 
 import { MsgType, tell } from "./util/Msg";
 import { every, describeError, logFailure, safeCall, stopEverything } from "./util/Safe";
@@ -125,8 +130,34 @@ namespace ListenerHandler {
 
         mc.listen(Left, (player: Player) => {
             safeCall("onLeft.cleanup", () => {
-                if (player) clickMap.delete(player.xuid);
+                if (player) {
+                    clickMap.delete(player.xuid);
+                    PreviewOperation.cancelFor(player.xuid);
+                    Wireframe.hide("area:" + player.xuid);
+                }
             });
+        });
+
+        // Safety net for the tool items: legacy onStartDestroyBlock cannot be cancelled, so
+        // the block break is stopped here. can_destroy_in_creative=false on the item already
+        // covers creative; this covers everything else and also stops block placement.
+        mc.listen("onDestroyBlock", (player: Player) => {
+            try {
+                const hand = player.getHand();
+                if (hand != null && ToolItems.isTool(String(hand.type))) return false;
+            } catch {
+                // ignore
+            }
+            return true;
+        });
+        mc.listen("onPlaceBlock", (player: Player) => {
+            try {
+                const hand = player.getHand();
+                if (hand != null && ToolItems.isTool(String(hand.type))) return false;
+            } catch {
+                // ignore
+            }
+            return true;
         });
     }
 }
@@ -171,7 +202,7 @@ namespace Other {
         const check = Config.get(Config.CHECK, "configs");
         if (check == null) {
             throw new Error(
-                Tr._c("console.Config.check.notFind", Paths.toPosix(Paths.join("config", "check.json")))
+                Tr._c("console.Config.check.notFind", Paths.toPosix(Paths.join("assets", "check.json")))
             );
         }
         Object.keys(check).forEach((k) => {
@@ -249,11 +280,42 @@ function init(): boolean {
         ListenerHandler.init(); //init listener
         CACommand.register(); //register command
         logger.info("[CALL] " + Config.PLUGIN_VERSION.toString() + " ready (root: " + Paths.toPosix(Paths.ROOT) + ")");
-    // Print the locations: the upstream docs point at a config path that never existed, and
-    // since 3.1 the layout is assets/ (read-only) + config/ + data/.
-    logger.info("[CALL] config: " + Paths.toPosix(Config.GLOBAL_FILE));
-    logger.info("[CALL] data  : " + Paths.toPosix(Paths.DATA));
-    if (Paths.LAYOUT_NOTICE != null) logger.warn("[CALL] " + Paths.LAYOUT_NOTICE);
+        // Print the locations: the upstream docs point at a config path that never existed, and
+        // since 3.1 the layout is assets/ (read-only) + config/ + data/.
+        logger.info("[CALL] config: " + Paths.toPosix(Config.GLOBAL_FILE));
+        logger.info("[CALL] data  : " + Paths.toPosix(Paths.DATA));
+        if (Paths.LAYOUT_NOTICE != null) logger.warn("[CALL] " + Paths.LAYOUT_NOTICE);
+
+        // Tool items are addon items, so they only exist after the packs are enabled and the
+        // server has been restarted once. Report the real state instead of assuming success.
+        // Tell the admin up front whether the wireframe is available: it needs a native mod and
+        // is easy to misconfigure, and a silent fallback would look like a CALL bug.
+        if (String(Config.get(Config.GLOBAL, "areaDisplayMode", "wireframe")).toLowerCase() === "wireframe") {
+            if (Holo.available()) {
+                // Functional self-test: resolving the function is not the same as a packet the
+                // client accepts. Create + drop one throwaway shape far below the world.
+                const probe = Number(Holo.call("shapeCreateBox", 0, -64, 0, 1, -63, 1));
+                if (probe > 0) {
+                    Holo.call("shapeDestroy", probe);
+                    logger.info("[CALL] HologramLib " + Holo.version() + " - wireframe ready");
+                } else {
+                    logger.warn("[CALL] HologramLib " + Holo.version() + " 已加载，但画框失败（版本不兼容？）");
+                }
+            } else {
+                logger.warn("[CALL] wireframe unavailable: " + Holo.reason() + " (fallback: particle outline)");
+            }
+        }
+
+        if (Config.get(Config.GLOBAL, "toolItems", true) !== false) {
+            const addon = AddonInstaller.install();
+            if (addon.ok) {
+                if (addon.needsRestart) logger.warn("[CALL] " + addon.message);
+                else if (AddonInstaller.itemsAvailable()) logger.info("[CALL] tool items ready");
+                else logger.warn("[CALL] 内置工具物品尚未生效，请重启服务器（/ca tools 查看状态）");
+            } else {
+                logger.warn("[CALL] 内置工具物品不可用: " + addon.message);
+            }
+        }
     } catch (e) {
         logger.error("[CALL] init failed: " + describeError(e) + "\nstack:" + (e && e.stack ? e.stack : ""));
         return false;
@@ -285,6 +347,10 @@ export default function main() {
     try {
         (ll as any).onUnload(() => {
             safeCall("onUnload", () => {
+                safeCall("onUnload.wireframe", () => {
+                    PreviewOperation.cancelAll();
+                    Wireframe.hideAll();
+                });
                 stopEverything();
                 AreaDisplayerService.releaseAll();
                 // Never leave a call_* ticking area behind: BDS allows only 10 in total.

@@ -11,6 +11,58 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.2.0] - 2026-11-06
+
+### Added - bundled tool items
+
+CALL now ships its own addon (`assets/addon/CALL_Tools_BP` + `CALL_Tools_RP`) that defines
+five items under the `call:` namespace, so no vanilla item id is reused and nothing can
+collide with another plugin:
+
+| item | left click | right click |
+|---|---|---|
+| `call:gear` | - | open the menu |
+| `call:wand_select` | point A | point B |
+| `call:wand_copy` | - | copy the selection |
+| `call:wand_paste` | - | paste at the clicked block |
+| `call:wand_preview` | move anchor | set anchor / rotate 90 degrees (sneak = confirm) |
+
+- Items are creative-only (`/ca tools` hands them out), have no recipe, and cannot break or
+  place blocks: `can_destroy_in_creative: false` plus an `onDestroyBlock` cancel, because
+  LSE's `onStartDestroyBlock` cannot be cancelled.
+- The packs are installed automatically into `behavior_packs` / `resource_packs` and enabled
+  by merging (never overwriting) the world pack lists. Enabling needs one restart, and the
+  console says so instead of pretending the items exist.
+- `/ca tools`, `/ca tools list`, `/ca tools status`.
+
+### Added - HologramLib wireframe + paste preview
+
+- `areaDisplayMode` gains `wireframe` and it is the new default: a server-side box outline
+  that every player sees, drawn without touching the world (DebugShape packets).
+  Without HologramLib it falls back to the particle outline.
+- New `/ca preview ...` (also driven by the preview wand): shows the ROTATED destination box,
+  rotates/mirrors it, then pastes exactly what was previewed. The undo snapshot uses the
+  rotated footprint, not the original one.
+- Why there is no fake-block preview: HologramLib exposes no client block override, and
+  `UpdateBlockPacket` needs network block runtime ids that LSE does not expose. Guessing them
+  crashes clients. Documented in `docs/user/tools.md`.
+
+### Changed
+
+- `Paths.SERVER_ROOT` detection now walks up to the server executable and understands the
+  LL 26.60 layout, where `plugins` is a junction to `mods` and the script engine reports the
+  real `mods/<plugin>` path. Before this fix CALL created a stray `D:\structures` folder.
+- Shape packs are loaded by absolute path (`Config.SHAPES_PATH`); the old code needed the
+  plugin to sit exactly two levels below the server root.
+
+### Tests
+
+- Unit 46 (was 40): adds `preview-rotate.test.mjs` covering rotation/mirror maths and the
+  rotated destination areas.
+- Verified on BDS 1.26.60.6 / LL 26.51-compatible 26.60 line / LSE nodejs 0.23.1 with
+  HologramLib 26.60.1: `HologramLib 1.35.0 - wireframe ready` (a real shape create+destroy
+  round trip) and `tool items ready` (the addon items resolve).
+
 ## [3.1.0] - 2026-11-05
 
 ### Changed - release layout

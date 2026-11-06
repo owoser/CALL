@@ -624,7 +624,14 @@ export default class StructureService {
         );
     }
 
-    public static async paste(caPlayer: CAPlayer, pos: Pos3, data: any, overCallback: () => void): Promise<void> {
+    public static async paste(
+        caPlayer: CAPlayer,
+        pos: Pos3,
+        data: any,
+        overCallback: () => void,
+        mirror: "none" | "x" | "z" | "xz" = "none",
+        degrees: string = "0_degrees"
+    ): Promise<void> {
         const complex = data?.copy ?? {};
         const keys = Object.keys(complex);
         if (keys.length === 0) throw new Error("nothing to paste");
@@ -633,7 +640,7 @@ export default class StructureService {
             const sid = keys[i];
             await StructureService.load(
                 caPlayer, complex[sid], sid, pos, i, keys.length,
-                "none", "0_degrees", false, true, false, 100, "",
+                mirror, degrees, false, true, false, 100, "",
                 () => { /* per-slice */ }
             );
         }

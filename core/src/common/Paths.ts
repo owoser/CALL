@@ -78,10 +78,16 @@ function detectPluginRoot(): string {
 
 const ROOT = detectPluginRoot();
 
-/** Path of `root` relative to the BDS root, e.g. "plugins/CALL". */
+/**
+ * Path of `root` relative to the BDS root, e.g. "plugins/CALL" or "mods/CALL".
+ *
+ * LL 26.60 turned `plugins` into a junction pointing at `mods`, and the script engine
+ * reports the REAL path (`mods/CALL`), so matching only "/plugins/" produced a wrong
+ * server root and CALL created a stray `D:\structures` folder.
+ */
 function rootRelative(p: string): string {
     const normalized = p.replace(/\\/g, "/");
-    const at = normalized.lastIndexOf("/plugins/");
+    const at = Math.max(normalized.lastIndexOf("/plugins/"), normalized.lastIndexOf("/mods/"));
     if (at >= 0) return normalized.slice(at + 1);
     return normalized.replace(/^\.\//, "");
 }
@@ -91,9 +97,26 @@ function rootRelative(p: string): string {
  * level per path segment. Verified against the server executable when possible.
  */
 function detectServerRoot(root: string): string {
+    const exes = ["bedrock_server_mod.exe", "bedrock_server.exe"];
+
+    // Most reliable: walk up and look for the executable. Covers plugins/, mods/, a
+    // renamed plugin folder, and nested layouts alike.
+    let dir = root;
+    for (let i = 0; i < 4; i++) {
+        dir = path.dirname(dir);
+        for (const exe of exes) {
+            try {
+                if (fs.existsSync(path.join(dir, exe))) return dir;
+            } catch {
+                // ignore
+            }
+        }
+    }
+
+    // Fall back to counting the segments below the plugin directory.
     const parts = rootRelative(root).split("/").filter(Boolean);
     const guess = path.resolve(root, ...parts.map(() => ".."));
-    for (const exe of ["bedrock_server_mod.exe", "bedrock_server.exe"]) {
+    for (const exe of exes) {
         try {
             if (fs.existsSync(path.join(guess, exe))) return guess;
         } catch {

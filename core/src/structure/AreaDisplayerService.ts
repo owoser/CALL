@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import Wireframe, { COLOR } from "../holo/Wireframe";
 import Constant from "../temp/Constant";
 import Area3 from "../common/Area3";
 import Paths from "../common/Paths";
@@ -35,7 +36,7 @@ import { describeError, logFailure, safeCall } from "../util/Safe";
  *      unconditionally and threw when the chunk had gone).
  */
 
-export type AreaDisplayMode = "structure_block" | "particle" | "text" | "off";
+export type AreaDisplayMode = "wireframe" | "structure_block" | "particle" | "text" | "off";
 
 interface StructureBlockRecord {
     x: number;
@@ -88,8 +89,9 @@ export default class AreaDisplayerService {
 
     // ------------------------------------------------------------------ config
     public static mode(): AreaDisplayMode {
-        const raw = String(Config.get(Config.GLOBAL, "areaDisplayMode", "structure_block") ?? "").toLowerCase();
+        const raw = String(Config.get(Config.GLOBAL, "areaDisplayMode", "wireframe") ?? "").toLowerCase();
         switch (raw) {
+            case "wireframe":
             case "particle":
             case "text":
             case "structure_block":
@@ -269,6 +271,18 @@ export default class AreaDisplayerService {
         }
     }
 
+    /** "12×5×8 = 480" for the floating label above the box. */
+    private static sizeLabel(area: Area3): string {
+        const lens = area.getLens();
+        const total = lens[0] * lens[1] * lens[2];
+        return "§f" + lens[0] + "§7×§f" + lens[1] + "§7×§f" + lens[2] + "  §7(" + total + ")";
+    }
+
+    /** Yellow while the selection is still a single point, green once it has volume. */
+    private static colorOf(area: Area3) {
+        return area.start.equals(area.end) ? COLOR.incomplete : COLOR.complete;
+    }
+
     // -------------------------------------------------------------- public API
     public static set(area: Area3, caPlayer: CAPlayer): Pos3 | null {
         if (!caPlayer) return null;
@@ -290,6 +304,31 @@ export default class AreaDisplayerService {
             case "text":
                 st.anchor = normalized.start;
                 return st.anchor;
+
+            case "wireframe": {
+                // Server-side box outline: nothing is written to the world, every client sees
+                // it, and the library re-sends it when someone joins.
+                const start = normalized.start;
+                const end = normalized.end;
+                const size = AreaDisplayerService.sizeLabel(normalized);
+                const color = AreaDisplayerService.colorOf(normalized);
+                const shown = Wireframe.show(
+                    "area:" + caPlayer.xuid,
+                    {
+                        x1: start.x, y1: start.y, z1: start.z,
+                        x2: end.x + 1, y2: end.y + 1, z2: end.z + 1,
+                    },
+                    color,
+                    size
+                );
+                if (!shown) {
+                    // HologramLib missing: never leave the player without feedback.
+                    AreaDisplayerService.drawBox(normalized);
+                }
+                st.lastRender = Date.now();
+                st.anchor = st.anchor ?? start;
+                return st.anchor;
+            }
 
             case "particle": {
                 AreaDisplayerService.drawBox(normalized);
@@ -318,6 +357,7 @@ export default class AreaDisplayerService {
         const st = AreaDisplayerService.states.get(caPlayer.xuid);
         if (st == null) return;
         safeCall("AreaDisplay.remove", () => AreaDisplayerService.restore(st, caPlayer.xuid));
+        safeCall("AreaDisplay.hideWireframe", () => Wireframe.hide("area:" + caPlayer.xuid));
         st.anchor = null;
         st.signature = "";
         caPlayer.displayPos = null;

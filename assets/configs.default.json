@@ -276,6 +276,46 @@
         },
         "items": {
             "onUseItemOn": {
+                "call:gear": {
+                    "": {
+                        "cmds": [
+                            "call menu"
+                        ],
+                        "describe": "⚙ 主菜单\nOpen menu"
+                    }
+                },
+                "call:wand_select": {
+                    "": {
+                        "cmds": [
+                            "call area b ${block.pos.x} ${block.pos.y} ${block.pos.z}"
+                        ],
+                        "describe": "选区魔杖 · B点\nSelection wand: point B"
+                    }
+                },
+                "call:wand_copy": {
+                    "": {
+                        "cmds": [
+                            "call copy"
+                        ],
+                        "describe": "复制魔杖\nCopy wand"
+                    }
+                },
+                "call:wand_paste": {
+                    "": {
+                        "cmds": [
+                            "call paste ${block.pos.x} ${block.pos.y} ${block.pos.z}"
+                        ],
+                        "describe": "粘贴魔杖\nPaste wand"
+                    }
+                },
+                "call:wand_preview": {
+                    "": {
+                        "cmds": [
+                            "call preview click ${block.pos.x} ${block.pos.y} ${block.pos.z}"
+                        ],
+                        "describe": "预览魔杖（设落点/旋转/潜行确认）\nPreview wand"
+                    }
+                },
                 "minecraft:clock": {
                     "": {
                         "cmds": [
@@ -358,6 +398,22 @@
                 }
             },
             "onStartDestroyBlock": {
+                "call:wand_select": {
+                    "": {
+                        "cmds": [
+                            "call area a ${block.pos.x} ${block.pos.y} ${block.pos.z}"
+                        ],
+                        "describe": "选区魔杖 · A点\nSelection wand: point A"
+                    }
+                },
+                "call:wand_preview": {
+                    "": {
+                        "cmds": [
+                            "call preview move ${block.pos.x} ${block.pos.y} ${block.pos.z}"
+                        ],
+                        "describe": "预览魔杖 · 换落点\nPreview wand: move anchor"
+                    }
+                },
                 "minecraft:trident": {
                     "": {
                         "cmds": [
@@ -386,19 +442,49 @@
 ,
 
     /*
-    *   ###选区可视化方式###   (2.0.0 新增 / new in 2.0.0)
-    *   "particle"        [解析] 粒子边框，不修改世界（默认，推荐）
+    *   ###选区可视化方式###   (3.2.0 新增 wireframe)
+    *   "wireframe"       [解析] 服务端发包画线框，全服可见，不写世界（默认，需要 HologramLib）
+    *   "particle"        [解析] 粒子边框，不修改世界
     *   "text"            [解析] 只显示尺寸文字，零世界副作用
     *   "structure_block" [解析] 旧版做法：用结构方块顶替显示（会写世界，已加审计日志可恢复）
     *   "off"             [解析] 不显示
     *
     * ###How the selection is drawn###
-    *   "particle"        particle outline, never touches the world (default)
+    *   "wireframe"       server-side box outline via HologramLib, visible to everyone, no world writes
+    *   "particle"        particle outline, never touches the world
     *   "text"            size hint only, zero world side effects
     *   "structure_block" legacy behaviour: temp structure block (journalled, recoverable)
     *   "off"             nothing
     */
-    "areaDisplayMode": "structure_block",
+    "areaDisplayMode": "wireframe",
+
+    /*
+    *   ###内置工具物品###   (3.2.0 新增)
+    *   [解析] 是否安装并启用内置工具物品（⚙菜单 / 选区 / 复制 / 粘贴 / 预览）
+    *          首次启用需要重启服务器；物品由插件自带的行为包+资源包定义
+    *
+    * ###Bundled tool items###   (new in 3.2.0)
+    *   Install and enable the bundled tool items. The first enable needs a server restart.
+    */
+    "toolItems": true,
+
+    /*
+    *   ###预览超时(秒)###   (3.2.0 新增)
+    *   [范围] 10--600   [建议] 60
+    *   [解析] 预览魔杖多久没操作就自动取消
+    *
+    * ###Preview timeout (seconds)###   (new in 3.2.0)
+    */
+    "previewTimeout": 60,
+
+    /*
+    *   ###线框最远渲染距离###   (3.2.0 新增)
+    *   [范围] 16--512   [建议] 256
+    *   [解析] HologramLib 线框超过这个距离客户端不再渲染
+    *
+    * ###Wireframe max render distance###   (new in 3.2.0)
+    */
+    "holoMaxRenderDistance": 256,
 
     /*
     *   ###选区尺寸提示刷新间隔(毫秒)###   (2.0.0 新增)

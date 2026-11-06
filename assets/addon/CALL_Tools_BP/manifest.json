@@ -1,0 +1,30 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "CALL Tools",
+    "description": "CALL 建造助手的内置工具物品（只有贴图与物品定义，不含逻辑）",
+    "uuid": "b7c1f2a4-1d3e-4a55-9a10-6c0f5e7d8a01",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      26,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "description": "CALL tools item definitions",
+      "uuid": "b7c1f2a4-1d3e-4a55-9a10-6c0f5e7d8a02",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

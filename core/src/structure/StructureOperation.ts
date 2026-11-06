@@ -11,6 +11,7 @@ import { Pos } from "../temp/Pos";
 import Tr from "../util/Translator";
 import { MsgType, online, tell } from "../util/Msg";
 import { describeError } from "../util/Safe";
+import { Degrees, MirrorMode, degreesName, rotatedTargetAreas } from "./Rotate";
 
 export default class StructureOperation {
     private static setDimid(complex: any, distDimid: number): void {
@@ -508,6 +509,64 @@ export default class StructureOperation {
                         )
                     ), MsgType.RAW);
                 }).catch((e) => {
+                    tell(online(player.xuid), StrFactory.cmdErr(describeError(e)), MsgType.RAW);
+                });
+            }
+        );
+    }
+
+    /**
+     * Paste the clipboard with an explicit rotation / mirror.
+     *
+     * Same pipeline as {@link paste}, but the destination snapshot must cover the ROTATED
+     * footprint, otherwise undo would restore the wrong blocks.
+     */
+    public static pasteTransformed(
+        output: CommandOutput,
+        caPlayer: CAPlayer,
+        pos: Pos3,
+        mirror: MirrorMode,
+        degrees: Degrees
+    ) {
+        const player = caPlayer.$;
+        const data = StructureService.getData(player.xuid) as Data;
+        const keys = Object.keys(data.copy);
+        if (keys.length === 0) {
+            output.error(Tr._(player.langCode, "dynamic.StructureOperation.paste.s21"));
+            return;
+        }
+
+        const targets = rotatedTargetAreas(data.copy, pos, degrees, mirror).map(
+            (a) => new Structure(Area3.fromArea3D(new Area3(Pos3.fromPos(a.start as any), Pos3.fromPos(a.end as any))))
+        );
+
+        for (const target of rotatedTargetAreas(data.copy, pos, degrees, mirror)) {
+            StructureOperation.checkTargetStruct(
+                Area3.fromArea3D(
+                    new Area3(
+                        Pos3.fromPos(target.start as any),
+                        Pos3.fromPos(target.end as any)
+                    )
+                ),
+                pos,
+                caPlayer
+            );
+        }
+
+        StructureOperation.setDimid(data.copy, pos.dimid);
+        StructureService.undoSave(
+            caPlayer,
+            targets,
+            () => {
+                StructureService.paste(caPlayer, pos, data, () => {
+                    tell(
+                        online(player.xuid),
+                        StrFactory.cmdSuccess(
+                            Tr._(player.langCode, "dynamic.StructureOperation.paste.s22", pos.floor())
+                        ),
+                        MsgType.RAW
+                    );
+                }, mirror, degreesName(degrees)).catch((e) => {
                     tell(online(player.xuid), StrFactory.cmdErr(describeError(e)), MsgType.RAW);
                 });
             }

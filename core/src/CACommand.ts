@@ -6,6 +6,8 @@ import BlockEditerOperation from "./structure/BlockEditerOperation";
 import ChunkOperation from "./structure/ChunkOperation";
 import EnableOperation from "./user/EnableOperation";
 import ExportOperation from "./io/ExportOperation";
+import PreviewOperation from "./structure/PreviewOperation";
+import { ToolItems } from "./user/ToolItems";
 import FillOperation from "./structure/FillOperation";
 import HelpOperation from "./user/HelpOperation";
 import ImportOperation from "./io/ImportOperation";
@@ -74,6 +76,22 @@ export default class CACommand {
         cmd.setEnum("refresh", ["refresh", "rf"]);
         cmd.mandatory("action", ParamType.Enum, "refresh", "refresh_man", 1);
         cmd.overload(["refresh_man"]);
+
+        //preview (3.2.0)
+        cmd.setEnum("preview", ["preview", "pv"]);
+        cmd.setEnum("preview_act", ["set", "se", "click", "ck", "move", "mv", "rotate", "rt", "mirror", "mi", "confirm", "ok", "cancel", "cc"]);
+        cmd.mandatory("action", ParamType.Enum, "preview", "preview_man", 1);
+        cmd.mandatory("enum_1", ParamType.Enum, "preview_act", "preview_act_man", 1);
+        cmd.overload(["preview_man", "preview_act_man"]);
+        cmd.overload(["preview_man", "preview_act_man", "IntPos"]);
+
+        //tools (3.2.0)
+        cmd.setEnum("tools", ["tools", "tl"]);
+        cmd.setEnum("tools_act", ["give", "gi", "list", "li", "status", "st"]);
+        cmd.mandatory("action", ParamType.Enum, "tools", "tools_man", 1);
+        cmd.optional("enum_1", ParamType.Enum, "tools_act", "tools_act_opt");
+        cmd.overload(["tools_man"]);
+        cmd.overload(["tools_man", "tools_act_opt"]);
 
         //area
         cmd.setEnum("area", ["area", "ar"]);
@@ -504,6 +522,61 @@ export default class CACommand {
             case "menu":
                 MenuOperation.start(output, caPlayer, res);
                 return
+            case "preview":
+            case "pv":
+                switch (res.enum_1) {
+                    case "set":
+                    case "se":
+                        PreviewOperation.set(output, caPlayer, res);
+                        return;
+                    case "click":
+                    case "ck":
+                        PreviewOperation.click(output, caPlayer, res);
+                        return;
+                    case "move":
+                    case "mv":
+                        PreviewOperation.move(output, caPlayer, res);
+                        return;
+                    case "rotate":
+                    case "rt":
+                        PreviewOperation.rotate(output, caPlayer);
+                        return;
+                    case "mirror":
+                    case "mi":
+                        PreviewOperation.mirror(output, caPlayer);
+                        return;
+                    case "confirm":
+                    case "ok":
+                        PreviewOperation.confirm(output, caPlayer);
+                        return;
+                    case "cancel":
+                    case "cc":
+                        PreviewOperation.cancel(output, caPlayer);
+                        return;
+                }
+                output.error("用法: /ca preview set|rotate|mirror|confirm|cancel");
+                return;
+            case "tools":
+            case "tl":
+                switch (res.enum_1) {
+                    case "list":
+                    case "li":
+                        ToolItems.list(output);
+                        return;
+                    case "status":
+                    case "st":
+                        output.success(
+                            "toolItems = " + (Config.get(Config.GLOBAL, "toolItems", true) !== false) +
+                            "，物品可用 = " + (ToolItems.available() ? "是" : "否（需重启或缺少物品包）")
+                        );
+                        return;
+                    case "give":
+                    case "gi":
+                    case undefined:
+                        ToolItems.give(output, caPlayer);
+                        return;
+                }
+                return;
             case "area":
             case "ar":
                 AreaOperation.start(output, caPlayer, res);

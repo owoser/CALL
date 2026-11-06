@@ -63,6 +63,16 @@ LL3 要求插件目录名与 `manifest.json` 里的 `name` 完全一致，否则
 | `plugins/CALL/data/shapes/` | 第三方形状包 |
 | `plugins/CALL/data/import` / `export` | 导入 / 导出暂存 |
 
+### 内置工具物品的包（3.2.0 新增）
+
+插件自带一套 addon（`assets/addon/CALL_Tools_BP` + `CALL_Tools_RP`），首次启动会：
+
+1. 复制到 `<服务器>/behavior_packs/` 与 `resource_packs/`；
+2. 合并写入世界的 `world_behavior_packs.json` / `world_resource_packs.json`（**不会覆盖**你已有的包，改前会备份 `.bak`）；
+3. 控制台提示 **"重启服务器后生效"** —— 真的需要重启一次，之后会打印 `[CALL] tool items ready`。
+
+不想用自定义物品就把 `configs.json` 里的 `toolItems` 设为 `false`，插件不会再碰你的包目录。
+
 ### 离线服务器怎么办
 
 本插件的依赖由 LSE 在首次启动时安装。**服务器不能访问 npm 源时**：

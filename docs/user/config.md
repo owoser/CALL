@@ -50,8 +50,16 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 
 | 键 | 默认值 | 可选值 | 说明 |
 |---|---|---|---|
-| `areaDisplayMode` | `"structure_block"` | `structure_block` / `particle` / `text` / `off` | 选区显示方式。`structure_block` 会在选区上方放一个临时结构方块，只占空气块、写世界前落盘、退出必还原；`particle` 尚未确认能渲染 |
+| `areaDisplayMode` | `"wireframe"` | `wireframe` / `particle` / `text` / `structure_block` / `off` | 选区显示方式。`wireframe`（3.2.0 默认）通过 HologramLib 发线框包，**全服玩家可见、不写世界**；`structure_block` 是旧做法（临时结构方块，会写世界）；没装 HologramLib 时 `wireframe` 自动退回粒子框 |
 | `areaTextTipInterval` | `1000` | 250 – 10000 | 选区尺寸文字提示的刷新间隔（毫秒） |
+| `holoMaxRenderDistance` | `256` | 16 – 512 | 线框的最远渲染距离，超出后客户端不再绘制（省带宽） |
+
+### 工具物品（3.2.0 新增）
+
+| 键 | 默认值 | 可选值 | 说明 |
+|---|---|---|---|
+| `toolItems` | `true` | true / false | 是否安装并启用内置工具物品。关闭后不再复制物品包，物品自然不可用 |
+| `previewTimeout` | `60` | 10 – 600 | 预览魔杖多久没操作就自动取消（秒） |
 
 ### 数量与上限
 

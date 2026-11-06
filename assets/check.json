@@ -110,7 +110,20 @@
 ,
         "areaDisplayMode": {
             "type": "enum",
-            "values": ["particle", "text", "structure_block", "off"]
+            "values": ["wireframe", "particle", "text", "structure_block", "off"]
+        },
+        "toolItems": {
+            "type": "boolean"
+        },
+        "previewTimeout": {
+            "type": "number",
+            "min": 10,
+            "max": 600
+        },
+        "holoMaxRenderDistance": {
+            "type": "number",
+            "min": 16,
+            "max": 512
         },
         "areaTextTipInterval": {
             "type": "number",
