@@ -257,36 +257,45 @@ export const PreviewScene = {
         );
     },
 
-    /** Rotate / mirror the live scene by moving the existing displays. */
+    /**
+     * Rotate / mirror the live scene.
+     *
+     * This REBUILDS the displays instead of moving them: itemDisplaySetPosition did not
+     * actually move anything at runtime (the blocks stayed put while only their own rotation
+     * changed), and a rebuild is deterministic. Creation is batched, so the cost is the same
+     * as the first build.
+     */
     rotate(caPlayer: CAPlayer, degrees: Degrees, mirror: MirrorMode): boolean {
         const scene = scenes.get(caPlayer.xuid);
         if (scene == null) return false;
         scene.degrees = degrees;
         scene.mirror = mirror;
-
-        for (let i = 0; i < scene.ids.length; i++) {
-            const id = scene.ids[i];
-            if (!(id > 0)) continue;
-            const [x, y, z] = worldPos(scene.anchor, scene.blocks[i], degrees, mirror);
-            ItemDisplay.move(id, x, y, z, degrees);
-        }
+        PreviewScene.rebuild(caPlayer.xuid);
         return true;
     },
 
-    /** Move the whole scene to a new anchor. */
+    /** Drop the current displays and create them again from the stored block list. */
+    rebuild(xuid: string): void {
+        const scene = scenes.get(xuid);
+        if (scene == null) return;
+        try {
+            ItemDisplay.destroyAll(scene.ids.filter((id) => id > 0));
+        } catch (e) {
+            logger.warn("[CALL][Preview] 重建前清理失败: " + describeError(e));
+        }
+        scene.ids = [];
+        scene.building = true;
+        PreviewScene.pump(xuid);
+    },
+
+    /** Move the whole scene to a new anchor (also a rebuild, for the same reason). */
     move(caPlayer: CAPlayer, anchor: Pos3, degrees: Degrees, mirror: MirrorMode): boolean {
         const scene = scenes.get(caPlayer.xuid);
         if (scene == null) return false;
         scene.anchor = anchor;
         scene.degrees = degrees;
         scene.mirror = mirror;
-
-        for (let i = 0; i < scene.ids.length; i++) {
-            const id = scene.ids[i];
-            if (!(id > 0)) continue;
-            const [x, y, z] = worldPos(scene.anchor, scene.blocks[i], degrees, mirror);
-            ItemDisplay.move(id, x, y, z, degrees);
-        }
+        PreviewScene.rebuild(caPlayer.xuid);
         return true;
     },
 
