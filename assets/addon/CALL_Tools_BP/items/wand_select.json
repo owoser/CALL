@@ -4,8 +4,7 @@
     "description": {
       "identifier": "call:wand_select",
       "menu_category": {
-        "category": "equipment",
-        "group": "itemGroup.name.tool"
+        "category": "equipment"
       }
     },
     "components": {
