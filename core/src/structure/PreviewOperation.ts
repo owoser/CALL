@@ -13,7 +13,7 @@ import { describeError } from "../util/Safe";
 import StrFactory from "../util/StrFactory";
 
 import Holo from "../holo/Holo";
-import BossBar from "../holo/BossBar";
+import BossBar, { describeId, idCandidates } from "../holo/BossBar";
 import PreviewHudLock from "./PreviewHudLock";
 import { every, stop as stopTimer } from "../util/Safe";
 import {
@@ -166,8 +166,8 @@ function hudFor(xuid: string, st: PreviewState, now: number): void {
     const percent = bossBarProgress(remaining, timeoutSeconds() * 1000);
 
     if (st.barId == null) {
-        const id = BossBar.add(st.playerName, title, percent, style.color, style.overlay);
-        if (id == null) {
+        const raw = BossBar.add(st.playerName, title, percent, style.color, style.overlay);
+        if (raw == null) {
             // The library refused: fall back for this preview instead of hammering it.
             st.hud = "actionbar";
             PreviewHudLock.hold(xuid);
@@ -175,7 +175,28 @@ function hudFor(xuid: string, st: PreviewState, now: number): void {
             tell(player, StrFactory.cmdWarn("Boss 条创建失败，倒计时改用动作栏"), MsgType.TIP);
             return;
         }
-        st.barId = id;
+
+        // The id is a 64-bit value; the runtime hands it over as a double, so the exact
+        // integer has to be reconstructed before it can be used again. Try the candidates and
+        // keep the first encoding the library actually accepts.
+        let chosen: any = null;
+        for (const candidate of idCandidates(raw)) {
+            if (BossBar.setTitle(candidate, title)) {
+                chosen = candidate;
+                break;
+            }
+        }
+        if (chosen == null) {
+            BossBar.remove(raw);
+            BossBar.removeAll(st.playerName);
+            st.hud = "actionbar";
+            PreviewHudLock.hold(xuid);
+            st.lastTitle = "";
+            tell(player, StrFactory.cmdWarn("Boss 条的 id 无法回传，倒计时改用动作栏"), MsgType.TIP);
+            return;
+        }
+
+        st.barId = chosen;
         st.lastTitle = title;
         st.barFails = 0;
         st.barVerifiedAt = now;
@@ -811,7 +832,7 @@ export default class PreviewOperation {
             "Boss 条可用: " + (BossBar.available() ? "是" : "否"),
             "本玩家条数: " + (BossBar.count(name) ?? "?"),
             "本预览: " + (st == null ? "无预览" : (st.hud === "bar" ? "Boss 条" : "动作栏") +
-                "，id=" + (st.barId == null ? "-" : String(st.barId) + "(" + typeof st.barId + ")") +
+                "，id=" + describeId(st.barId) +
                 "，失败=" + st.barFails + "，重建=" + st.barRebuilds),
         ];
         if (st?.barId != null) lines.push("库内记录: " + (BossBar.getInfo(st.barId) ?? "?"));
@@ -872,11 +893,20 @@ export default class PreviewOperation {
                 // ignore
             }
         };
-        const id = BossBar.add(name, "§e自检 6", 1, 1, 0);
-        push("add -> " + (id == null ? "失败" : String(id) + " (" + typeof id + ")"));
-        if (id == null) {
+        const raw = BossBar.add(name, "§e自检 6", 1, 1, 0);
+        push("add -> " + describeId(raw));
+        if (raw == null) {
             output.success(lines.join("\n"));
             return;
+        }
+
+        // Which encoding does the library accept for this id?
+        let id: any = raw;
+        for (const candidate of idCandidates(raw)) {
+            const ok = BossBar.setTitle(candidate, "§e自检 6");
+            const info = BossBar.getInfo(candidate);
+            push("  " + describeId(candidate) + " -> setTitle=" + ok + " info=" + (info ?? "?"));
+            if (ok && id === raw) id = candidate;
         }
         let i = 0;
         const timer = every("preview.barTest", 1000, () => {

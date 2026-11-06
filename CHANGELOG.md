@@ -11,6 +11,23 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.9.3] - 2026-11-07
+
+Second live run confirmed the runtime hands over the bar id as a **Number**:
+
+```text
+add -> 8070450532247929000 (number)   ← the real value is 8070450532247928832
+第1..6秒 update=false info=not_found
+```
+
+The double is a rounded view of a 64-bit id, and the library looks up the exact integer, so
+every call after `add` missed. 3.9.3 reconstructs the exact integer from the double and probes
+which encoding the library accepts (`bigint`, its decimal string, the raw number), keeping the
+first one that answers true. If none does, the preview falls back to the action-bar countdown
+immediately instead of leaving a dead bar on screen.
+
+`/ca preview bartest` now prints one line per candidate, so a single run shows which form the
+library accepts.
 ## [3.9.2] - 2026-11-07
 
 `/ca preview bartest` on a live client showed the real failure:

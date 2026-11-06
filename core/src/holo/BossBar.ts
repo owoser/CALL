@@ -153,3 +153,49 @@ export const BossBar = {
 };
 
 export default BossBar;
+
+/**
+ * Candidate ways to hand a bar id back to the library, best first.
+ *
+ * A live session returned 8070450532247929000 - the double rounding of the real
+ * 0x7000000000000000 = 8070450532247928832 - and passing that number straight back is what
+ * the library looks up, so it answers false / not_found. The exact integer is still
+ * recoverable from the double (it IS representable), so we try, in order:
+ *
+ *   bigint of the exact integer, that integer as a decimal string, the raw number, its string.
+ *
+ * The caller keeps whichever one the library actually accepts.
+ */
+export function idCandidates(raw: any): any[] {
+    if (raw == null) return [];
+    if (typeof raw === "bigint") return [raw, raw.toString()];
+    if (typeof raw === "number") {
+        if (Number.isSafeInteger(raw)) return [raw];
+        const out: any[] = [];
+        try {
+            const exact = BigInt(raw);
+            out.push(exact, exact.toString());
+        } catch {
+            // not an integral double - fall through to the raw forms
+        }
+        out.push(raw, String(raw));
+        return out;
+    }
+    return [raw];
+}
+
+export function describeId(raw: any): string {
+    if (raw == null) return "-";
+    const type = typeof raw;
+    if (type === "bigint") {
+        const exact = (raw as bigint).toString();
+        return exact + "(bigint)";
+    }
+    if (type === "number") {
+        const exact = Number.isSafeInteger(raw) ? String(raw) : (() => {
+            try { return BigInt(raw).toString(); } catch { return String(raw); }
+        })();
+        return exact + "(number" + (Number.isSafeInteger(raw) ? "" : ", 已超出 2^53") + ")";
+    }
+    return String(raw) + "(" + type + ")";
+}
