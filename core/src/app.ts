@@ -324,8 +324,18 @@ function init(): boolean {
             const addon = AddonInstaller.install();
             if (addon.ok) {
                 if (addon.needsRestart) logger.warn("[CALL] " + addon.message);
-                else if (AddonInstaller.itemsAvailable()) logger.info("[CALL] tool items ready");
-                else logger.warn("[CALL] 内置工具物品尚未生效，请重启服务器（/ca tools 查看状态）");
+                else if (AddonInstaller.itemsAvailable()) {
+                    logger.info("[CALL] tool items ready");
+                    // The item ids exist server-side even when clients never receive the
+                    // resource pack - they would then show blank icons, which looks like a bug.
+                    if (ToolItems.resourcePackRequired() !== true) {
+                        logger.warn(
+                            "[CALL] server.properties 的 texturepack-required 不是 true：" +
+                            "客户端可能拿不到资源包，工具图标会显示为空白。" +
+                            "改成 true（推荐）或用 /ca tools pack 导出 .mcaddon 让玩家手动安装"
+                        );
+                    }
+                } else logger.warn("[CALL] 内置工具物品尚未生效，请重启服务器（/ca tools 查看状态）");
             } else {
                 logger.warn("[CALL] 内置工具物品不可用: " + addon.message);
             }

@@ -2,7 +2,12 @@ import Config from "../common/Config";
 import CAPlayer from "../user/CAPlayer";
 import { MsgType, tell } from "../util/Msg";
 import StrFactory from "../util/StrFactory";
-import { AddonInstaller } from "../addon/AddonInstaller";
+import { AddonInstaller, BP_FOLDER, RP_FOLDER } from "../addon/AddonInstaller";
+import Paths from "../common/Paths";
+import * as fs from "fs";
+import * as path from "path";
+import { collectEntries, createStoreZip } from "../io/ZipStore";
+import { describeError } from "../util/Safe";
 
 /**
  * The bundled tool items.
@@ -119,8 +124,57 @@ export class ToolItems {
         tell(player, StrFactory.cmdSuccess("§a已获得建造工具（" + given + " 件）"), MsgType.TIP);
     }
 
+    /**
+     * Export the bundled addon as a .mcaddon the player can import on their own client.
+     *
+     * Needed because a dedicated server may have `texturepack-required=false`: clients then
+     * join without the resource pack and custom items show up with a blank icon (the name is
+     * server-side NBT, so it still reads correctly - which makes it look like a CALL bug).
+     */
+    public static exportAddon(output: any): void {
+        try {
+            const base = path.join(Paths.ASSETS, "addon");
+            const entries = [
+                ...collectEntries(path.join(base, BP_FOLDER), BP_FOLDER),
+                ...collectEntries(path.join(base, RP_FOLDER), RP_FOLDER),
+            ];
+            if (entries.length === 0) {
+                output.error("找不到内置物品包目录: " + base);
+                return;
+            }
+            fs.mkdirSync(Paths.EXPORT, { recursive: true });
+            const target = path.join(Paths.EXPORT, "CALL_Tools.mcaddon");
+            fs.writeFileSync(target, createStoreZip(entries));
+            output.success(
+                "已导出 " + Paths.toPosix(target) + "（" + entries.length + " 个文件）。" +
+                "把玩家客户端导入这个 .mcaddon 即可看到工具图标；或者把服务器 server.properties 的 texturepack-required 设为 true"
+            );
+        } catch (e) {
+            output.error("导出失败: " + describeError(e));
+        }
+    }
+
+    /** Whether the server forces clients to use the world resource pack. */
+    public static resourcePackRequired(): boolean | null {
+        try {
+            const props = fs.readFileSync(path.join(Paths.SERVER_ROOT, "server.properties"), "utf8");
+            const m = /^\s*texturepack-required\s*=\s*(\S+)/m.exec(props);
+            if (m == null) return null;
+            return /^true$/i.test(m[1]);
+        } catch {
+            return null;
+        }
+    }
+
     public static list(output: any): void {
+        const required = ToolItems.resourcePackRequired();
         const lines: string[] = [];
+        if (required !== true) {
+            lines.push(
+                "  §e⚠ server.properties 的 texturepack-required = " + (required === false ? "false" : "未设置") +
+                "：客户端可能拿不到资源包，工具图标会是空白。改成 true，或用 /ca tools pack 导出给玩家手动安装。"
+            );
+        }
         for (const spec of TOOL_SPECS) {
             lines.push("  " + spec.name + " §8(" + spec.id + ")");
             for (const lore of spec.lore) lines.push("    " + lore);

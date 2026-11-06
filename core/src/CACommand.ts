@@ -88,7 +88,7 @@ export default class CACommand {
 
         //tools (3.2.0)
         cmd.setEnum("tools", ["tools", "tl"]);
-        cmd.setEnum("tools_act", ["give", "gi", "list", "li", "status", "st"]);
+        cmd.setEnum("tools_act", ["give", "gi", "list", "li", "status", "st", "pack", "pk"]);
         cmd.mandatory("action", ParamType.Enum, "tools", "tools_man", 1);
         cmd.optional("enum_1", ParamType.Enum, "tools_act", "tools_act_opt");
         cmd.overload(["tools_man"]);
@@ -582,6 +582,10 @@ export default class CACommand {
                             "toolItems = " + (Config.get(Config.GLOBAL, "toolItems", true) !== false) +
                             "，物品可用 = " + (ToolItems.available() ? "是" : "否（需重启或缺少物品包）")
                         );
+                        return;
+                    case "pack":
+                    case "pk":
+                        ToolItems.exportAddon(output);
                         return;
                     case "give":
                     case "gi":

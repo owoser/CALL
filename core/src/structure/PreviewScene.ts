@@ -51,8 +51,20 @@ function num(key: string, fallback: number, min: number, max: number): number {
 }
 
 function blockScale(): string {
-    const raw = Config.get(Config.GLOBAL, "previewBlockScale", "0.5");
-    return raw == null || raw === "" ? "0.5" : String(raw);
+    const raw = Config.get(Config.GLOBAL, "previewBlockScale", "1");
+    return raw == null || raw === "" ? "1" : String(raw);
+}
+
+/**
+ * Vertical nudge, in blocks.
+ *
+ * A block model is anchored at its BOTTOM centre, not its middle: spawning it at the cell
+ * centre makes it float half a block too high (confirmed by the /ca preview calib screenshot).
+ * -0.5 puts a 1x1x1 block exactly in its cell.
+ */
+function blockYOffset(): number {
+    const raw = Number(Config.get(Config.GLOBAL, "previewBlockYOffset", -0.5));
+    return Number.isFinite(raw) ? raw : -0.5;
 }
 
 function viewDistance(): number {
@@ -70,7 +82,11 @@ function maxBlocks(): number {
 /** World position of a block centre under the current transform. */
 function worldPos(anchor: Pos3, block: PreviewBlock, degrees: Degrees, mirror: MirrorMode): [number, number, number] {
     const [dx, dz] = transformOffset(block.dx, block.dz, degrees, mirror);
-    return [anchor.x + dx + 0.5, anchor.y + block.dy + 0.5, anchor.z + dz + 0.5];
+    return [
+        anchor.x + dx + 0.5,
+        anchor.y + block.dy + 0.5 + blockYOffset(),
+        anchor.z + dz + 0.5,
+    ];
 }
 
 function tip(xuid: string, text: string, error = false): void {

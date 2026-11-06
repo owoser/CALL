@@ -61,6 +61,76 @@ function healGlobalConfig(): void {
 
 healGlobalConfig();
 
+/** Strip // and /* *\/ comments so a commented template can be parsed with JSON.parse. */
+function stripJsonComments(text: string): string {
+    let out = "";
+    let inString = false;
+    let inLine = false;
+    let inBlock = false;
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        const next = text[i + 1];
+        if (inLine) {
+            if (c === "\n") { inLine = false; out += c; }
+            continue;
+        }
+        if (inBlock) {
+            if (c === "*" && next === "/") { inBlock = false; i++; }
+            continue;
+        }
+        if (inString) {
+            out += c;
+            if (c === "\\") { out += text[i + 1] ?? ""; i++; }
+            else if (c === '"') inString = false;
+            continue;
+        }
+        if (c === '"') { inString = true; out += c; continue; }
+        if (c === "/" && next === "/") { inLine = true; i++; continue; }
+        if (c === "/" && next === "*") { inBlock = true; i++; continue; }
+        out += c;
+    }
+    return out;
+}
+
+/**
+ * Fill in configuration keys that this version added.
+ *
+ * checkConfig() throws on any key declared in check.json but absent from configs.json, which
+ * used to disable the whole plugin after an upgrade that introduced a setting. Copy the
+ * missing top-level keys from the shipped template instead and say so in the console.
+ */
+let addedKeys: string[] = [];
+function healMissingKeys(): void {
+    try {
+        const raw = fs.readFileSync(CONFIG_TEMPLATE_PATH, "utf8");
+        const template = JSON.parse(stripJsonComments(raw));
+        // The user's file may still carry the template's comments (it is seeded by copying it),
+        // so it needs the same stripping. Rewriting drops those comments - the annotated
+        // template stays available in assets/configs.default.json.
+        const current = JSON.parse(stripJsonComments(fs.readFileSync(GLOBAL_PATH, "utf8")));
+
+        const missing = Object.keys(template).filter((k) => current[k] === undefined);
+        if (missing.length === 0) return;
+
+        for (const key of missing) current[key] = template[key];
+        fs.writeFileSync(GLOBAL_PATH, JSON.stringify(current, null, 4) + "\n", "utf8");
+        addedKeys = missing;
+        try {
+            logger.warn("[CALL] configs.json 补全 " + missing.length + " 个新配置项: " + missing.join(", "));
+        } catch {
+            // logger may not be ready
+        }
+    } catch (e) {
+        try {
+            logger.warn("[CALL] cannot fill in new config keys: " + (e && (e as any).message ? (e as any).message : e));
+        } catch {
+            // ignore
+        }
+    }
+}
+
+healMissingKeys();
+
 // LegacyScriptEngine's own file APIs take paths relative to the BDS root.
 const CHECK_LSE = Paths.lse(CHECK_PATH);
 const ITEM_TEXTURE_LSE = Paths.lse(ITEM_TEXTURE_PATH);
@@ -140,6 +210,9 @@ export default class Config {
     public static readonly MINVERSION = Version.fromArr([1, 26, 0]);
     /** Oldest LegacyScriptEngine this build supports. */
     public static readonly LSE_MINVERSION = Version.fromArr([0, 22, 4]);
+    /** Config keys that were added automatically on this start (empty when nothing changed). */
+    public static readonly ADDED_KEYS = addedKeys;
+
     public static readonly PLUGIN_VERSION = detectPluginVersion();
     public static readonly DATA_VERSION = detectDataVersion();
 
