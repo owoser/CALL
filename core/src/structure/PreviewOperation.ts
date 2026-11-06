@@ -241,15 +241,15 @@ export default class PreviewOperation {
     public static calib(output: any, caPlayer: CAPlayer, pick?: string): void {
         const chosen = pick != null && pick !== "" ? String(pick).trim() : "";
         if (chosen !== "") {
-            if (!/^-?\d+(\.\d+)?$/.test(chosen)) {
-                output.error("用法: /ca preview calib [offY 数字]（不带参数=摆出候选，带参数=保存该值）");
+            if (!/^\d+(\.\d+)?$/.test(chosen)) {
+                output.error("用法: /ca preview calib [scale 数字]（不带参数=摆出候选，带参数=保存该缩放）");
                 return;
             }
-            Config.set(Config.GLOBAL, "previewBlockOffsetY", chosen);
+            Config.set(Config.GLOBAL, "previewBlockScale", chosen);
             PreviewOperation.clearCalib();
             const st = states.get(caPlayer.xuid);
             if (st != null) PreviewScene.build(caPlayer, st.pos, st.degrees, st.mirror);
-            output.success("已保存 previewBlockOffsetY = " + chosen + "（预览已按新值重建）");
+            output.success("已保存 previewBlockScale = " + chosen + "（预览已按新值重建）");
             return;
         }
 
@@ -261,32 +261,32 @@ export default class PreviewOperation {
         }
 
         const p = Pos3.fromPos(caPlayer.$.pos).floor();
-        // Scale is already settled (1.0 fills a block); what is left is the vertical
-        // anchor, because a block model hangs off its BOTTOM centre.
-        // Scale is settled (1.0 fills exactly one block); what is left is the vertical anchor,
-        // so sweep offY alone: each step of 4 model units should move the block 0.25 block.
-        const scale = String(Config.get(Config.GLOBAL, "previewBlockScale", "1"));
-        const offsets = ["0", "4", "8", "12", "16"];
+        // Position is measured separately (see probe); this sweep answers "how big is one
+        // block", which perspective makes hard to judge: three candidates, each in its own
+        // 1x1x1 wireframe, with the measured correction applied so they share the same height.
+        const candidates = ["0.75", "1", "1.25"];
+        const offsetY = String(Config.get(Config.GLOBAL, "previewBlockOffsetY", "0"));
+        const correction = Number(Config.get(Config.GLOBAL, "previewBlockYCorrection", 0)) || 0;
         let placed = 0;
 
-        for (let i = 0; i < offsets.length; i++) {
+        for (let i = 0; i < candidates.length; i++) {
             const cx = p.x + 2 + i * 2;
             const cy = p.y;
             const cz = p.z;
-            const offsetY = offsets[i];
+            const scale = candidates[i];
 
             // 1x1x1 wireframe = the reference cell the block has to fill exactly
             Wireframe.show(
                 "calib:" + i,
                 { x1: cx, y1: cy, z1: cz, x2: cx + 1, y2: cy + 1, z2: cz + 1 },
                 COLOR.preview,
-                "§foffY " + offsetY
+                "§fscale " + scale
             );
 
             const id = ItemDisplay.create({
                 // documented pose: bottom centre + offY in model units + rotX/rotZ 180
                 x: cx + 0.5,
-                y: cy,
+                y: cy + correction,
                 z: cz + 0.5,
                 dim: p.dimid,
                 blockId: "minecraft:stone",
@@ -302,8 +302,8 @@ export default class PreviewOperation {
         }
 
         output.success(
-            "已摆出 " + placed + " 组校准石块（scale " + scale + "，offY " + offsets.join(" / ") +
-            "，步长 4 单位 = 0.25 格）：哪个刚好填满线框，就报那个 offY（/ca preview cancel 清理）"
+            "已摆出 " + placed + " 组校准石块（scale " + candidates.join(" / ") +
+            "，已带上位置修正 " + correction + "）：哪个刚好填满线框，就 /ca preview calib <那个 scale>（/ca preview cancel 清理）"
         );
         // clean up on its own so a forgotten calibration never litters the world
         setTimeout(() => PreviewOperation.clearCalib(), 120000);
