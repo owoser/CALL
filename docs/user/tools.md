@@ -59,7 +59,8 @@
 | `/ca preview cancel` | 取消预览（同时清掉已生成的方块） |
 | `/ca preview mode ghost\|wireframe` | 切换"真方块"或"只线框"，写入配置 |
 | `/ca preview info` | 看当前生成数量、上限、缩放 |
-| `/ca preview calib` | 校准：在三个 1×1×1 线框里摆不同缩放的石头，挑刚好填满的那个 |
+| `/ca preview calib` | 校准：在 5 个 1×1×1 线框里摆不同 `offY` 的石头，挑刚好填满的那个 |
+| `/ca preview calib <数字>` | 把挑中的 `offY` 直接写进 `configs.json` 并重建预览 |
 | `/ca tools debug` | 点工具没反应时用：打印手持物品、显示名、左右键命中哪条绑定、物品包状态 |
 
 预览 **60 秒**没操作会自动取消（`previewTimeout` 可改）。

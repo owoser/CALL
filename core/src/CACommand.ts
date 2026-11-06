@@ -560,7 +560,7 @@ export default class CACommand {
                         return;
                     case "calib":
                     case "ca":
-                        PreviewOperation.calib(output, caPlayer);
+                        PreviewOperation.calib(output, caPlayer, res.option);
                         return;
                     case "info":
                     case "in":

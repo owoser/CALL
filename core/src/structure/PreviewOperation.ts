@@ -232,7 +232,25 @@ export default class PreviewOperation {
      * match too. This lays out three candidate scales inside a 1x1x1 wireframe each, so one
      * screenshot decides it.
      */
-    public static calib(output: any, caPlayer: CAPlayer): void {
+    /**
+     * `/ca preview calib` shows the sweep; `/ca preview calib 8` stores the picked value so the
+     * admin can finish the calibration without waiting for anyone.
+     */
+    public static calib(output: any, caPlayer: CAPlayer, pick?: string): void {
+        const chosen = pick != null && pick !== "" ? String(pick).trim() : "";
+        if (chosen !== "") {
+            if (!/^-?\d+(\.\d+)?$/.test(chosen)) {
+                output.error("用法: /ca preview calib [offY 数字]（不带参数=摆出候选，带参数=保存该值）");
+                return;
+            }
+            Config.set(Config.GLOBAL, "previewBlockOffsetY", chosen);
+            PreviewOperation.clearCalib();
+            const st = states.get(caPlayer.xuid);
+            if (st != null) PreviewScene.build(caPlayer, st.pos, st.degrees, st.mirror);
+            output.success("已保存 previewBlockOffsetY = " + chosen + "（预览已按新值重建）");
+            return;
+        }
+
         PreviewOperation.clearCalib();
 
         if (!ItemDisplay.available()) {
