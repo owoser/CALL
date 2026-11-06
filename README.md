@@ -147,6 +147,7 @@ Keys added in 2.0.0 / 3.x:
 | `previewMode` | `"ghost"` | `ghost` = real block preview via per-client overrides, `wireframe` = outline only. |
 | `previewMaxBlocks` | `8000` | Surface-block budget; the rest is not drawn and the preview reports the truncation. |
 | `previewPivot` | `"inplace"` | `inplace` = the box stays on the anchor and only its contents turn; `anchor` = rotate around the clicked cell (the box swings into the next quadrant). |
+| `previewCountdown` | `"auto"` | Preview countdown on a boss bar (`always` / `off` to change it); without HologramLib it falls back to the action bar. |
 | `previewBlockYCorrection` | `0.4149` | Vertical alignment of the preview blocks, in blocks (calibrated). |
 | `areaTextTipInterval` | `1000` | Selection HUD refresh, ms (250-10000). |
 | `maxPlaceBlocks` | `40000` | Refuse a single restore larger than this instead of freezing. |

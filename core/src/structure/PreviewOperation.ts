@@ -8,10 +8,22 @@ import StructureOperation from "./StructureOperation";
 import { Box, Degrees, MirrorMode, PivotMode, rotatedUnion } from "./Rotate";
 import CAPlayer from "../user/CAPlayer";
 import { Pos3 as Pos3Type } from "../common/Pos3";
-import { MsgType, tell } from "../util/Msg";
+import { MsgType, online, tell } from "../util/Msg";
 import { describeError } from "../util/Safe";
 import StrFactory from "../util/StrFactory";
 
+import BossBar from "../holo/BossBar";
+import {
+    CountdownMode,
+    bossBarProgress,
+    bossBarStyle,
+    countdownActionBar,
+    countdownMode,
+    countdownText,
+    countdownVisible,
+    gestureOf,
+    remainingSeconds,
+} from "./PreviewHud";
 /**
  * The paste preview.
  *
@@ -32,6 +44,14 @@ interface PreviewState {
     mirror: MirrorMode;
     pivot: PivotMode;
     timer: ReturnType<typeof setTimeout> | null;
+    /** Wall-clock deadline for the auto-cancel; drives the countdown. */
+    deadline: number;
+    /** Boss bar id while the countdown is on screen (null = not shown). */
+    barId: number | null;
+    /** Last title pushed to the bar, so an unchanged second is not re-sent. */
+    lastTitle: string;
+    /** The name HologramLib keys per-player state by. */
+    playerName: string;
 }
 
 /** Where the paste will actually start: the anchor plus every manual nudge. */
@@ -58,6 +78,88 @@ const probeIds: number[] = [];
 function timeoutSeconds(): number {
     const raw = Number(Config.get(Config.GLOBAL, "previewTimeout", 60));
     return Number.isFinite(raw) && raw >= 10 ? raw : 60;
+}
+
+/** How often the countdown HUD refreshes. Half a second keeps the bar smooth. */
+const HUD_INTERVAL_MS = 500;
+let hudTimer: ReturnType<typeof setInterval> | null = null;
+
+function currentMode(): CountdownMode {
+    return countdownMode(Config.get(Config.GLOBAL, "previewCountdown", "auto"));
+}
+
+function stopHud(): void {
+    if (hudTimer != null) {
+        clearInterval(hudTimer);
+        hudTimer = null;
+    }
+}
+
+function dropBar(st: PreviewState): void {
+    if (st.barId != null) {
+        BossBar.remove(st.barId);
+        st.barId = null;
+    }
+    st.lastTitle = "";
+}
+
+/**
+ * One HUD tick: keep the countdown in sync with the deadline.
+ *
+ * A boss bar is used when HologramLib provides one (it does not fight the action bar, which
+ * already carries the selection size); otherwise the action bar is used as a fallback. The
+ * ticker stops itself as soon as no preview is live, so an idle server pays nothing.
+ */
+function hudTick(): void {
+    if (states.size === 0) {
+        stopHud();
+        return;
+    }
+    const mode = currentMode();
+    const now = Date.now();
+
+    for (const [xuid, st] of states) {
+        const remaining = st.deadline - now;
+        if (remaining <= 0) continue; // the cancel timer owns the expiry
+        if (!countdownVisible(mode, remaining)) {
+            dropBar(st);
+            continue;
+        }
+
+        const player = online(xuid);
+        if (player == null) continue;
+
+        const title = countdownText(remaining);
+        if (BossBar.available()) {
+            const style = bossBarStyle(remaining);
+            const percent = bossBarProgress(remaining, timeoutSeconds() * 1000);
+            if (st.barId == null) {
+                st.barId = BossBar.add(st.playerName, title, percent, style.color, style.overlay);
+                st.lastTitle = st.barId == null ? "" : title;
+                if (st.barId == null) tell(player, countdownActionBar(remaining), MsgType.TIP);
+            } else {
+                if (title !== st.lastTitle) {
+                    BossBar.setTitle(st.barId, title);
+                    BossBar.setStyle(st.barId, style.color, style.overlay);
+                    st.lastTitle = title;
+                }
+                BossBar.setHealth(st.barId, percent);
+            }
+            continue;
+        }
+
+        // Fallback: the action bar. Only refreshed when the second changes, and only in the
+        // last stretch (see countdownVisible), so it does not shadow the selection hint.
+        if (title !== st.lastTitle) {
+            st.lastTitle = title;
+            tell(player, countdownActionBar(remaining), MsgType.TIP);
+        }
+    }
+}
+
+function startHud(): void {
+    if (hudTimer != null) return;
+    hudTimer = setInterval(hudTick, HUD_INTERVAL_MS);
 }
 
 function clearTimer(st: PreviewState): void {
@@ -120,11 +222,16 @@ export default class PreviewOperation {
 
     private static arm(caPlayer: CAPlayer, st: PreviewState): void {
         clearTimer(st);
+        st.deadline = Date.now() + timeoutSeconds() * 1000;
+        // a fresh arm always refreshes the visible countdown
+        st.lastTitle = "";
         st.timer = setTimeout(() => {
             PreviewOperation.cancelFor(caPlayer.xuid);
             const player = caPlayer.$;
             if (player != null) tell(player, StrFactory.cmdErr("预览已超时取消"), MsgType.TIP);
         }, timeoutSeconds() * 1000);
+        startHud();
+        hudTick();
     }
 
     /** Set (or move) the preview anchor. */
@@ -148,6 +255,10 @@ export default class PreviewOperation {
             mirror: prev?.mirror ?? "none",
             pivot: prev?.pivot ?? defaultPivot(),
             timer: null,
+            deadline: 0,
+            barId: null,
+            lastTitle: "",
+            playerName: String(caPlayer.$?.realName ?? ""),
         };
         states.set(caPlayer.xuid, st);
 
@@ -187,26 +298,44 @@ export default class PreviewOperation {
      * typing commands, which is the point of having items in the first place.
      */
     public static click(output: any, caPlayer: CAPlayer, res: { IntPos?: any }): void {
-        let sneaking = false;
-        try {
-            sneaking = caPlayer.$.isSneaking === true;
-        } catch {
-            sneaking = false;
+        const gesture = gestureOf("right", PreviewOperation.sneaking(caPlayer), states.has(caPlayer.xuid));
+        switch (gesture) {
+            case "confirm":
+                PreviewOperation.confirm(output, caPlayer);
+                return;
+            case "rotate":
+                PreviewOperation.rotate(output, caPlayer);
+                return;
+            default:
+                PreviewOperation.set(output, caPlayer, res);
+                return;
         }
-        if (sneaking) {
-            PreviewOperation.confirm(output, caPlayer);
-            return;
-        }
-        if (!states.has(caPlayer.xuid)) {
-            PreviewOperation.set(output, caPlayer, res);
-            return;
-        }
-        PreviewOperation.rotate(output, caPlayer);
     }
 
-    /** Left click always moves the anchor. */
+    /**
+     * Left click: move the anchor - or CANCEL when sneaking.
+     *
+     * Mobile has no separate left button: tapping a block is the same onStartDestroyBlock
+     * event, so "sneak + tap" cancels there too. The wand never breaks the block (the tool
+     * items are blocked in onDestroyBlock/onPlaceBlock).
+     */
     public static move(output: any, caPlayer: CAPlayer, res: { IntPos?: any }): void {
+        const gesture = gestureOf("left", PreviewOperation.sneaking(caPlayer), states.has(caPlayer.xuid));
+        if (gesture === "cancel") {
+            PreviewOperation.cancelFor(caPlayer.xuid);
+            output.success("已取消预览");
+            return;
+        }
         PreviewOperation.set(output, caPlayer, res);
+    }
+
+    /** True when the player is crouching (some clients throw on the property). */
+    private static sneaking(caPlayer: CAPlayer): boolean {
+        try {
+            return caPlayer.$.isSneaking === true;
+        } catch {
+            return false;
+        }
     }
 
     /** Rotate the preview by 90 degrees. */
@@ -612,6 +741,9 @@ export default class PreviewOperation {
     public static info(output: any, caPlayer: CAPlayer): void {
         const scene = PreviewScene.info(caPlayer.xuid);
         const st = states.get(caPlayer.xuid);
+        const st2 = states.get(caPlayer.xuid);
+        const left = st2 != null ? remainingSeconds((st2?.deadline ?? 0) - Date.now()) : 0;
+        const bar = BossBar.available() ? "Boss 条" : "动作栏";
         const modeText = scene.mode === "full" ? "全量"
             : scene.mode === "window" ? "窗口"
             : scene.mode === "lazy" ? "懒解析" : "-";
@@ -628,6 +760,7 @@ export default class PreviewOperation {
             (scene.failed > 0 ? "（" + scene.failed + " 格客户端不认识）" : "") +
             " · 上限 " + Config.get(Config.GLOBAL, "previewMaxBlocks", 12000) +
             " · 半径 " + scene.radius +
+            (st2 != null ? " · 剩余 " + left + "s（倒计时 " + bar + "）" : "") +
             (st != null ? " · 落点 " + anchorOf(st).floor().toString() + " 旋转 " + st.degrees + "°" : " · 当前无预览")
         );
     }
@@ -647,6 +780,7 @@ export default class PreviewOperation {
         const st = states.get(xuid);
         if (st != null) {
             clearTimer(st);
+            dropBar(st);
             states.delete(xuid);
         }
         try {
@@ -674,5 +808,6 @@ export default class PreviewOperation {
 
     public static cancelAll(): void {
         for (const xuid of [...states.keys()]) PreviewOperation.cancelFor(xuid);
+        stopHud();
     }
 }

@@ -60,6 +60,7 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 |---|---|---|---|
 | `toolItems` | `true` | true / false | 是否安装并启用内置工具物品。关闭后不再复制物品包，物品自然不可用 |
 | `previewTimeout` | `60` | 10 – 600 | 预览魔杖多久没操作就自动取消（秒） |
+| `previewCountdown` | `"auto"` | `auto` / `always` / `off` | 预览倒计时显示：`auto` = 最后 20 秒才显示，`always` = 全程，`off` = 不显示。有 HologramLib 时用 Boss 条，否则回退动作栏 |
 | `previewMode` | `"ghost"` | `ghost` / `wireframe` | `ghost` = 真方块预览（`viewBlock` 逐客户端方块覆盖，不写世界）+ 线框；`wireframe` = 只线框 |
 | `previewPivot` | `"inplace"` | `inplace` / `anchor` | 旋转基准。`inplace` = 框停在落点、只转框内排布；`anchor` = 绕你点的那一格转，框会甩到相邻象限（可到落点负方向）。`/ca preview pivot` 切换，调整魔杖左键也能切 |
 | `previewMaxBlocks` | `12000` | 200 – 200000 | **同屏上限（窗口预算）**。表面方块 ≤ 它：整块全量显示；超过：进入窗口模式，只显示玩家周围半径内的方块，按距离取前 N 个 |

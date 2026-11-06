@@ -11,6 +11,33 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.9.0] - 2026-11-06
+
+### Added
+
+- **Preview countdown.** A live preview now shows its remaining time on a **boss bar**
+  (`bossBarAdd` / `bossBarSetTitle` / `bossBarSetHealth`, present in HologramLib 1.33.0 and
+  1.35.0): the title counts down, the bar shrinks with it, it turns red at 10 seconds and warns
+  at 5. A boss bar is used because the action bar already carries the selection hint every
+  second - two writers on one channel would flicker. Without HologramLib the countdown falls
+  back to the action bar and only appears in the last 20 seconds.
+- `previewCountdown` (`auto` | `always` | `off`, default `auto`): `auto` shows the countdown
+  only for the last 20 seconds, `always` keeps it up the whole time.
+- **Sneak + left click with the preview wand cancels the preview** (mobile: sneak, then tap a
+  block - touch tapping is the same `onStartDestroyBlock` event). The wand never breaks the
+  block, and without a live preview the gesture only reports that there is nothing to cancel.
+- `/ca preview info` reports the remaining seconds and which HUD carries them.
+
+### Notes
+
+- The preview wand lore and the shipped left-click binding now mention the cancel gesture.
+- Each interaction (rotate / move / nudge) resets the countdown to the full timeout and makes
+  it visible again immediately.
+
+### Tests
+
+- Unit 103: adds the gesture table (sneak decides confirm vs cancel), countdown text/style
+  thresholds, and the action-bar fallback wording.
 ## [3.8.0] - 2026-11-06
 
 Rotating and loading a 50k+ block build was slow. The library has no batch call, so the
