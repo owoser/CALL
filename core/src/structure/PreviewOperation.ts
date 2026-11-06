@@ -427,6 +427,30 @@ export default class PreviewOperation {
         output.success("预览模式: " + value + "（已写入 configs.json）");
     }
 
+    /**
+     * Nudge the vertical correction by a relative amount, e.g. `/ca preview trim -0.25`.
+     *
+     * Once the probe is within a fraction of a block, guessing absolute values is wasteful -
+     * this lets the tester dial it in while looking at the result.
+     */
+    public static trim(output: any, caPlayer: CAPlayer, delta?: string): void {
+        const raw = String(delta ?? "").trim();
+        if (!/^[+-]?\d+(\.\d+)?$/.test(raw)) {
+            output.error("用法: /ca preview trim <±格数>，例如 /ca preview trim -0.25");
+            return;
+        }
+        const current = PreviewScene.correction();
+        const next = Math.round((current + Number(raw)) * 1000) / 1000;
+        Config.set(Config.GLOBAL, "previewBlockYCorrection", String(next));
+
+        PreviewOperation.clearProbe();
+        const st = states.get(caPlayer.xuid);
+        if (st != null) PreviewScene.build(caPlayer, st.pos, st.degrees, st.mirror);
+        output.success(
+            "竖直修正: " + current + " → " + next + " 格（预览已重建；再 /ca preview probe 看是否齐平）"
+        );
+    }
+
     public static info(output: any, caPlayer: CAPlayer): void {
         const scene = PreviewScene.info(caPlayer.xuid);
         const st = states.get(caPlayer.xuid);
