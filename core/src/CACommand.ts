@@ -81,14 +81,28 @@ export default class CACommand {
         cmd.overload(["refresh_man"]);
 
         //preview (3.2.0)
+        // The sub-commands are split by ARGUMENT SHAPE, not by topic. Putting the optional
+        // numeric parameter in the same enum as the position-taking ones made the vanilla
+        // parser eat the "-3" of "click -3 24 363" as the number and then choke on "24".
         cmd.setEnum("preview", ["preview", "pv"]);
-        cmd.setEnum("preview_act", ["set", "se", "click", "ck", "move", "mv", "rotate", "rt", "mirror", "mi", "confirm", "ok", "cancel", "cc", "mode", "mo", "calib", "ca", "info", "in", "probe", "pb", "trim", "tm"]);
+        cmd.setEnum("pv_pos", ["set", "se", "click", "ck", "move", "mv"]);
+        cmd.setEnum("pv_plain", ["rotate", "rt", "mirror", "mi", "confirm", "ok", "cancel", "cc", "info", "in"]);
+        cmd.setEnum("pv_num", ["calib", "ca", "probe", "pb", "trim", "tm"]);
+        cmd.setEnum("pv_mode", ["mode", "mo"]);
+        cmd.setEnum("pv_mode_val", ["ghost", "wireframe"]);
         cmd.mandatory("action", ParamType.Enum, "preview", "preview_man", 1);
-        cmd.mandatory("enum_1", ParamType.Enum, "preview_act", "preview_act_man", 1);
-        cmd.overload(["preview_man", "preview_act_man"]);
-        cmd.overload(["preview_man", "preview_act_man", "IntPos"]);
-        cmd.overload(["preview_man", "preview_act_man", "option_opt"]);
-        cmd.overload(["preview_man", "preview_act_man", "delta_opt"]);
+        cmd.mandatory("enum_1", ParamType.Enum, "pv_pos", "pv_pos_man", 1);
+        cmd.mandatory("enum_1", ParamType.Enum, "pv_plain", "pv_plain_man", 1);
+        cmd.mandatory("enum_1", ParamType.Enum, "pv_num", "pv_num_man", 1);
+        cmd.mandatory("enum_1", ParamType.Enum, "pv_mode", "pv_mode_man", 1);
+        cmd.mandatory("enum_2", ParamType.Enum, "pv_mode_val", "pv_mode_val_man", 1);
+        cmd.overload(["preview_man", "pv_pos_man"]);
+        cmd.overload(["preview_man", "pv_pos_man", "IntPos"]);
+        cmd.overload(["preview_man", "pv_plain_man"]);
+        cmd.overload(["preview_man", "pv_num_man"]);
+        cmd.overload(["preview_man", "pv_num_man", "delta_opt"]);
+        cmd.overload(["preview_man", "pv_mode_man", "pv_mode_val_man"]);
+        cmd.overload(["preview_man", "pv_mode_man"]);
 
         //tools (3.2.0)
         cmd.setEnum("tools", ["tools", "tl"]);
@@ -560,7 +574,7 @@ export default class CACommand {
                         return;
                     case "mode":
                     case "mo":
-                        PreviewOperation.modeCommand(output, caPlayer, res.option);
+                        PreviewOperation.modeCommand(output, caPlayer, res.enum_2);
                         return;
                     case "calib":
                     case "ca":
