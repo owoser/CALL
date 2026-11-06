@@ -11,6 +11,47 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.3.1] - 2026-11-06
+
+### Fixed - the preview blocks sat half a block too high
+
+The item display was created with the wrong pose. HologramLib's own block-mode example is
+`seamless(100.5, 66, -200.5, 0, "minecraft:diamond_block", 0, "0", "-4", "0", "180", "0", "180", "0.5", 2, ...)`:
+
+| | was | now |
+|---|---|---|
+| rotation | `rotX=0, rotZ=0` | `180 / 180` (block-mode pose) |
+| position | cell centre (`y+0.5`) | cell BOTTOM centre (`y` integer) |
+| offset | `offY=0` | `offY="-4"` model units (16 = 1 block) |
+| creation | `CreateFull` then `SetMode(2)` | `CreateSeamless(..., mode=2, ...)` - one packet, no respawn that can discard the pose |
+
+The invented `previewBlockYOffset` (block units) is replaced by `previewBlockOffsetY`
+(model units, default `"-4"`), matching the library's vocabulary.
+
+### Fixed - clicking a tool did nothing
+
+Two independent causes:
+
+1. **Per-player settings were a stale snapshot.** `CAPlayer` copies `default` when the player
+   first registers, so players who existed before the tools shipped had no `call:*` bindings at
+   all. They are now merged in on login - only for the bundled tool ids, and only when the
+   entry is missing, so a player who rebound something keeps it.
+2. **Bindings are keyed by the item's display name.** The tools were given a custom name, so
+   the lookup key ("§e⚙ 建造助手 · 菜单") never matched the default empty-name entry. Lookup now
+   falls back to the empty-name entry, and the given tools no longer set a display name.
+
+### Added
+
+- `/ca tools debug`: prints the held item, its display name, which binding left/right click
+  resolves to, the addon state and `texturepack-required` - one command for "my tool does
+  nothing".
+- `/ca preview calib` now uses the documented pose and sweeps `scale` 0.5 / 0.75 / 1.0.
+
+### Tests
+
+- Unit 61 (was 55): adds `tool-bindings.test.mjs` (name -> empty-name fallback, migration only
+  fills gaps, never overwrites, ignores other ids).
+
 ## [3.3.0] - 2026-11-06
 
 ### Added - real fake-block paste preview

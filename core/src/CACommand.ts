@@ -88,7 +88,7 @@ export default class CACommand {
 
         //tools (3.2.0)
         cmd.setEnum("tools", ["tools", "tl"]);
-        cmd.setEnum("tools_act", ["give", "gi", "list", "li", "status", "st", "pack", "pk"]);
+        cmd.setEnum("tools_act", ["give", "gi", "list", "li", "status", "st", "pack", "pk", "debug", "db"]);
         cmd.mandatory("action", ParamType.Enum, "tools", "tools_man", 1);
         cmd.optional("enum_1", ParamType.Enum, "tools_act", "tools_act_opt");
         cmd.overload(["tools_man"]);
@@ -586,6 +586,10 @@ export default class CACommand {
                     case "pack":
                     case "pk":
                         ToolItems.exportAddon(output);
+                        return;
+                    case "debug":
+                    case "db":
+                        ToolItems.debug(output, caPlayer);
                         return;
                     case "give":
                     case "gi":

@@ -3,35 +3,47 @@ import Holo from "./Holo";
 /**
  * Fake-block preview through HologramLib's item display domain.
  *
- * The library spawns these on the CLIENT only - no server entity, nothing written to the
- * world, re-sent automatically when a player reconnects, gone when the server restarts. That
- * is exactly what a paste preview needs: show the blocks without touching anything.
+ * Pose rules come straight from the library docs (item-display page):
  *
- * One display = one block. Everything here is defensive: when the library is missing every
- * call returns a negative id / false and the caller falls back to the wireframe.
+ *   - block mode pose is offY="-4", rotX="180", rotZ="180" (model units / degrees);
+ *   - the position is the block's BOTTOM centre, i.e. y is an integer and x/z are +0.5
+ *     (the doc's own example is seamless(100.5, 66, -200.5, ...));
+ *   - block mode also applies a SECOND transform, controlled by itemDisplaySetExtend
+ *     (defaults scale=1, rx=-90, ry=0) - left untouched on purpose;
+ *   - creation goes through itemDisplayCreateSeamless so mode/viewDistance/visiblePlayer are
+ *     set in the same packet. Creating first and calling SetMode afterwards respawns the
+ *     display and can discard the pose we just set.
+ *
+ * One display = one block, client side only: no server entity, nothing written to the world,
+ * re-sent automatically on reconnect, gone on restart.
  */
 
 export interface DisplaySpec {
-    /** World position of the block CENTRE. */
+    /** Block BOTTOM centre: x/z at +0.5, y at the block's own level. */
     x: number;
     y: number;
     z: number;
     dim: number;
-    /** Block/item id, e.g. "minecraft:stone". */
     blockId: string;
-    /** Model scale, see previewBlockScale (calibrated to match one block). */
+    /** Model scale, see previewBlockScale. */
     scale: string;
     /** Y rotation in degrees. */
     rotY?: number;
+    /** offY in MODEL units (16 units = 1 block); the documented block pose is "-4". */
+    offsetY?: string;
     /** Visibility radius; <= 0 = unlimited. */
     viewDistance?: number;
     /** Only this player (realName) sees it. */
     onlyPlayer?: string;
-    /** 2 = render as a 3D block (what we want), 1 = flat item, 0 = auto. */
+    /** 2 = 3D block (what we want), 1 = flat item, -1 = library default. */
     mode?: number;
 }
 
 const BLOCK_MODE = 2;
+/** Documented block pose. */
+const BLOCK_OFF_Y = "-4";
+const BLOCK_ROT_X = "180";
+const BLOCK_ROT_Z = "180";
 
 export const ItemDisplay = {
     available(): boolean {
@@ -42,38 +54,31 @@ export const ItemDisplay = {
     create(spec: DisplaySpec): number {
         const id = Number(
             Holo.call(
-                "itemDisplayCreateFull",
+                "itemDisplayCreateSeamless",
                 spec.x, spec.y, spec.z,
                 spec.dim,
                 spec.blockId,
-                0,                 // aux
-                "0", "0", "0",     // model offset
-                "0", String(spec.rotY ?? 0), "0",
+                0,                                  // aux
+                "0", spec.offsetY ?? BLOCK_OFF_Y, "0",   // model unit offset
+                BLOCK_ROT_X, String(spec.rotY ?? 0), BLOCK_ROT_Z,
                 spec.scale,
-                "",                // snbt
-                false              // glint
+                spec.mode ?? BLOCK_MODE,
+                spec.viewDistance != null && spec.viewDistance > 0 ? spec.viewDistance : -1,
+                spec.onlyPlayer ?? ""
             )
         );
         if (!(id > 0)) return -1;
 
-        // Force the 3D block renderer: the same item id can otherwise come out as a flat
-        // sprite, which would look like a paper cut-out in the world.
-        Holo.call("itemDisplaySetMode", id, spec.mode ?? BLOCK_MODE);
-        // Never clickable / never a hitbox: a preview must not swallow player clicks.
+        // A preview must never swallow player clicks; the default is already "no hitbox",
+        // but be explicit so a future library default cannot change that under us.
         Holo.call("itemDisplaySetHitbox", id, 0, 0);
-        if (spec.viewDistance != null) {
-            Holo.call("itemDisplaySetViewDistance", id, spec.viewDistance);
-        }
-        if (spec.onlyPlayer != null && spec.onlyPlayer !== "") {
-            Holo.call("itemDisplaySetVisiblePlayer", id, spec.onlyPlayer);
-        }
         return id;
     },
 
     /** Move an existing display (used when the preview is rotated instead of rebuilt). */
     move(id: number, x: number, y: number, z: number, rotY: number): void {
         Holo.call("itemDisplaySetPosition", id, x, y, z);
-        Holo.call("itemDisplaySetRotation", id, "0", String(rotY), "0");
+        Holo.call("itemDisplaySetRotation", id, BLOCK_ROT_X, String(rotY), BLOCK_ROT_Z);
     },
 
     destroy(id: number): void {
@@ -92,10 +97,6 @@ export const ItemDisplay = {
 
     exists(id: number): boolean {
         return Holo.call("itemDisplayExists", id) === true;
-    },
-
-    setVisiblePlayer(id: number, playerName: string): void {
-        Holo.call("itemDisplaySetVisiblePlayer", id, playerName);
     },
 };
 

@@ -243,29 +243,34 @@ export default class PreviewOperation {
         const p = Pos3.fromPos(caPlayer.$.pos).floor();
         // Scale is already settled (1.0 fills a block); what is left is the vertical
         // anchor, because a block model hangs off its BOTTOM centre.
-        const scale = String(Config.get(Config.GLOBAL, "previewBlockScale", "1"));
-        const offsets = [0, -0.5, -1.0];
+        const baseScale = Number(Config.get(Config.GLOBAL, "previewBlockScale", "0.5"));
+        const candidates = [...new Set([0.5, 0.75, 1.0, baseScale])].sort((x, y) => x - y);
+        const offsetY = String(Config.get(Config.GLOBAL, "previewBlockOffsetY", "-4"));
         let placed = 0;
 
-        for (let i = 0; i < offsets.length; i++) {
+        for (let i = 0; i < candidates.length; i++) {
             const cx = p.x + 2 + i * 2;
             const cy = p.y;
             const cz = p.z;
+            const scale = String(candidates[i]);
 
+            // 1x1x1 wireframe = the reference cell the block has to fill exactly
             Wireframe.show(
                 "calib:" + i,
                 { x1: cx, y1: cy, z1: cz, x2: cx + 1, y2: cy + 1, z2: cz + 1 },
                 COLOR.preview,
-                "§foffY " + offsets[i]
+                "§fscale " + scale
             );
 
             const id = ItemDisplay.create({
+                // documented pose: bottom centre + offY in model units + rotX/rotZ 180
                 x: cx + 0.5,
-                y: cy + 0.5 + offsets[i],
+                y: cy,
                 z: cz + 0.5,
                 dim: p.dimid,
                 blockId: "minecraft:stone",
                 scale,
+                offsetY,
                 viewDistance: 64,
                 onlyPlayer: String(caPlayer.$.realName ?? ""),
             });
@@ -276,8 +281,8 @@ export default class PreviewOperation {
         }
 
         output.success(
-            "已摆出 " + placed + " 组校准石块（scale " + scale + "，偏移 0 / -0.5 / -1.0）：" +
-            "哪个刚好正正好好塞在线框里，就告诉我那个偏移值（/ca preview cancel 清理）"
+            "已摆出 " + placed + " 组校准石块（文档姿态 offY " + offsetY + "，scale " +
+            candidates.join(" / ") + "）：哪个刚好填满线框且不越界，就报那个 scale（/ca preview cancel 清理）"
         );
         // clean up on its own so a forgotten calibration never litters the world
         setTimeout(() => PreviewOperation.clearCalib(), 120000);

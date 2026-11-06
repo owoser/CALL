@@ -516,22 +516,22 @@
 
     /*
     *   ###预览方块缩放###   (3.3.0 新增)
-    *   [解析] 让一个展示刚好等于一个方块大小；实测 1.0 与真方块等大
+    *   [解析] 让一个展示刚好等于一个方块大小；用 /ca preview calib 校准
+    *          霍洛格拉姆库文档里方块模式建议 "0.5"
     *
     * ###Preview block scale###   (new in 3.3.0)
-    *   Measured: "1" renders exactly one block.
+    *   The library docs suggest "0.5" for block mode; /ca preview calib settles it.
     */
-    "previewBlockScale": "1",
+    "previewBlockScale": "0.5",
 
     /*
-    *   ###预览方块垂直偏移(格)###   (3.3.0 新增)
-    *   [范围] -1.0--1.0   [建议] -0.5
-    *   [解析] 方块模型的锚点在底部而不是中心，所以要往下压半格才能填满所在方块
+    *   ###预览方块模型偏移Y###   (3.3.0 新增)
+    *   [解析] 单位是【模型单位】(16 = 1 格)，不是格。文档里方块模式的默认姿态是 "-4"
     *
-    * ###Preview block vertical offset (blocks)###   (new in 3.3.0)
-    *   A block model hangs off its BOTTOM centre, so -0.5 puts it exactly in its cell.
+    * ###Preview block model offset Y###   (new in 3.3.0)
+    *   MODEL units (16 = 1 block). The documented block-mode pose is "-4".
     */
-    "previewBlockYOffset": -0.5,
+    "previewBlockOffsetY": "-4",
 
     /*
     *   ###线框最远渲染距离###   (3.2.0 新增)

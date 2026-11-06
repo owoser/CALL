@@ -9,6 +9,7 @@ import * as escodegen from "escodegen";
 import * as estraverse from "estraverse";
 import Tr from "../util/Translator";
 import BlockType from "../common/BlockType";
+import { matchBinding } from "./Bindings";
 
 type ToolVariable = {
     readonly pos: Pos3;
@@ -146,9 +147,14 @@ export class ToolOperation {
                 .split("\n")[0];
         }
         catch (e) { }
-        if (items[item.type] != null && items[item.type][name] != null) {
+        // Bindings are keyed by the item's custom display name, and "no custom name" is the
+        // empty string. Tools shipped with the plugin have no display name, but a renamed tool
+        // (or a player who named it themselves) must still find its type binding - otherwise a
+        // click silently does nothing.
+        const binding = matchBinding<any>(items[item.type], name);
+        if (binding != null) {
             const itemArr = caPlayer.$.getInventory().getAllItems();
-            ToolOperation.cmdsTranslator(caPlayer, itemArr, caPlayer.settings.barReplace, caPlayer.settings.barReplaced, items[item.type][name].cmds, block, posFloat).forEach((cmd) => {
+            ToolOperation.cmdsTranslator(caPlayer, itemArr, caPlayer.settings.barReplace, caPlayer.settings.barReplaced, binding.cmds, block, posFloat).forEach((cmd) => {
                 Players.silenceCmd(caPlayer, cmd);
             });
         }

@@ -1,6 +1,7 @@
 import Config from "../common/Config";
 import AreaOperation from "../structure/AreaOperation";
 import { Settings, defaultSettings } from "../temp/Data";
+import { ToolItems } from "./ToolItems";
 import { describeError } from "../util/Safe";
 
 const warned = new Set<string>();
@@ -31,6 +32,15 @@ export default class CAPlayer {
         this.displayPos = null;
         this.forbidCmd = false;
         this.setDefaultSettings();
+        // Players who registered before the bundled tools existed have their own snapshot of
+        // default.items without the call:* entries, so their tools would silently do nothing.
+        if (ToolItems.migrateBindings(this.settings)) {
+            try {
+                Config.set(Config.PLAYERS_SETTINGS, `player.${xuid}`, this.settings);
+            } catch (e) {
+                describeError(e);
+            }
+        }
     }
 
     /**

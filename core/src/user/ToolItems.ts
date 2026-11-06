@@ -8,6 +8,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { collectEntries, createStoreZip } from "../io/ZipStore";
 import { describeError } from "../util/Safe";
+import { mergeToolBindings } from "./Bindings";
 
 /**
  * The bundled tool items.
@@ -84,7 +85,9 @@ export class ToolItems {
             if (item == null) return null;
             const spec = TOOL_SPECS.find((s) => s.id === id);
             if (spec != null) {
-                item.setDisplayName(spec.name);
+                // Deliberately NO setDisplayName: the click pipeline keys bindings by the
+                // item's custom name ("" for none), and the addon already supplies the
+                // localised name through its own language file.
                 item.setLore(spec.lore);
             }
             return item;
@@ -164,6 +167,56 @@ export class ToolItems {
         } catch {
             return null;
         }
+    }
+
+    /**
+     * Add the bundled tools' default bindings to a player's settings.
+     *
+     * Only the ids we ship are touched, and only when the entry is missing, so a player who
+     * rebound (or removed) something keeps their choice.
+     */
+    public static migrateBindings(settings: any): boolean {
+        return mergeToolBindings(settings, Config.get(Config.GLOBAL, "default"), TOOL_IDS);
+    }
+
+    /** What the click pipeline will actually see for the held item. */
+    public static debug(output: any, caPlayer: CAPlayer): void {
+        const player = caPlayer.$;
+        if (player == null) {
+            output.error("需要在线玩家");
+            return;
+        }
+        let type = "?";
+        let name = "";
+        try {
+            const hand = player.getHand();
+            type = hand == null ? "(空手)" : String(hand.type);
+            //@ts-ignore
+            name = hand.getNbt().getTag("tag").getTag("display").getTag("Name").toString().split("\n")[0];
+        } catch {
+            name = "";
+        }
+
+        const lines: string[] = [];
+        lines.push("手持物品: " + type);
+        lines.push("自定义显示名: " + (name === "" ? "\"\"（空，走类型绑定）" : name));
+        for (const [kind, label] of [["onUseItemOn", "右键"], ["onStartDestroyBlock", "左键"]]) {
+            const byType = caPlayer.settings?.items?.[kind]?.[type];
+            if (byType == null) {
+                lines.push(label + "绑定: 无 → 点击不会有反应（/ca tools 重领物品或检查 default.items）");
+            } else {
+                const key = byType[name] != null ? name : (byType[""] != null ? "" : null);
+                lines.push(
+                    label + "绑定: " + (key == null
+                        ? "有类型条目但没有匹配的命名/空名键"
+                        : "命中 [" + (key === "" ? "空名" : key) + "] → " + (byType[key]?.cmds ?? []).join(" ; "))
+                );
+            }
+        }
+        lines.push("物品包: " + (ToolItems.available() ? "ready" : "未生效"));
+        const required = ToolItems.resourcePackRequired();
+        lines.push("texturepack-required: " + (required === true ? "true" : required === false ? "false（客户端可能没有图标）" : "未设置"));
+        output.success(lines.join("\n"));
     }
 
     public static list(output: any): void {

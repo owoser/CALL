@@ -64,8 +64,8 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 | `previewMaxBlocks` | `2000` | 200 – 20000 | 预览最多画多少个表面方块，超过只显示线框 |
 | `previewBatchSize` | `200` | 50 – 1000 | 每 tick 生成多少个方块展示，越小越平滑 |
 | `previewViewDistance` | `64` | 16 – 256 | 预览方块的可见距离 |
-| `previewBlockScale` | `"1"` | 字符串 | 一个展示等于一个方块的缩放（实测 1.0 等大） |
-| `previewBlockYOffset` | `-0.5` | -1.0 – 1.0 | 方块模型锚点在**底部**，所以往下压半格才正好填满所在方块 |
+| `previewBlockScale` | `"0.5"` | 字符串 | 一个展示等于一个方块的缩放，用 `/ca preview calib` 校准 |
+| `previewBlockOffsetY` | `"-4"` | 模型单位（16 = 1 格） | 方块模型的平移，文档里方块模式的默认姿态是 `-4` |
 
 ### 数量与上限
 
