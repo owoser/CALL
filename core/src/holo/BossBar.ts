@@ -42,7 +42,9 @@ export const BossBar = {
         if (!BossBar.available()) return null;
         try {
             const id = Number(addFn(playerName, title, percent, color, overlay));
-            return Number.isFinite(id) && id > 0 ? id : null;
+            // The docs say failure is -1; ids start at 0. Requiring > 0 would silently orphan
+            // the very first bar of a session, so only a negative/NaN answer counts as failure.
+            return Number.isFinite(id) && id >= 0 ? id : null;
         } catch {
             addFn = undefined;
             return null;
@@ -68,6 +70,25 @@ export const BossBar = {
         bind();
         if (removeFn == null) return false;
         return BossBar.safe(() => removeFn(id) === true);
+    },
+
+    /** One update call: title + fill + colour. True only when all three landed. */
+    update(id: number, title: string, percent: number, color: number, overlay: number): boolean {
+        const a = BossBar.setTitle(id, title);
+        const b = BossBar.setHealth(id, percent);
+        const c = BossBar.setStyle(id, color, overlay);
+        return a && b && c;
+    },
+
+    /** What the library thinks this bar looks like ("not_found" when the id is gone). */
+    getInfo(id: number): string | null {
+        const fn = Holo.bind("bossBarGetInfo");
+        if (fn == null) return null;
+        try {
+            return String(fn(id) ?? "");
+        } catch {
+            return null;
+        }
     },
 
     /** How many bars this player currently has (diagnostics only). */

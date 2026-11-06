@@ -88,7 +88,7 @@ export default class CACommand {
         cmd.setEnum("pv_pos", ["set", "se", "click", "ck", "move", "mv"]);
         cmd.setEnum("pv_plain", [
             "rotate", "rt", "mirror", "mi", "confirm", "ok", "cancel", "cc", "info", "in",
-            "nudgeface", "nf", "refresh", "rf"
+            "nudgeface", "nf", "refresh", "rf", "bar", "br", "bartest", "bt", "barclear", "bc"
         ]);
         cmd.setEnum("pv_num", ["calib", "ca", "probe", "pb", "trim", "tm", "radius", "rd"]);
         cmd.setEnum("pv_mode", ["mode", "mo"]);
@@ -629,6 +629,18 @@ export default class CACommand {
                     case "radius":
                     case "rd":
                         PreviewOperation.radius(output, caPlayer, res.delta);
+                        return;
+                    case "bar":
+                    case "br":
+                        PreviewOperation.barReport(output, caPlayer);
+                        return;
+                    case "bartest":
+                    case "bt":
+                        PreviewOperation.barTest(output, caPlayer);
+                        return;
+                    case "barclear":
+                    case "bc":
+                        PreviewOperation.barClear(output, caPlayer);
                         return;
                 }
                 output.error("用法: /ca preview set|click|move|rotate|mirror|confirm|cancel|mode|calib|info");

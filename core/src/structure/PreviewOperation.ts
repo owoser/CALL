@@ -12,7 +12,10 @@ import { MsgType, online, tell } from "../util/Msg";
 import { describeError } from "../util/Safe";
 import StrFactory from "../util/StrFactory";
 
+import Holo from "../holo/Holo";
 import BossBar from "../holo/BossBar";
+import PreviewHudLock from "./PreviewHudLock";
+import { every, stop as stopTimer } from "../util/Safe";
 import {
     CountdownMode,
     bossBarProgress,
@@ -22,6 +25,7 @@ import {
     countdownText,
     countdownVisible,
     gestureOf,
+    nextBarAction,
     remainingSeconds,
 } from "./PreviewHud";
 /**
@@ -52,6 +56,14 @@ interface PreviewState {
     lastTitle: string;
     /** The name HologramLib keys per-player state by. */
     playerName: string;
+    /** Consecutive failed bar updates; 2 in a row means the id is dead. */
+    barFails: number;
+    /** HUD actually in use for this preview: the boss bar, or the action-bar fallback. */
+    hud: "bar" | "actionbar";
+    /** Last tick this bar was verified against bossBarGetInfo. */
+    barVerifiedAt: number;
+    /** How many times the bar had to be rebuilt before giving up on it. */
+    barRebuilds: number;
 }
 
 /** Where the paste will actually start: the anchor plus every manual nudge. */
@@ -82,84 +94,158 @@ function timeoutSeconds(): number {
 
 /** How often the countdown HUD refreshes. Half a second keeps the bar smooth. */
 const HUD_INTERVAL_MS = 500;
-let hudTimer: ReturnType<typeof setInterval> | null = null;
+/** Compare the live bar against the library's own record this often (0 = never). */
+const BAR_VERIFY_MS = 2000;
+let hudTimer: number | null = null;
+
+/** "bar" = boss bar, "actionbar" = the fallback that needs no library at all. */
+type HudKind = "bar" | "actionbar";
+
+function hudPreference(): HudKind {
+    const raw = String(Config.get(Config.GLOBAL, "previewCountdownHud", "auto") ?? "").toLowerCase();
+    if (raw === "actionbar") return "actionbar";
+    if (raw === "bar") return "bar";
+    return BossBar.available() ? "bar" : "actionbar";
+}
 
 function currentMode(): CountdownMode {
-    return countdownMode(Config.get(Config.GLOBAL, "previewCountdown", "auto"));
+    return countdownMode(Config.get(Config.GLOBAL, "previewCountdown", "always"));
 }
 
 function stopHud(): void {
     if (hudTimer != null) {
-        clearInterval(hudTimer);
+        stopTimer(hudTimer);
         hudTimer = null;
     }
 }
 
-function dropBar(st: PreviewState): void {
+function startHud(): void {
+    if (hudTimer != null) return;
+    // Safe.every wraps the callback in safeCall: one bad round is logged instead of silently
+    // killing the timer, which is exactly how the countdown froze in 3.9.0.
+    hudTimer = every("preview.hud", HUD_INTERVAL_MS, hudTick);
+}
+
+function dropBar(st: PreviewState, xuid: string): void {
     if (st.barId != null) {
         BossBar.remove(st.barId);
         st.barId = null;
     }
     st.lastTitle = "";
+    st.barFails = 0;
+    if (st.hud !== "actionbar") PreviewHudLock.release(xuid);
+}
+
+/** One player's HUD update; never allowed to throw into the shared timer. */
+function hudFor(xuid: string, st: PreviewState, now: number): void {
+    const remaining = st.deadline - now;
+    if (remaining <= 0) return; // the cancel timer owns the expiry
+
+    if (!countdownVisible(currentMode(), remaining)) {
+        if (st.barId != null) dropBar(st, xuid);
+        PreviewHudLock.release(xuid);
+        return;
+    }
+
+    const player = online(xuid);
+    if (player == null) return;
+
+    const title = countdownText(remaining);
+
+    if (st.hud === "actionbar" || !BossBar.available()) {
+        st.hud = "actionbar";
+        PreviewHudLock.hold(xuid);
+        if (title !== st.lastTitle) {
+            st.lastTitle = title;
+            tell(player, countdownActionBar(remaining), MsgType.TIP);
+        }
+        return;
+    }
+
+    const style = bossBarStyle(remaining);
+    const percent = bossBarProgress(remaining, timeoutSeconds() * 1000);
+
+    if (st.barId == null) {
+        const id = BossBar.add(st.playerName, title, percent, style.color, style.overlay);
+        if (id == null) {
+            // The library refused: fall back for this preview instead of hammering it.
+            st.hud = "actionbar";
+            PreviewHudLock.hold(xuid);
+            st.lastTitle = "";
+            tell(player, StrFactory.cmdWarn("Boss 条创建失败，倒计时改用动作栏"), MsgType.TIP);
+            return;
+        }
+        st.barId = id;
+        st.lastTitle = title;
+        st.barFails = 0;
+        st.barVerifiedAt = now;
+        return;
+    }
+
+    // Verify occasionally against the library's own record: a bar whose anchor is gone keeps
+    // returning true while the client shows a frozen frame, and getInfo is the only signal.
+    if (now - st.barVerifiedAt >= BAR_VERIFY_MS) {
+        st.barVerifiedAt = now;
+        const info = BossBar.getInfo(st.barId);
+        if (info != null && (info === "" || /not_found|missing/i.test(info))) {
+            dropBar(st, xuid);
+            return;
+        }
+    }
+
+    if (title === st.lastTitle && st.barFails === 0) {
+        if (!BossBar.setHealth(st.barId, percent)) st.barFails++;
+        return;
+    }
+
+    if (BossBar.update(st.barId, title, percent, style.color, style.overlay)) {
+        st.lastTitle = title;
+        st.barFails = 0;
+        return;
+    }
+
+    // Two failures in a row mean this id is dead: drop it and rebuild next tick. After a few
+    // rebuilds the library clearly cannot keep the bar alive, so fall back for this preview.
+    st.barFails++;
+    const action = nextBarAction(st.barFails, st.barRebuilds);
+    if (action === "rebuild") {
+        st.barFails = 0;
+        st.barRebuilds++;
+        dropBar(st, xuid);
+    } else if (action === "giveup") {
+        st.barFails = 0;
+        dropBar(st, xuid);
+        st.hud = "actionbar";
+        PreviewHudLock.hold(xuid);
+        st.lastTitle = "";
+        tell(player, StrFactory.cmdWarn("Boss 条无法更新，倒计时改用动作栏"), MsgType.TIP);
+    }
 }
 
 /**
- * One HUD tick: keep the countdown in sync with the deadline.
+ * One HUD tick: keep every live preview's countdown in sync.
  *
- * A boss bar is used when HologramLib provides one (it does not fight the action bar, which
- * already carries the selection size); otherwise the action bar is used as a fallback. The
- * ticker stops itself as soon as no preview is live, so an idle server pays nothing.
+ * The boss bar is used when HologramLib provides one and it demonstrably works; the action bar
+ * is the fallback and takes a lock so the selection hint yields that beat instead of flickering
+ * against it. The ticker stops itself as soon as no preview is live.
  */
 function hudTick(): void {
     if (states.size === 0) {
         stopHud();
         return;
     }
-    const mode = currentMode();
     const now = Date.now();
-
     for (const [xuid, st] of states) {
-        const remaining = st.deadline - now;
-        if (remaining <= 0) continue; // the cancel timer owns the expiry
-        if (!countdownVisible(mode, remaining)) {
-            dropBar(st);
-            continue;
-        }
-
-        const player = online(xuid);
-        if (player == null) continue;
-
-        const title = countdownText(remaining);
-        if (BossBar.available()) {
-            const style = bossBarStyle(remaining);
-            const percent = bossBarProgress(remaining, timeoutSeconds() * 1000);
-            if (st.barId == null) {
-                st.barId = BossBar.add(st.playerName, title, percent, style.color, style.overlay);
-                st.lastTitle = st.barId == null ? "" : title;
-                if (st.barId == null) tell(player, countdownActionBar(remaining), MsgType.TIP);
-            } else {
-                if (title !== st.lastTitle) {
-                    BossBar.setTitle(st.barId, title);
-                    BossBar.setStyle(st.barId, style.color, style.overlay);
-                    st.lastTitle = title;
-                }
-                BossBar.setHealth(st.barId, percent);
+        try {
+            hudFor(xuid, st, now);
+        } catch (e) {
+            try {
+                logger.warn("[CALL][preview hud] " + (e && (e as any).message ? (e as any).message : e));
+            } catch {
+                // ignore
             }
-            continue;
-        }
-
-        // Fallback: the action bar. Only refreshed when the second changes, and only in the
-        // last stretch (see countdownVisible), so it does not shadow the selection hint.
-        if (title !== st.lastTitle) {
-            st.lastTitle = title;
-            tell(player, countdownActionBar(remaining), MsgType.TIP);
         }
     }
-}
-
-function startHud(): void {
-    if (hudTimer != null) return;
-    hudTimer = setInterval(hudTick, HUD_INTERVAL_MS);
 }
 
 function clearTimer(st: PreviewState): void {
@@ -259,6 +345,10 @@ export default class PreviewOperation {
             barId: null,
             lastTitle: "",
             playerName: String(caPlayer.$?.realName ?? ""),
+            barFails: 0,
+            hud: hudPreference(),
+            barVerifiedAt: 0,
+            barRebuilds: 0,
         };
         states.set(caPlayer.xuid, st);
 
@@ -707,6 +797,91 @@ export default class PreviewOperation {
         output.success("竖直修正: " + current + " → " + next + " 格（没有活动预览，已重新摆出探针）");
     }
 
+    /**
+     * `/ca preview bar` - what does the library actually say?
+     *
+     * The 3.9.0 countdown froze at the value it was created with, which means either our calls
+     * failed or the library stopped updating a bar whose anchor went away. This prints the raw
+     * answers so the next report contains facts instead of a screenshot.
+     */
+    public static barReport(output: any, caPlayer: CAPlayer): void {
+        const st = states.get(caPlayer.xuid);
+        const name = String(caPlayer.$?.realName ?? "");
+        const lines: string[] = [
+            "Boss 条可用: " + (BossBar.available() ? "是" : "否"),
+            "本玩家条数: " + (BossBar.count(name) ?? "?"),
+            "本预览: " + (st == null ? "无预览" : (st.hud === "bar" ? "Boss 条" : "动作栏") +
+                "，id=" + (st.barId ?? "-") + "，失败=" + st.barFails + "，重建=" + st.barRebuilds),
+        ];
+        if (st?.barId != null) lines.push("库内记录: " + (BossBar.getInfo(st.barId) ?? "?"));
+        const probe = Holo.bind("bossBarProbe");
+        if (probe != null) {
+            try {
+                lines.push("probe: " + String(probe()));
+            } catch (e) {
+                lines.push("probe 抛错: " + describeError(e));
+            }
+        }
+        output.success(lines.join("\n"));
+    }
+
+    /** `/ca preview bar clear` - remove this player's bar without touching anything else. */
+    public static barClear(output: any, caPlayer: CAPlayer): void {
+        const st = states.get(caPlayer.xuid);
+        if (st == null || st.barId == null) {
+            output.success("当前没有由 CALL 管理的 Boss 条");
+            return;
+        }
+        const id = st.barId;
+        BossBar.remove(id);
+        st.barId = null;
+        st.lastTitle = "";
+        output.success("已删除 Boss 条 id=" + id + "（剩余条数 " + (BossBar.count(String(caPlayer.$?.realName ?? "")) ?? "?") + "）");
+    }
+
+    /**
+     * `/ca preview bar test` - a 6 second self-test the player can watch.
+     *
+     * Creates one bar, rewrites its title and fill once per second, and reports every return
+     * value in chat: that separates "our calls fail" from "the client ignores the updates".
+     */
+    public static barTest(output: any, caPlayer: CAPlayer): void {
+        if (!BossBar.available()) {
+            output.error("HologramLib 的 bossBar 接口不可用");
+            return;
+        }
+        const name = String(caPlayer.$?.realName ?? "");
+        const player = caPlayer.$;
+        const lines: string[] = [];
+        const push = (text: string) => {
+            lines.push(text);
+            try {
+                tell(player, "§8[bar] " + text, MsgType.TIP);
+            } catch {
+                // ignore
+            }
+        };
+        const id = BossBar.add(name, "§e自检 6", 1, 1, 0);
+        push("add -> " + (id ?? "失败"));
+        if (id == null) {
+            output.success(lines.join("\n"));
+            return;
+        }
+        let i = 0;
+        const timer = every("preview.barTest", 1000, () => {
+            i++;
+            const title = "§e自检 " + Math.max(0, 6 - i);
+            const ok = BossBar.update(id, title, Math.max(0, (6 - i) / 6), 1 + (i % 2), 0);
+            const info = BossBar.getInfo(id);
+            push("第" + i + "秒 update=" + ok + " info=" + (info ?? "?"));
+            if (i >= 6) {
+                stopTimer(timer);
+                const removed = BossBar.remove(id);
+                push("remove -> " + removed + "，剩余 " + (BossBar.count(name) ?? "?"));
+                output.success(lines.join("\n"));
+            }
+        });
+    }
     /** Force a window recompute (`/ca preview refresh`) - also the way to recover after a hitch. */
     public static recompute(output: any, caPlayer: CAPlayer): void {
         if (!states.has(caPlayer.xuid)) {
@@ -780,8 +955,9 @@ export default class PreviewOperation {
         const st = states.get(xuid);
         if (st != null) {
             clearTimer(st);
-            dropBar(st);
+            dropBar(st, xuid);
             states.delete(xuid);
+            PreviewHudLock.release(xuid);
         }
         try {
             Wireframe.hide("preview:" + xuid);
@@ -809,5 +985,6 @@ export default class PreviewOperation {
     public static cancelAll(): void {
         for (const xuid of [...states.keys()]) PreviewOperation.cancelFor(xuid);
         stopHud();
+        PreviewHudLock.clear();
     }
 }

@@ -168,6 +168,12 @@ function migratePreviewDefaults(): void {
             current.previewBatchSize = 1000;
             changes.push("previewBatchSize 200 → 1000");
         }
+        // 3.9.0 shipped "auto" (only the last 20s); the countdown is meant to be visible for the
+        // whole preview.
+        if (String(current.previewCountdown ?? "") === "auto") {
+            current.previewCountdown = "always";
+            changes.push("previewCountdown auto → always");
+        }
         if (changes.length === 0) return;
         fs.writeFileSync(GLOBAL_PATH, JSON.stringify(current, null, 4) + "\n", "utf8");
         try {

@@ -106,3 +106,15 @@ test('the action-bar fallback is short', () => {
     assert.ok(text.length < 40, 'must not fill the action bar: ' + text);
     assert.match(H.countdownActionBar(5000), /§c/);
 });
+
+test('a bar is only rebuilt after two failures, and given up on eventually', () => {
+    const H = load();
+    assert.equal(H.nextBarAction(0, 0), 'keep');
+    assert.equal(H.nextBarAction(1, 0), 'keep', 'one bad update can be a hiccup');
+    assert.equal(H.nextBarAction(2, 0), 'rebuild');
+    assert.equal(H.nextBarAction(2, 2), 'rebuild');
+    assert.equal(H.nextBarAction(2, 3), 'giveup', 'three rebuilds is enough');
+    assert.equal(H.nextBarAction(2, 9), 'giveup');
+    assert.equal(H.nextBarAction(2, 1, 1), 'giveup', 'the limit is a parameter');
+    assert.equal(H.nextBarAction(NaN, NaN), 'keep');
+});

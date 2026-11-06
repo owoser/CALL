@@ -246,6 +246,14 @@
                 "always",
                 "off"
             ]
+        },
+        "previewCountdownHud": {
+            "type": "enum",
+            "values": [
+                "auto",
+                "bar",
+                "actionbar"
+            ]
         }
     }
 }

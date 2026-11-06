@@ -485,15 +485,25 @@
     "toolItems": true,
 
     /*
-    *   ###预览倒计时显示###   (3.9.0 新增)
-    *   "auto"    [解析] 只在最后 20 秒显示（默认）
-    *   "always"  [解析] 全程显示
+    *   ###预览倒计时显示###   (3.9.0 新增，3.9.1 起默认全程)
+    *   "always"  [解析] 全程显示（默认）
+    *   "auto"    [解析] 只在最后 20 秒显示
     *   "off"     [解析] 不显示
-    *   有 HologramLib 时用 Boss 条（标题秒数 + 血条收缩），没有时回退到动作栏
     *
-    * ###Preview countdown###   (new in 3.9.0)
+    * ###Preview countdown###   (new in 3.9.0, always by default since 3.9.1)
     */
-    "previewCountdown": "auto",
+    "previewCountdown": "always",
+
+    /*
+    *   ###倒计时用哪种 HUD###   (3.9.1 新增)
+    *   "auto"       [解析] 能建 Boss 条就用条，建不出来自动退到动作栏（默认）
+    *   "bar"        [解析] 只用 Boss 条（HologramLib）
+    *   "actionbar"  [解析] 只用动作栏（不用任何库，最稳）
+    *   用动作栏时，预览期间选区文字会让位，不会互相覆盖
+    *
+    * ###Which HUD shows the countdown###   (new in 3.9.1)
+    */
+    "previewCountdownHud": "auto",
 
     /*
     *   ###预览超时(秒)###   (3.2.0 新增)

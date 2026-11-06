@@ -87,3 +87,23 @@ export function countdownActionBar(remainingMs: number): string {
     if (left <= 0) return "§c预览已结束";
     return (left <= 10 ? "§c" : "§e") + "预览剩余 " + left + "s §8· §7潜行左键=取消";
 }
+
+/** What to do with a boss bar that is not taking updates. */
+export type BarAction = "keep" | "rebuild" | "giveup";
+
+export const MAX_BAR_REBUILDS = 3;
+
+/**
+ * Decide the bar's fate from its failure history.
+ *
+ * One failed update can be a transient hiccup (the library may be mid-rebuild); two in a row
+ * means the id is dead, and rebuilding it is cheap. After a few rebuilds the library clearly
+ * cannot keep this bar alive, so the caller falls back to the action bar instead of fighting
+ * it forever.
+ */
+export function nextBarAction(fails: number, rebuilds: number, maxRebuilds: number = MAX_BAR_REBUILDS): BarAction {
+    const f = Number(fails) || 0;
+    const r = Number(rebuilds) || 0;
+    if (f < 2) return "keep";
+    return r < maxRebuilds ? "rebuild" : "giveup";
+}

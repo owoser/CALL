@@ -9,6 +9,7 @@ import { Warn } from "../util/Error";
 import StrFactory from "../util/StrFactory";
 import Tr from "../util/Translator";
 import Config from "../common/Config";
+import PreviewHudLock from "./PreviewHudLock";
 import { MsgType, tell, online } from "../util/Msg";
 import { describeError, logFailure, safeCall } from "../util/Safe";
 
@@ -397,6 +398,8 @@ export default class AreaDisplayerService {
 
     /** Periodic HUD update: size hint, and keep a particle outline alive. */
     public static areaTextTip(caPlayer: CAPlayer): void {
+        // A live preview owns the action bar (countdown); yield this beat instead of flickering.
+        if (PreviewHudLock.held(caPlayer.xuid)) return;
         if (!caPlayer || !caPlayer.settings) return;
         const player = online(caPlayer.xuid);
         if (player == null) return;

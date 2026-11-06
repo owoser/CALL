@@ -11,6 +11,38 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.9.1] - 2026-11-07
+
+The 3.9.0 countdown froze at the value it was created with and the bar survived the preview.
+
+### Fixed
+
+- **The countdown ticker ran on a bare `setInterval`**, unlike every other periodic task in
+  the plugin: one throwing round killed it silently, which is exactly the frozen "20s".
+  It now uses `Safe.every` (logged, never silently dead) and each player's update is wrapped
+  separately so one failure cannot stop the others.
+- **A dead bar is rebuilt instead of being trusted**: `setTitle`/`setHealth`/`setStyle` are
+  checked, two failures in a row drop and recreate the bar, and every 2s the bar is compared
+  against `bossBarGetInfo` - a bar whose anchor entity is gone keeps accepting calls while the
+  client shows a frozen frame, and that is the only signal available.
+- **`bossBarAdd` returns -1 on failure** per the library docs (ids start at 0); the old `> 0`
+  test could orphan the very first bar of a session.
+- **If the boss bar cannot be created or kept alive**, the preview switches itself to the
+  action bar and says so once. While the action bar carries the countdown the selection hint
+  yields that beat (`PreviewHudLock`), so the two never flicker over each other.
+- Teardown removes the bar through a registry sweep as well as on cancel/timeout/logout, so a
+  missed cancel cannot leave a bar behind.
+
+### Changed
+
+- `previewCountdown` now defaults to `always` (was `auto`, i.e. last 20 seconds only); existing
+  `auto` values are migrated once with a console line.
+- New `previewCountdownHud` (`auto` | `bar` | `actionbar`).
+
+### Diagnostics
+
+- `/ca preview bar` (state + library record + probe), `/ca preview bar test` (6 second self test
+  printing every return value), `/ca preview bar clear`.
 ## [3.9.0] - 2026-11-06
 
 ### Added
