@@ -531,7 +531,17 @@
     * ###Preview block model offset Y###   (new in 3.3.0)
     *   MODEL units (16 = 1 block). The documented block-mode pose is "-4".
     */
-    "previewBlockOffsetY": "8",
+    "previewBlockOffsetY": "0",
+
+    /*
+    *   ###预览方块竖直修正(格)###   (3.3.3 新增)
+    *   [范围] -8--8   [建议] 由 /ca preview probe 测量得出
+    *   [解析] 单位是【格】，不是模型单位。探测方块高出 N 格，这里就是 -N
+    *
+    * ###Preview block vertical correction (blocks)###   (new in 3.3.3)
+    *   In BLOCKS. Measured with /ca preview probe: landed N cells high -> -N here.
+    */
+    "previewBlockYCorrection": 0,
 
     /*
     *   ###线框最远渲染距离###   (3.2.0 新增)

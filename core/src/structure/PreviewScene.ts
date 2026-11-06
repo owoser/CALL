@@ -6,7 +6,7 @@ import StructureService from "./StructureService";
 import { parseStructureLayout } from "../io/NbtCodec";
 import { extractSurface, PreviewBlock, SliceInput } from "./SurfaceExtract";
 import { Degrees, MirrorMode, transformOffset } from "./Rotate";
-import { clipboardMin } from "./Clipboard";
+import { applyYCorrection, clipboardMin } from "./Clipboard";
 import Area3 from "../common/Area3";
 import { Structure } from "../common/Structure";
 import ItemDisplay from "../holo/ItemDisplay";
@@ -62,8 +62,19 @@ function blockScale(): string {
  * The documented block-mode pose is "-4"; see HologramLib's item-display docs.
  */
 function blockOffsetY(): string {
-    const raw = Config.get(Config.GLOBAL, "previewBlockOffsetY", "-4");
-    return raw == null || String(raw) === "" ? "-4" : String(raw);
+    const raw = Config.get(Config.GLOBAL, "previewBlockOffsetY", "0");
+    return raw == null || String(raw) === "" ? "0" : String(raw);
+}
+
+/**
+ * Residual vertical error, in BLOCKS (not model units).
+ *
+ * Measured with /ca preview probe instead of guessed: whatever cell the probe block lands in
+ * becomes -N here, which is a unit we fully understand.
+ */
+export function blockYCorrection(): number {
+    const raw = Number(Config.get(Config.GLOBAL, "previewBlockYCorrection", 0));
+    return Number.isFinite(raw) ? raw : 0;
 }
 
 function viewDistance(): number {
@@ -83,8 +94,8 @@ function worldPos(anchor: Pos3, block: PreviewBlock, degrees: Degrees, mirror: M
     const [dx, dz] = transformOffset(block.dx, block.dz, degrees, mirror);
     return [
         anchor.x + dx + 0.5,
-        // bottom centre: y is the block's own level, offY lifts the model into the cell
-        anchor.y + block.dy,
+        // bottom centre: y is the block's own level, offY/measured correction lift the model
+        applyYCorrection(anchor.y + block.dy, blockYCorrection()),
         anchor.z + dz + 0.5,
     ];
 }

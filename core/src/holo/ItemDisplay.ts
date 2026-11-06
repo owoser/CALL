@@ -37,6 +37,11 @@ export interface DisplaySpec {
     onlyPlayer?: string;
     /** 2 = 3D block (what we want), 1 = flat item, -1 = library default. */
     mode?: number;
+    /**
+     * Send the block-mode second transform explicitly. Default true (extend scale 1, rx 0,
+     * ry 0); pass false to keep the library defaults (scale 1, rx -90) for A/B testing.
+     */
+    extend?: boolean;
 }
 
 const BLOCK_MODE = 2;
@@ -68,6 +73,14 @@ export const ItemDisplay = {
             )
         );
         if (!(id > 0)) return -1;
+
+        // Block mode applies a SECOND transform on top of the main one, and its default rx is
+        // -90 degrees. Left alone, every block is rotated a quarter turn about the model
+        // origin and ends up several blocks away from its anchor - which is exactly what the
+        // preview did before. Pin it to "no extra transform".
+        if (spec.extend == null || spec.extend === true) {
+            Holo.call("itemDisplaySetExtend", id, "1", "0", "0");
+        }
 
         // A preview must never swallow player clicks; the default is already "no hitbox",
         // but be explicit so a future library default cannot change that under us.

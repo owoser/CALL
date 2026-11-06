@@ -11,6 +11,34 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.3.3] - 2026-11-06
+
+### Fixed - blocks were flung far away from their cell
+
+Block mode applies a SECOND transform on top of the main one: `itemDisplaySetExtend(id, scale,
+rx, ry)`, whose defaults are `scale=1, rx=-90, ry=0`. CALL never set it, so every preview block
+carried an extra -90 degree X rotation and landed several blocks away from its anchor - which is
+why no amount of `offY` tuning fixed the offset (the last screenshot showed all five calibration
+blocks flying in a diagonal line). Displays are now created with `extend(1, 0, 0)`.
+
+### Changed - measure instead of guess
+
+Three rounds of parameter guessing wasted the tester's time, so residual misalignment is now
+measured:
+
+- `/ca preview probe` draws a ruler of five stacked 1x1x1 wireframes plus one grass block (its
+  top/bottom is visible, unlike stone) in the most neutral pose available;
+- the tester reports which cell it landed in;
+- `/ca preview probe <n>` stores `previewBlockYCorrection = -n`, in BLOCKS - a unit that can be
+  read straight off the ruler instead of the library's unclear model units.
+
+`previewBlockOffsetY` now defaults to `"0"`; `previewBlockYCorrection` is new (number, blocks).
+
+### Tests
+
+- Unit 67 (was 65): adds `preview-correction.test.mjs` for the block-unit correction, including
+  the "broken config must not produce NaN" case.
+
 ## [3.3.2] - 2026-11-06
 
 ### Fixed - the preview could not read a clipboard at all

@@ -60,3 +60,16 @@ export function blocksBox(blocks: Array<{ dx: number; dy: number; dz: number }>,
         x2: anchor.x + x2, y2: anchor.y + y2, z2: anchor.z + z2,
     };
 }
+/**
+ * Turn "the probe block landed N cells too high" into a spawn-position correction.
+ *
+ * This lives here (not in PreviewScene) because that module pulls in LSE globals and cannot be
+ * loaded offline, while this is exactly the piece worth pinning down with a unit test.
+ */
+export function correctionFromLandedCell(landed: number): number {
+    return -Number(landed);
+}
+
+export function applyYCorrection(baseY: number, correction: number): number {
+    return baseY + (Number.isFinite(correction) ? correction : 0);
+}

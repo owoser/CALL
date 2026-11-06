@@ -34,6 +34,8 @@ interface PreviewState {
 const states = new Map<string, PreviewState>();
 /** Display ids of the current /ca preview calib run. */
 const calibIds: number[] = [];
+/** Display ids of the current /ca preview probe run. */
+const probeIds: number[] = [];
 
 function timeoutSeconds(): number {
     const raw = Number(Config.get(Config.GLOBAL, "previewTimeout", 60));
@@ -305,6 +307,79 @@ export default class PreviewOperation {
         );
         // clean up on its own so a forgotten calibration never litters the world
         setTimeout(() => PreviewOperation.clearCalib(), 120000);
+    }
+
+    /**
+     * Position measurement.
+     *
+     * Guessing parameters wasted three rounds, so this measures instead: five stacked 1x1x1
+     * wireframes act as a ruler, and ONE grass_block (top/bottom is obvious) is placed at the
+     * bottom cell with the most neutral pose possible. Whatever cell it lands in is the error,
+     * in blocks - a unit we control exactly.
+     *
+     * `/ca preview probe 3` stores "-3 blocks" and rebuilds the live preview.
+     */
+    public static probe(output: any, caPlayer: CAPlayer, pick?: string): void {
+        const chosen = pick != null && pick !== "" ? String(pick).trim() : "";
+        if (chosen !== "") {
+            if (!/^-?\d+(\.\d+)?$/.test(chosen)) {
+                output.error("用法: /ca preview probe [落点格数]（不带参数=测量，带参数=保存修正）");
+                return;
+            }
+            // landed N cells too high -> shift everything down by N
+            Config.set(Config.GLOBAL, "previewBlockYCorrection", String(-Number(chosen)));
+            PreviewOperation.clearProbe();
+            const st = states.get(caPlayer.xuid);
+            if (st != null) PreviewScene.build(caPlayer, st.pos, st.degrees, st.mirror);
+            output.success("已保存 previewBlockYCorrection = " + (-Number(chosen)) + " 格（预览已重建）");
+            return;
+        }
+
+        PreviewOperation.clearProbe();
+        if (!ItemDisplay.available()) {
+            output.error("测量需要 HologramLib");
+            return;
+        }
+
+        const p = Pos3.fromPos(caPlayer.$.pos).floor();
+
+        // ruler: five 1x1x1 cells stacked upward from the feet
+        for (let i = 0; i < 5; i++) {
+            Wireframe.show(
+                "probe:" + i,
+                { x1: p.x, y1: p.y + i, z1: p.z, x2: p.x + 1, y2: p.y + i + 1, z2: p.z + 1 },
+                i === 0 ? COLOR.complete : COLOR.preview,
+                i === 0 ? "§a第 0 格（齐平）" : "§f+" + i
+            );
+        }
+
+        const id = ItemDisplay.create({
+            x: p.x + 0.5,
+            y: p.y,
+            z: p.z + 0.5,
+            dim: p.dimid,
+            blockId: "minecraft:grass_block",   // top/bottom visible, unlike stone
+            scale: String(Config.get(Config.GLOBAL, "previewBlockScale", "1")),
+            offsetY: "0",
+            rotY: 0,
+            viewDistance: 64,
+            onlyPlayer: String(caPlayer.$.realName ?? ""),
+        });
+        if (id > 0) probeIds.push(id);
+
+        output.success(
+            "已在脚下立起 5 格标尺（绿色框是最下面的第 0 格），并放了一个草方块。" +
+            "告诉我它落在第几格（高出几格就是几）、草是否朝上，然后 /ca preview probe <格数> 保存"
+        );
+        setTimeout(() => PreviewOperation.clearProbe(), 180000);
+    }
+
+    /** Destroy probe displays + wireframes. */
+    public static clearProbe(): void {
+        if (probeIds.length > 0) {
+            ItemDisplay.destroyAll(probeIds.splice(0, probeIds.length));
+        }
+        for (let i = 0; i < 5; i++) Wireframe.hide("probe:" + i);
     }
 
     /** Destroy calibration displays + wireframes. */

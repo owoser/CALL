@@ -59,8 +59,9 @@
 | `/ca preview cancel` | 取消预览（同时清掉已生成的方块） |
 | `/ca preview mode ghost\|wireframe` | 切换"真方块"或"只线框"，写入配置 |
 | `/ca preview info` | 看当前生成数量、上限、缩放 |
-| `/ca preview calib` | 校准：在 5 个 1×1×1 线框里摆不同 `offY` 的石头，挑刚好填满的那个 |
-| `/ca preview calib <数字>` | 把挑中的 `offY` 直接写进 `configs.json` 并重建预览 |
+| `/ca preview probe` | 位置测量：脚下立 5 格标尺 + 1 个草方块，看它落在第几格 |
+| `/ca preview probe <格数>` | 把测出来的格数保存成 `previewBlockYCorrection` 并重建预览 |
+| `/ca preview calib` | 尺寸校准：摆不同 `scale` 的石头，挑刚好填满线框的那个 |
 | `/ca tools debug` | 点工具没反应时用：打印手持物品、显示名、左右键命中哪条绑定、物品包状态 |
 
 预览 **60 秒**没操作会自动取消（`previewTimeout` 可改）。
@@ -78,6 +79,21 @@
 | `mode` | `2` | 强制立体方块渲染，创建时一次成型（先建再改会重建，姿态可能被重置） |
 
 方块模式还有一层库内部的**二段变换**（`itemDisplaySetExtend`，默认 `scale=1, rx=-90, ry=0`），我们保持默认不动。
+
+## 对齐是怎么保证的
+
+方块模式在库里是**两层变换**：主变换（平移/旋转/缩放）+ **二段变换** `itemDisplaySetExtend`。
+后者的默认值是 `scale=1, rx=-90, ry=0` —— 每个方块都会被额外绕 X 轴转 -90°，模型会被甩到
+锚点外好几格。CALL 在创建时显式设成 `extend(1, 0, 0)` 取消掉。
+
+取消之后若还有整体上下偏移，用 `/ca preview probe` **测量**而不是猜：
+
+```text
+/ca preview probe       脚下立 5 个线框当标尺，中间放一个草方块（草能看出正反面）
+/ca preview probe 3     草方块高出第 0 格 3 格 → 保存 previewBlockYCorrection = -3
+```
+
+修正量用**格**作单位（能用尺子量），不再依赖含义不明的"模型单位"。
 
 ## 预览的性能与上限
 

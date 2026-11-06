@@ -79,7 +79,7 @@ export default class CACommand {
 
         //preview (3.2.0)
         cmd.setEnum("preview", ["preview", "pv"]);
-        cmd.setEnum("preview_act", ["set", "se", "click", "ck", "move", "mv", "rotate", "rt", "mirror", "mi", "confirm", "ok", "cancel", "cc", "mode", "mo", "calib", "ca", "info", "in"]);
+        cmd.setEnum("preview_act", ["set", "se", "click", "ck", "move", "mv", "rotate", "rt", "mirror", "mi", "confirm", "ok", "cancel", "cc", "mode", "mo", "calib", "ca", "info", "in", "probe", "pb"]);
         cmd.mandatory("action", ParamType.Enum, "preview", "preview_man", 1);
         cmd.mandatory("enum_1", ParamType.Enum, "preview_act", "preview_act_man", 1);
         cmd.overload(["preview_man", "preview_act_man"]);
@@ -561,6 +561,10 @@ export default class CACommand {
                     case "calib":
                     case "ca":
                         PreviewOperation.calib(output, caPlayer, res.option);
+                        return;
+                    case "probe":
+                    case "pb":
+                        PreviewOperation.probe(output, caPlayer, res.option);
                         return;
                     case "info":
                     case "in":

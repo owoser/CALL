@@ -145,6 +145,11 @@
         "previewBlockOffsetY": {
             "type": "string"
         },
+        "previewBlockYCorrection": {
+            "type": "number",
+            "min": -8,
+            "max": 8
+        },
         "holoMaxRenderDistance": {
             "type": "number",
             "min": 16,
