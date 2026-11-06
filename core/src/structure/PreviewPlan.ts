@@ -92,38 +92,99 @@ export function appliedCells(applied: Map<string, string>): Array<[number, numbe
 
 // ------------------------------------------------------------------- streaming
 
-/** Cells grouped by their 16x16 XZ column, so a window query never scans everything. */
-export interface PlanGrid {
-    buckets: Map<string, PlannedCell[]>;
+/** Surface blocks grouped by their CLIPBOARD column, so the index survives a rotation. */
+
+/**
+ * Reusable buffers for window queries.
+ *
+ * The preview re-runs the query on every rotate and while the player walks, so allocating a few
+ * typed arrays per call shows up. They grow to the largest window seen and are reused.
+ */
+const PreviewPlanScratch = {
+    dist: new Int32Array(0),
+    dx: new Int32Array(0),
+    dz: new Int32Array(0),
+    dy: new Int32Array(0),
+    id: [] as string[],
+    counts: new Uint32Array(0),
+    orderBuf: new Int32Array(0),
+
+    reserve(n: number): number {
+        if (n < this.dist.length) return n;
+        const size = Math.max(1024, Math.ceil(n * 1.6));
+        const dist = new Int32Array(size);
+        dist.set(this.dist);
+        this.dist = dist;
+        const dx = new Int32Array(size);
+        dx.set(this.dx);
+        this.dx = dx;
+        const dz = new Int32Array(size);
+        dz.set(this.dz);
+        this.dz = dz;
+        const dy = new Int32Array(size);
+        dy.set(this.dy);
+        this.dy = dy;
+        this.id.length = size;
+        return n;
+    },
+
+    /** Indices of the first entries, sorted by ascending distance (counting sort). */
+    order(total: number, range: number): Int32Array {
+        if (this.counts.length < range) this.counts = new Uint32Array(range);
+        else this.counts.fill(0, 0, range);
+        if (this.orderBuf.length < total) this.orderBuf = new Int32Array(Math.ceil(total * 1.3));
+
+        const counts = this.counts;
+        const dist = this.dist;
+        for (let i = 0; i < total; i++) counts[dist[i]]++;
+
+        let acc = 0;
+        for (let i = 0; i < range; i++) {
+            const c = counts[i];
+            counts[i] = acc;
+            acc += c;
+        }
+
+        const order = this.orderBuf;
+        for (let i = 0; i < total; i++) order[counts[dist[i]]++] = i;
+        return order;
+    },
+};
+export interface SourceGrid {
+    /** key = (dx >> 4) + "," + (dz >> 4); values keep the clipboard offsets. */
+    buckets: Map<string, PreviewBlock[]>;
     total: number;
 }
 
-/** Bucket key of a world column. `>> 4` floors negatives correctly (-1 -> -1). */
-export function bucketKey(x: number, z: number): string {
-    return (x >> 4) + "," + (z >> 4);
+/** Bucket key of a clipboard column. `>> 4` floors negatives correctly (-1 -> -1). */
+export function bucketKey(dx: number, dz: number): string {
+    return (dx >> 4) + "," + (dz >> 4);
 }
 
-export function planGrid(
-    anchor: { x: number; y: number; z: number },
-    size: [number, number, number],
-    degrees: Degrees,
-    mirror: MirrorMode,
-    pivot: PivotMode,
-    blocks: PreviewBlock[]
-): PlanGrid {
-    const buckets = new Map<string, PlannedCell[]>();
-    let total = 0;
-    for (const cell of planCells(anchor, size, degrees, mirror, pivot, blocks).values()) {
-        const key = bucketKey(cell.x, cell.z);
+/**
+ * Index the surface blocks by CLIPBOARD column - deliberately transform-free.
+ *
+ * The preview used to index by WORLD column, which meant every rotate/move had to walk all
+ * surface blocks again (26ms at 48k blocks, 65ms at 120k). The clipboard side of the mapping
+ * never changes, so it is built once and rotating only re-runs the (window-sized) query.
+ */
+export function sourceGrid(blocks: PreviewBlock[]): SourceGrid {
+    const buckets = new Map<string, PreviewBlock[]>();
+    for (const block of blocks) {
+        const key = bucketKey(block.dx, block.dz);
         const list = buckets.get(key);
-        if (list == null) buckets.set(key, [cell]);
-        else list.push(cell);
-        total++;
+        if (list == null) buckets.set(key, [block]);
+        else list.push(block);
     }
-    return { buckets, total };
+    return { buckets, total: blocks.length };
 }
 
-export interface WindowOptions {
+export interface WindowQuery {
+    anchor: { x: number; y: number; z: number };
+    size: [number, number, number];
+    degrees: Degrees;
+    mirror: MirrorMode;
+    pivot: PivotMode;
     center: { x: number; y: number; z: number };
     /** Chebyshev radius in blocks (the window is a cube). */
     radius: number;
@@ -136,53 +197,103 @@ export interface WindowOptions {
 /**
  * Cells inside the player's window, nearest first, cropped to the budget.
  *
- * Only the 16x16 buckets that overlap the cube are visited, so the cost tracks the window
- * (a few hundred buckets at most) instead of the size of the building.
+ * The window cube is mapped back to clipboard space (`untransformCell`), so only the source
+ * buckets that can contribute are visited. Cell coordinates - and their string keys - are
+ * built for the cells that are actually drawn, not for the whole building.
  */
-export function windowCells(
-    grids: PlanGrid | PlanGrid[],
-    opts: WindowOptions
+export function windowFromSource(
+    grids: SourceGrid | SourceGrid[],
+    q: WindowQuery
 ): { cells: PlannedCell[]; inWindow: number } {
     const list = Array.isArray(grids) ? grids : [grids];
-    const r = Math.max(1, Math.floor(opts.radius));
-    const cx = Math.floor(opts.center.x);
-    const cy = Math.floor(opts.center.y);
-    const cz = Math.floor(opts.center.z);
+    const r = Math.max(1, Math.floor(q.radius));
+    const cx = Math.floor(q.center.x);
+    const cy = Math.floor(q.center.y);
+    const cz = Math.floor(q.center.z);
+    const w = q.size[0];
+    const d = q.size[2];
 
+    // ---- world box of the window, with the look-direction slab if requested
     let minX = cx - r, maxX = cx + r;
     const minY = cy - r, maxY = cy + r;
     let minZ = cz - r, maxZ = cz + r;
-    if (opts.prefetch != null && opts.prefetch.amount > 0) {
-        const { dx, dz, amount } = opts.prefetch;
+    if (q.prefetch != null && q.prefetch.amount > 0) {
+        const { dx, dz, amount } = q.prefetch;
         if (dx > 0) maxX += amount;
         else if (dx < 0) minX -= amount;
         if (dz > 0) maxZ += amount;
         else if (dz < 0) minZ -= amount;
     }
 
-    const hits: Array<{ cell: PlannedCell; d: number }> = [];
-    const bx0 = minX >> 4, bx1 = maxX >> 4;
-    const bz0 = minZ >> 4, bz1 = maxZ >> 4;
+    // ---- same box in clipboard space (rotation is rigid, so the corners bound it)
+    let srcMinX = Infinity, srcMaxX = -Infinity, srcMinZ = Infinity, srcMaxZ = -Infinity;
+    const ax = q.anchor.x;
+    const az = q.anchor.z;
+    for (const [wx, wz] of [[minX, minZ], [maxX, minZ], [minX, maxZ], [maxX, maxZ]]) {
+        const [sx, sz] = untransformCell(wx - ax, wz - az, w, d, q.degrees, q.mirror, q.pivot);
+        if (sx < srcMinX) srcMinX = sx;
+        if (sx > srcMaxX) srcMaxX = sx;
+        if (sz < srcMinZ) srcMinZ = sz;
+        if (sz > srcMaxZ) srcMaxZ = sz;
+    }
+
+    // ---- collect candidates, then order them by distance with a COUNTING SORT.
+    // Comparison-sorting 48k objects cost 16ms on its own - more than everything else in this
+    // function. Distances are small non-negative integers (the window bounds them), so a
+    // counting sort is O(candidates) and allocates nothing per call after warm-up.
+    const reach = r + (q.prefetch != null && q.prefetch.amount > 0 ? Math.floor(q.prefetch.amount) : 0);
+    const maxDist = 3 * reach * reach + 1;
+    const bx0 = srcMinX >> 4, bx1 = srcMaxX >> 4;
+    const bz0 = srcMinZ >> 4, bz1 = srcMaxZ >> 4;
+
+    let total = 0;
     for (const grid of list) {
         for (let bx = bx0; bx <= bx1; bx++) {
             for (let bz = bz0; bz <= bz1; bz++) {
                 const bucket = grid.buckets.get(bx + "," + bz);
                 if (bucket == null) continue;
-                for (const cell of bucket) {
-                    if (cell.x < minX || cell.x > maxX) continue;
-                    if (cell.z < minZ || cell.z > maxZ) continue;
-                    if (cell.y < minY || cell.y > maxY) continue;
-                    const dx = cell.x - cx, dy = cell.y - cy, dz = cell.z - cz;
-                    hits.push({ cell, d: dx * dx + dy * dy + dz * dz });
+                for (const block of bucket) {
+                    if (block.dx < srcMinX || block.dx > srcMaxX) continue;
+                    if (block.dz < srcMinZ || block.dz > srcMaxZ) continue;
+                    const [ox, oz] = cellOffset(block.dx, block.dz, w, d, q.degrees, q.mirror, q.pivot);
+                    const x = ax + ox;
+                    const y = q.anchor.y + block.dy;
+                    const z = az + oz;
+                    if (x < minX || x > maxX) continue;
+                    if (y < minY || y > maxY) continue;
+                    if (z < minZ || z > maxZ) continue;
+                    const ddx = x - cx, ddy = y - cy, ddz = z - cz;
+                    const dist = ddx * ddx + ddy * ddy + ddz * ddz;
+                    if (dist >= maxDist) continue;
+                    const slot = PreviewPlanScratch.reserve(total);
+                    PreviewPlanScratch.dist[slot] = dist;
+                    PreviewPlanScratch.dx[slot] = block.dx;
+                    PreviewPlanScratch.dz[slot] = block.dz;
+                    PreviewPlanScratch.dy[slot] = block.dy;
+                    PreviewPlanScratch.id[slot] = block.id;
+                    total++;
                 }
             }
         }
     }
 
-    hits.sort((a, b) => a.d - b.d);
-    const budget = Math.max(1, Math.floor(opts.budget));
-    const cells = hits.length > budget ? hits.slice(0, budget).map((h) => h.cell) : hits.map((h) => h.cell);
-    return { cells, inWindow: hits.length };
+    const budget = Math.max(1, Math.floor(q.budget));
+    const take = Math.min(total, budget);
+    const cells: PlannedCell[] = new Array(take);
+    if (total > 0) {
+        const order = PreviewPlanScratch.order(total, maxDist);
+        for (let i = 0; i < take; i++) {
+            const slot = order[i];
+            const [ox, oz] = cellOffset(
+                PreviewPlanScratch.dx[slot], PreviewPlanScratch.dz[slot], w, d, q.degrees, q.mirror, q.pivot
+            );
+            const x = ax + ox;
+            const y = q.anchor.y + PreviewPlanScratch.dy[slot];
+            const z = az + oz;
+            cells[i] = { key: cellKey(x, y, z), x, y, z, id: PreviewPlanScratch.id[slot] };
+        }
+    }
+    return { cells, inWindow: total };
 }
 
 /**

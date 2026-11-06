@@ -233,6 +233,11 @@
             "type": "number",
             "min": 2,
             "max": 32
+        },
+        "previewTickBudgetMs": {
+            "type": "number",
+            "min": 2,
+            "max": 20
         }
     }
 }

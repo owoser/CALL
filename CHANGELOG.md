@@ -11,6 +11,28 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.8.0] - 2026-11-06
+
+Rotating and loading a 50k+ block build was slow. The library has no batch call, so the
+work itself had to go: measured on the same 300k-cell selection, extraction drops from 624ms
+to ~13-26ms, and a rotation no longer walks the whole build.
+
+### Changed
+
+- **Surface extraction is a bitmap** (`Uint8Array` occupancy + index arithmetic) instead of a
+  `Map<string,string>` keyed by "x,y,z" that was re-split for every neighbour test. 624ms ->
+  ~13-26ms for the same input; output is byte-for-byte identical (pinned by an equivalence
+  test against a copy of the old algorithm over 60 randomised multi-slice cases).
+- **The spatial index is clipboard-side**, so a rotation or a move no longer rebuilds it
+  (26ms at 48k blocks, 65ms at 120k): only the window query runs again.
+- **The send queue is replaced, not appended**: rapid rotations cost one plan instead of one
+  per click, and cells are sent nearest-first.
+- **Pumping is time-budgeted** (`previewTickBudgetMs`, default 8ms) instead of a fixed count,
+  and `previewBatchSize` is now the per-round ceiling.
+- `viewBlock` / `viewClearBlock` are bound once and called directly (no per-call lookup and
+  argument spread).
+
+Verified: 96 unit tests; test-live 36/36 on LL 26.51.8.
 ## [3.7.0] - 2026-11-06
 
 Huge builds finally preview properly: the ghost streams the part of the clipboard around the

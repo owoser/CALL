@@ -13,6 +13,19 @@ import Holo from "./Holo";
  *
  * Verified exported by HologramLib 1.33.0 (LL 26.51) and 1.35.0 (LL 26.60).
  */
+let setFn: any;
+let clearFn: any;
+
+function setter(): any {
+    if (setFn === undefined) setFn = Holo.bind("viewBlock") ?? null;
+    return setFn;
+}
+
+function clearer(): any {
+    if (clearFn === undefined) clearFn = Holo.bind("viewClearBlock") ?? null;
+    return clearFn;
+}
+
 export const BlockView = {
     /**
      * Is the API present? `viewDescribe` answers with a string, so an undefined result means the
@@ -25,12 +38,33 @@ export const BlockView = {
 
     /** true = applied, false = the client does not know that block id. */
     set(playerName: string, x: number, y: number, z: number, blockId: string): boolean {
-        return Holo.call("viewBlock", playerName, x, y, z, blockId) === true;
+        const fn = setter();
+        if (fn == null) return false;
+        try {
+            return fn(playerName, x, y, z, blockId) === true;
+        } catch {
+            // A stale handle after the library was reloaded: drop it and rebind next time.
+            setFn = undefined;
+            return false;
+        }
     },
 
     /** true = the override was removed; false = there was nothing to remove (or offline). */
     clear(playerName: string, x: number, y: number, z: number): boolean {
-        return Holo.call("viewClearBlock", playerName, x, y, z) === true;
+        const fn = clearer();
+        if (fn == null) return false;
+        try {
+            return fn(playerName, x, y, z) === true;
+        } catch {
+            clearFn = undefined;
+            return false;
+        }
+    },
+
+    /** Forget the bound functions (after `/ca debug holo` reloads the library). */
+    reset(): void {
+        setFn = undefined;
+        clearFn = undefined;
     },
 };
 

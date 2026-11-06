@@ -70,7 +70,8 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 | `previewPrefetch` | `16` | 0 – 64 | 朝玩家朝向那一侧多取几格，走动时前方不空白 |
 | `previewOutline` | `true` | true / false | 窗口模式下额外画一层抽样「骨架」，站远处也能看出轮廓（懒解析模式下只有线框） |
 | `previewOutlineStep` | `8` | 2 – 32 | 骨架抽样步长（越大越稀） |
-| `previewBatchSize` | `1000` | 50 – 5000 | 每 tick 发多少格覆盖，越小越平滑 |
+| `previewBatchSize` | `1000` | 50 – 5000 | 每轮最多发多少格覆盖（**每轮上限**；实际发多少由下面的时间预算决定） |
+| `previewTickBudgetMs` | `8` | 2 – 20 | 每轮发方块最多占用多少毫秒：快机器自动多发、慢机器自动少发，绝不卡主线程 |
 | `previewViewDistance` | `64` | 16 – 256 | 预览方块的可见距离 |
 | `previewBlockScale` | `"1"` | 字符串 | 一个展示等于一个方块的缩放 |
 | `previewBlockOffsetY` | `"0"` | 模型单位 | 库的模型偏移参数，一般保持 0 |

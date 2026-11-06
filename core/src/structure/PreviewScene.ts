@@ -36,16 +36,16 @@ import { MsgType, online, tell } from "../util/Msg";
 import StrFactory from "../util/StrFactory";
 import { describeError } from "../util/Safe";
 import {
-    PlanGrid,
     PlanOp,
     PlannedCell,
+    SourceGrid,
     appliedCells,
     diffPlacement,
     planCells,
-    planGrid,
     sampleOutline,
+    sourceGrid,
     untransformCell,
-    windowCells,
+    windowFromSource,
 } from "./PreviewPlan";
 
 export type SceneMode = "full" | "window" | "lazy";
@@ -74,16 +74,18 @@ interface Scene {
 
     /** full / window: every surface block of the clipboard. */
     blocks: PreviewBlock[];
-    /** full / window: world cells bucketed by 16x16 column. */
-    grid: PlanGrid | null;
+    /** full / window: surface blocks bucketed by CLIPBOARD column (transform-free). */
+    grid: SourceGrid | null;
     /** window: coarse shell drawn outside the budget. */
     outline: PlannedCell[];
 
     /** lazy: slice index + per-slice grids + LRU order + parse backlog. */
     slices: SliceRef[];
-    sliceGrids: Map<string, PlanGrid>;
+    sliceGrids: Map<string, SourceGrid>;
     sliceOrder: string[];
     pending: SliceRef[];
+    /** clipboard-space box the window covered last time (used to keep those slices cached) */
+    windowBox: { minX: number; maxX: number; minZ: number; maxZ: number } | null;
 
     applied: Map<string, string>;
     queue: PlanOp[];
@@ -116,6 +118,8 @@ const sliceCacheSize = () => Math.floor(num("previewSliceCache", 8, 2, 64));
 const prefetchAmount = () => Math.floor(num("previewPrefetch", 16, 0, 64));
 const outlineEnabled = () => Config.get(Config.GLOBAL, "previewOutline", true) !== false;
 const outlineStep = () => Math.floor(num("previewOutlineStep", 8, 2, 32));
+/** Milliseconds one pump round may spend calling viewBlock. */
+const tickBudgetMs = () => Math.floor(num("previewTickBudgetMs", 8, 2, 20));
 const OUTLINE_CAP = 1500;
 /** How often the window is checked against the player's position. */
 const WINDOW_TICK_MS = 800;
@@ -302,6 +306,7 @@ export const PreviewScene = {
             sliceGrids: new Map(),
             sliceOrder: [],
             pending: [],
+            windowBox: null,
             applied: new Map(),
             queue: [],
             failed: 0,
@@ -337,7 +342,7 @@ export const PreviewScene = {
         scene.blocks = extracted.blocks;
         scene.totalSurface = extracted.blocks.length;
         scene.mode = extracted.blocks.length <= budget() ? "full" : "window";
-        scene.grid = planGrid(anchor, info.size, degrees, mirror, pivot, extracted.blocks);
+        scene.grid = sourceGrid(extracted.blocks);
         if (scene.mode === "window" && outlineEnabled()) {
             scene.outline = sampleOutline(
                 extracted.blocks, anchor, info.size, degrees, mirror, pivot, outlineStep(), OUTLINE_CAP
@@ -391,10 +396,20 @@ export const PreviewScene = {
 
         if (scene.mode === "lazy") PreviewScene.ensureSlices(xuid, center);
 
-        const grids: PlanGrid[] = scene.mode === "lazy"
+        const grids: SourceGrid[] = scene.mode === "lazy"
             ? [...scene.sliceGrids.values()]
             : (scene.grid != null ? [scene.grid] : []);
-        const res = windowCells(grids, { center, radius: scene.radius, budget: budget(), prefetch });
+        const res = windowFromSource(grids, {
+            anchor: scene.anchor,
+            size: scene.size,
+            degrees: scene.degrees,
+            mirror: scene.mirror,
+            pivot: scene.pivot,
+            center,
+            radius: scene.radius,
+            budget: budget(),
+            prefetch,
+        });
         scene.windowCount = res.inWindow;
 
         const desired = new Map<string, PlannedCell>();
@@ -410,14 +425,21 @@ export const PreviewScene = {
         }
     },
 
-    /** Diff + push + pump. */
+    /**
+     * Diff + REPLACE the queue + pump.
+     *
+     * Replacing (not appending) is what keeps rapid rotations cheap: the queue is only ever a
+     * plan to reach the LATEST desired state, computed against what has actually been sent, so
+     * ten clicks in a row cost one plan instead of ten.
+     */
     enqueue(xuid: string, desired: Map<string, PlannedCell>): void {
         const scene = scenes.get(xuid);
         if (scene == null) return;
         const ops = diffPlacement(scene.applied, desired);
-        if (ops.length > 0) scene.queue.push(...ops);
-        scene.building = scene.queue.length > 0;
-        PreviewScene.pump(xuid);
+        scene.queue = ops;
+        if (ops.length > 0) scene.failed = 0;
+        scene.building = ops.length > 0;
+        if (ops.length > 0) PreviewScene.pump(xuid);
     },
 
     /** Send the next batch, then yield to the server for a tick. */
@@ -425,7 +447,12 @@ export const PreviewScene = {
         const scene = scenes.get(xuid);
         if (scene == null || scene.cancelled) return;
 
+        // Time budget instead of a fixed count: viewBlock is a native call plus one block
+        // update per cell, and its cost varies a lot between machines. Sending as many as fit
+        // in `previewTickBudgetMs` keeps a round short even on a slow host, and makes a fast
+        // host drain the queue in far fewer rounds.
         const per = batchSize();
+        const deadline = Date.now() + tickBudgetMs();
         let done = 0;
         while (scene.queue.length > 0 && done < per) {
             const op = scene.queue.shift() as PlanOp;
@@ -437,6 +464,7 @@ export const PreviewScene = {
                 scene.applied.delete(op.key);
             }
             done++;
+            if ((done & 31) === 0 && Date.now() >= deadline) break;
         }
 
         if (scene.queue.length > 0) {
@@ -460,6 +488,8 @@ export const PreviewScene = {
             if (dz < minZ) minZ = dz;
             if (dz > maxZ) maxZ = dz;
         }
+
+        scene.windowBox = { minX, maxX, minZ, maxZ };
 
         for (const ref of scene.slices) {
             if (scene.sliceGrids.has(ref.key)) continue;
@@ -499,9 +529,7 @@ export const PreviewScene = {
 
         const extracted = extractSurface([{ origin: ref.origin, layout }], 0, "none", Number.MAX_SAFE_INTEGER);
         if (extracted.blocks.length > 0) {
-            scene.sliceGrids.set(ref.key, planGrid(
-                scene.anchor, scene.size, scene.degrees, scene.mirror, scene.pivot, extracted.blocks
-            ));
+            scene.sliceGrids.set(ref.key, sourceGrid(extracted.blocks));
             scene.sliceOrder.push(ref.key);
             PreviewScene.evictSlices(scene);
         }
@@ -523,7 +551,7 @@ export const PreviewScene = {
                     removed = true;
                     break;
                 }
-                if (PreviewScene.gridInUse(scene, grid)) continue;
+                if (PreviewScene.sliceInUse(scene, key)) continue;
                 scene.sliceGrids.delete(key);
                 scene.sliceOrder.splice(i, 1);
                 removed = true;
@@ -533,13 +561,15 @@ export const PreviewScene = {
         }
     },
 
-    gridInUse(scene: Scene, grid: PlanGrid): boolean {
-        for (const list of grid.buckets.values()) {
-            for (const cell of list) {
-                if (scene.applied.has(cell.key)) return true;
-            }
-        }
-        return false;
+    /** Keep a cached slice while it can still contribute to the window. */
+    sliceInUse(scene: Scene, key: string): boolean {
+        const box = scene.windowBox;
+        if (box == null) return false;
+        const ref = scene.slices.find((s) => s.key === key);
+        if (ref == null) return false;
+        if (ref.x0 > box.maxX || ref.x0 + ref.w - 1 < box.minX) return false;
+        if (ref.z0 > box.maxZ || ref.z0 + ref.d - 1 < box.minZ) return false;
+        return true;
     },
 
     /** Rebuild the spatial index after the transform changed. */
@@ -551,7 +581,8 @@ export const PreviewScene = {
             scene.pending = [];
             return;
         }
-        scene.grid = planGrid(scene.anchor, scene.size, scene.degrees, scene.mirror, scene.pivot, scene.blocks);
+        // The index is clipboard-side, so a rotation does NOT rebuild it - only the outline
+        // (which is drawn in world coordinates) has to be recomputed.
         scene.outline = scene.mode === "window" && outlineEnabled()
             ? sampleOutline(
                 scene.blocks, scene.anchor, scene.size, scene.degrees, scene.mirror, scene.pivot,

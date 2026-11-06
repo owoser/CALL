@@ -93,6 +93,16 @@ export const Holo = {
         return reason;
     },
 
+    /**
+     * The cached native function for a name, or null.
+     *
+     * Hot paths (thousands of viewBlock calls per batch) bind once and call the reference
+     * directly: `call()` would look the name up and spread an argument array every time.
+     */
+    bind(name: string): any {
+        return resolve(name);
+    },
+
     /** Call a library function; returns undefined when unavailable or when it throws. */
     call(name: string, ...args: any[]): any {
         const fn = resolve(name);
