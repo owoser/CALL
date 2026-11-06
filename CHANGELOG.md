@@ -11,6 +11,19 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.9.5] - 2026-11-07
+
+### Fixed
+
+- `/ca preview bartest` and `/ca preview bar` were asking `bossBarGetInfo` for ids that are not
+  numbers, which the library answers with `参数类型不匹配（实际传入 variant#1）` in the console.
+  Only the numeric candidate is queried now, so the diagnostic is quiet.
+
+### Notes
+
+- The library author confirmed the id exceeds the largest plain number; the id path stays as a
+  probe (used automatically once the library returns something a JS number can hold) and the
+  per-second rebuild keeps the countdown working meanwhile.
 ## [3.9.4] - 2026-11-07
 
 The third live run showed the id is unusable, not just rounded:

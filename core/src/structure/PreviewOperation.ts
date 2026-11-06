@@ -878,7 +878,9 @@ export default class PreviewOperation {
                 "，id=" + describeId(st.barId) +
                 "，失败=" + st.barFails + "，重建=" + st.barRebuilds),
         ];
-        if (st?.barId != null) lines.push("库内记录: " + (BossBar.getInfo(st.barId) ?? "?"));
+        if (st?.barId != null) {
+            lines.push("库内记录: " + (typeof st.barId === "number" ? (BossBar.getInfo(st.barId) ?? "?") : "(id 不是数字，库不接受查询)"));
+        }
         const probe = Holo.bind("bossBarProbe");
         if (probe != null) {
             try {
@@ -947,8 +949,11 @@ export default class PreviewOperation {
         let id: any = raw;
         for (const candidate of idCandidates(raw)) {
             const ok = BossBar.setTitle(candidate, "§e自检 6");
-            const info = BossBar.getInfo(candidate);
-            push("  " + describeId(candidate) + " -> setTitle=" + ok + " info=" + (info ?? "?"));
+            // getInfo only accepts a number; asking it with anything else makes the library
+            // log "参数类型不匹配" into the console, which is pure noise.
+            const info = typeof candidate === "number" ? BossBar.getInfo(candidate) : null;
+            push("  " + describeId(candidate) + " -> setTitle=" + ok +
+                (typeof candidate === "number" ? " info=" + (info ?? "?") : ""));
             if (ok && id === raw) id = candidate;
         }
         let i = 0;
