@@ -243,7 +243,12 @@ export default class Config {
     /** Oldest BDS this build supports. */
     public static readonly MINVERSION = Version.fromArr([1, 26, 0]);
     /** Oldest LegacyScriptEngine this build supports. */
-    public static readonly LSE_MINVERSION = Version.fromArr([0, 22, 4]);
+    /**
+     * Oldest LSE this build is exercised on. 0.22.3 is verified on LeviLamina 26.51.8 - the
+     * Node.js engine is not sensitive to these patch releases, so gating on 0.22.4 only
+     * produced a scary warning on servers that work fine.
+     */
+    public static readonly LSE_MINVERSION = Version.fromArr([0, 22, 0]);
     /** Config keys that were added automatically on this start (empty when nothing changed). */
     public static readonly ADDED_KEYS = addedKeys;
 

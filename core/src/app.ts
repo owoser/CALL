@@ -344,7 +344,12 @@ function init(): boolean {
                             "改成 true（推荐）或用 /ca tools pack 导出 .mcaddon 让玩家手动安装"
                         );
                     }
-                } else logger.warn("[CALL] 内置工具物品尚未生效，请重启服务器（/ca tools 查看状态）");
+                } else {
+                    // Not "restart the server": the packs may simply load later (ordering
+                    // differs between LL builds), and a rejected definition never recovers.
+                    // Check again once the world is up instead of guessing here.
+                    ToolItems.checkAfterStart();
+                }
             } else {
                 logger.warn("[CALL] 内置工具物品不可用: " + addon.message);
             }

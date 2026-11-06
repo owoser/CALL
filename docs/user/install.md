@@ -4,11 +4,13 @@
 
 | 组件 | 版本要求 | 说明 |
 |---|---|---|
-| 服务端 | **Bedrock Dedicated Server 1.26.51** | 官方基岩版专用服务器 |
+| 服务端 | **Bedrock Dedicated Server 1.26.51 及以上** | 26.51 与 26.60 均实测可用 |
 | 加载器 | **LeviLamina 26.51.9 及以上** | 旧称 LiteLoaderBDS，LL3 是大版本分界 |
-| 脚本引擎 | **legacy-script-engine-nodejs 0.22.4 及以上** | CALL 是 LSE 的 Node.js 插件（`type: lse-nodejs`） |
+| 脚本引擎 | **legacy-script-engine-nodejs 0.22.3 及以上** | CALL 是 LSE 的 Node.js 插件（`type: lse-nodejs`）；0.22.3 / 0.22.4 均实测可用 |
 
-!> 版本不匹配时会直接加载失败。启动日志里 CALL 会打印当前检测到的 BDS / LSE 版本，低于最低要求会给出警告。
+!> 版本不匹配只会让加载失败或给出警告，不会静默损坏数据。启动日志里 CALL 会打印检测到的 BDS / LSE 版本。
+
+!> **内置工具物品与引擎版本**：物品定义用的是 `format_version 1.21.40`，比 1.26.51 / 1.26.60 都旧，引擎会自动升级旧文档；反过来（文档比引擎新）会被直接丢弃，日志里表现为 `[Json] ... document's version is out of handled range`，物品包看起来“装了但没生效”。
 
 ## 安装步骤
 

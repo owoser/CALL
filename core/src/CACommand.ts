@@ -634,10 +634,7 @@ export default class CACommand {
                         return;
                     case "status":
                     case "st":
-                        output.success(
-                            "toolItems = " + (Config.get(Config.GLOBAL, "toolItems", true) !== false) +
-                            "，物品可用 = " + (ToolItems.available() ? "是" : "否（需重启或缺少物品包）")
-                        );
+                        output.success(ToolItems.diagnose());
                         return;
                     case "pack":
                     case "pk":

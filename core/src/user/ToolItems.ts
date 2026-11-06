@@ -2,7 +2,7 @@ import Config from "../common/Config";
 import CAPlayer from "../user/CAPlayer";
 import { MsgType, tell } from "../util/Msg";
 import StrFactory from "../util/StrFactory";
-import { AddonInstaller, BP_FOLDER, RP_FOLDER } from "../addon/AddonInstaller";
+import { AddonInstaller, BP_FOLDER, PACK_VERSION, RP_FOLDER } from "../addon/AddonInstaller";
 import Paths from "../common/Paths";
 import * as fs from "fs";
 import * as path from "path";
@@ -78,10 +78,66 @@ export const TOOL_SPECS: ToolSpec[] = [
 ];
 
 export class ToolItems {
+    /**
+     * What to check when the items do not exist.
+     *
+     * The engine silently drops an item definition whose `format_version` is newer than it can
+     * handle (BDS 1.26.51 rejects 1.26.60 documents with `out of handled range`), and the pack
+     * then loads fine while every item stays missing - which looked like "restart the server".
+     */
+    public static readonly MISSING_HINT = "内置工具物品未被引擎接受。常见原因：物品 JSON 的 format_version 高于本引擎可处理的版本（内容日志会报 out of handled range），或世界没有启用 CALL Tools 行为包。把 server.properties 的 content-log-console-output-enabled 设为 true 可看到具体原因；/ca tools status 可查看状态。";
+
+    /** One-shot post-start re-check (packs can load after the plugin enable pass). */
+    private static startProbeDone = false;
+
     /** Are the addon items present in this server process? */
     public static available(): boolean {
         if (Config.get(Config.GLOBAL, "toolItems", true) === false) return false;
         return AddonInstaller.itemsAvailable();
+    }
+
+    /** Multi-line state for /ca tools status and the startup report. */
+    public static diagnose(): string {
+        const enabled = Config.get(Config.GLOBAL, "toolItems", true) !== false;
+        const addon = AddonInstaller.lastResult;
+        const available = ToolItems.available();
+        const lines = [
+            "toolItems = " + enabled,
+            "物品包 = " + (addon == null ? "本次启动未执行安装" : (addon.ok ? addon.message : "失败: " + addon.message)),
+            "引擎已注册物品 = " + (available ? "是" : "否"),
+            "物品包版本 = " + PACK_VERSION.join("."),
+            "texturepack-required = " + (ToolItems.resourcePackRequired() === true ? "true" : (ToolItems.resourcePackRequired() === false ? "false" : "未设置")),
+        ];
+        if (!available) lines.push(" → " + ToolItems.MISSING_HINT);
+        return lines.join("\n");
+    }
+
+    /**
+     * Report the item state once the world has started.
+     *
+     * The plugin enable pass runs before (or between) world/pack loading, and the ordering
+     * differs between LeviLamina builds - so probing only at enable time produced a false
+     * "not ready, restart" warning on 26.51. A definition the engine rejected is permanent,
+     * so by the time this fires both answers are final.
+     */
+    public static checkAfterStart(): void {
+        if (ToolItems.startProbeDone) return;
+        const report = () => {
+            if (ToolItems.startProbeDone) return;
+            ToolItems.startProbeDone = true;
+            try {
+                if (AddonInstaller.itemsAvailable()) logger.info("[CALL] tool items ready");
+                else logger.warn("[CALL] " + ToolItems.MISSING_HINT);
+            } catch {
+                // logger may already be gone during shutdown
+            }
+        };
+        try {
+            mc.listen("onServerStarted", () => report());
+        } catch {
+            // older LSE without that event: the timer below still reports
+        }
+        setTimeout(report, 5000);
     }
 
     public static isTool(type: string): boolean {

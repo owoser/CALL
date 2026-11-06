@@ -6,7 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/owoser/CALL?label=release)](https://github.com/owoser/CALL/releases/latest)
 
 **Construct Assistant for LeviLamina** - a building / region tool for Bedrock Dedicated
-Server, ported to **LeviLamina 26.51.x** + **LegacyScriptEngine (nodejs) 0.22.4**.
+Server, ported to **LeviLamina 26.51.x - 26.60.x** + **LegacyScriptEngine (nodejs) 0.22.x**.
 
 📖 **文档 / Documentation: <https://owoser.github.io/CALL/>**
 （[安装](https://owoser.github.io/CALL/#/user/install) ·
@@ -48,7 +48,7 @@ See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 | Component | Version |
 |---|---|
 | LeviLamina | `>=26.51.9 <26.61.0` |
-| LegacyScriptEngine (nodejs) | `>=0.22.4 <0.24.0` |
+| LegacyScriptEngine (nodejs) | `>=0.22.3 <0.24.0` (tested on 0.22.3 and 0.22.4) |
 | BDS | 1.26.51 or newer 1.26.x |
 
 CALL **must** be installed as `plugins/CALL` (folder name == manifest name).

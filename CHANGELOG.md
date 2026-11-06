@@ -11,6 +11,30 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.5.2] - 2026-11-06
+
+### Fixed
+
+- **The bundled tool items did not exist on 1.26.51** ("内置工具物品尚未生效"): the item
+  definitions were authored with `format_version 1.26.60`, and an engine upgrades OLD
+  documents but silently **discards** documents newer than it handles - BDS 1.26.51 logs
+  `[Json] upgrade items/gear.json | document's version is out of handled range` and every
+  `call:*` item disappears, pack loaded and all. The six item files now use `1.21.40`, which
+  1.26.51 and 1.26.60 both accept (verified on LL 26.51.8 / LSE 0.22.3 and 26.60.1 / 0.23.1).
+  No pack-version bump on purpose: the manifest identity does not change, so the new files
+  are picked up on the next start instead of costing two restarts and a "pack not found"
+  warning in between.
+- **A false "restart the server" warning**: the item probe ran during the plugin enable pass,
+  before the world had necessarily loaded its packs. It is now re-checked once the server has
+  started, and the message explains the real causes (content log / format version) instead of
+  blaming a missing restart.
+- **LSE 0.22.3 was rejected by the compatibility warning** even though it works: the minimum is
+  now 0.22.0 (verified on 0.22.3). The Node.js engine is not sensitive to these patch releases.
+
+### Changed
+
+- `/ca tools status` prints the whole picture: config switch, last install result, whether the
+  engine registered the items, the pack version and `texturepack-required`.
 ## [3.5.1] - 2026-11-06
 
 ### Fixed

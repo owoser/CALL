@@ -25,7 +25,12 @@ const RP_UUID = "b7c1f2a4-1d3e-4a55-9a10-6c0f5e7d8a03";
  * change: the world pins a version, and with an unchanged one BDS keeps using the copy it
  * already knows, so a new item silently never appears.
  */
-const PACK_VERSION = [1, 1, 0];
+//
+// Keep this at the version already pinned in existing world pack lists unless the pack's
+// IDENTITY must change (new item id, new texture the client must re-download): bumping it
+// makes BDS ignore the pack for one start (list says 1.0.0, manifest says 1.1.0), so every
+// upgrade would need two restarts and print a scary "configured pack was not found" warning.
+export const PACK_VERSION = [1, 1, 0];
 
 export interface AddonResult {
     /** The packs are on disk and enabled for the world. */
@@ -147,6 +152,9 @@ function enablePack(worldDir: string, file: string, uuid: string): { changed: bo
 }
 
 export class AddonInstaller {
+    /** Result of the last install() during this process, for /ca tools status. */
+    public static lastResult: AddonResult | null = null;
+
     /**
      * Install + enable the tool addon.
      *
@@ -154,6 +162,12 @@ export class AddonInstaller {
      * world pack lists are left alone once our uuid is present.
      */
     public static install(): AddonResult {
+        const result = AddonInstaller.installInner();
+        AddonInstaller.lastResult = result;
+        return result;
+    }
+
+    private static installInner(): AddonResult {
         const src = path.join(Paths.ASSETS, "addon");
         if (!fs.existsSync(path.join(src, BP_FOLDER))) {
             return { ok: false, needsRestart: false, message: "内置物品包缺失（" + src + "）" };
