@@ -88,7 +88,7 @@ Everything is available as `/call ...` and `/ca ...`.
 | Structures | `save`, `load`, `list`, `delete`, `public`, `private` |
 | Shapes | `shape list`, `shape load <pack> <index>` |
 | Tools | `tools` (give the bundled wands), `tools list`, `tools status`, `tools pack`, `tools debug` |
-| Preview | `preview set / click / move / rotate / mirror / confirm / cancel`, `preview mode`, `preview probe`, `preview trim`, `preview info` |
+| Preview | `preview set / click / move / rotate / mirror / pivot / nudge / confirm / cancel`, `preview mode`, `preview probe`, `preview trim`, `preview info` |
 | Misc | `menu`, `tool`, `texture`, `block`, `setting`, `help`, `on`, `off` |
 | Console | `add <player>`, `ban <player>`, `list`, `import`, `export`, `shape list` |
 
@@ -104,6 +104,7 @@ in the `call:` namespace - no vanilla id is reused, so nothing can collide with 
 | `call:wand_copy` | - | copy the selection |
 | `call:wand_paste` | - | paste at the clicked block |
 | `call:wand_preview` | move anchor | set anchor / rotate 90 degrees (sneak = confirm) |
+| `call:wand_adjust` | switch rotation pivot | nudge one block along the clicked face (sneak = opposite) |
 
 `/ca tools` hands them out (creative only, no recipe). The packs are installed into
 `behavior_packs`/`resource_packs` and enabled in the world pack lists on first start, then one
@@ -122,6 +123,12 @@ inside the box and swaps width/depth at 90°, but never slides the box sideways.
 are not model-rotated - the paste does not turn block states, so the ghost shows the facing that
 will really be written.
 
+Two knobs exist for fine placement: `previewPivot` switches between turning the clipboard *in
+place* and turning it *around the clicked cell* (which sends the box into the next quadrant),
+and `/ca preview nudge <dx> <dy> <dz>` slides both the ghost and the paste by whole blocks. The
+adjust wand does the same from the hotbar: right-click a block face to nudge along its normal,
+sneak to go back, left-click to flip the pivot.
+
 ## Configuration
 
 Full reference: **<https://owoser.github.io/CALL/#/user/config>**
@@ -138,6 +145,7 @@ Keys added in 2.0.0 / 3.x:
 | `toolItems` | `true` | Install and enable the bundled tool items (first start needs one restart). |
 | `previewMode` | `"ghost"` | `ghost` = real fake-block preview, `wireframe` = outline only. |
 | `previewMaxBlocks` | `2000` | Surface-block budget; above it the preview falls back to the outline. |
+| `previewPivot` | `"inplace"` | `inplace` = the box stays on the anchor and only its contents turn; `anchor` = rotate around the clicked cell (the box swings into the next quadrant). |
 | `previewBlockYCorrection` | `0.4149` | Vertical alignment of the preview blocks, in blocks (calibrated). |
 | `areaTextTipInterval` | `1000` | Selection HUD refresh, ms (250-10000). |
 | `maxPlaceBlocks` | `40000` | Refuse a single restore larger than this instead of freezing. |

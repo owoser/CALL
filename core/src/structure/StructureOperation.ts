@@ -11,7 +11,7 @@ import { Pos } from "../temp/Pos";
 import Tr from "../util/Translator";
 import { MsgType, online, tell } from "../util/Msg";
 import { describeError } from "../util/Safe";
-import { Degrees, MirrorMode, degreesName, rotatedTargetAreas, rotatedUnion } from "./Rotate";
+import { Degrees, MirrorMode, PivotMode, degreesName, rotatedTargetAreas, rotatedUnion } from "./Rotate";
 
 export default class StructureOperation {
     private static setDimid(complex: any, distDimid: number): void {
@@ -559,7 +559,8 @@ export default class StructureOperation {
         caPlayer: CAPlayer,
         pos: Pos3,
         mirror: MirrorMode,
-        degrees: Degrees
+        degrees: Degrees,
+        pivot: PivotMode = "inplace"
     ) {
         const player = caPlayer.$;
         const data = StructureService.getData(player.xuid) as Data;
@@ -572,7 +573,7 @@ export default class StructureOperation {
         // The snapshot must cover exactly the cells the paste writes. rotatedTargetAreas()
         // derives them from the clipboard-relative transform - the same one
         // StructureService.load() places the slices with - so undo and preview agree.
-        const areas = rotatedTargetAreas(data.copy, pos, degrees, mirror);
+        const areas = rotatedTargetAreas(data.copy, pos, degrees, mirror, pivot);
         const targets = areas.map((a) => new Structure(StructureOperation.areaOf(a, pos.dimid)));
 
         // Bounds check on the DESTINATION box: the old loop fed the source's absolute
@@ -594,7 +595,7 @@ export default class StructureOperation {
                         ),
                         MsgType.RAW
                     );
-                }, mirror, degreesName(degrees)).catch((e) => {
+                }, mirror, degreesName(degrees), pivot).catch((e) => {
                     tell(online(player.xuid), StrFactory.cmdErr(describeError(e)), MsgType.RAW);
                 });
             }

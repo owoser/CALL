@@ -17,6 +17,14 @@ export default class CAPlayer {
     public forbidCmd: boolean;
     /** Timers owned by this player; cleared on logout/unload. */
     public timers: number[] = [];
+    /**
+     * Face of the last right-click (Bedrock BlockFace: 0=down 1=up 2=north 3=south 4=west 5=east).
+     *
+     * The tool pipeline turns an item click into a bound command, and a command has no way to
+     * receive the clicked face - so app.ts stores it here just before running the bindings.
+     * The adjust wand is the only consumer (one block along that face's normal).
+     */
+    public lastClickSide: number = -1;
 
     constructor(xuid: string) {
         let settings: Settings = Config.get(Config.PLAYERS_SETTINGS, `player.${xuid}`);

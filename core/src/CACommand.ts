@@ -86,16 +86,30 @@ export default class CACommand {
         // parser eat the "-3" of "click -3 24 363" as the number and then choke on "24".
         cmd.setEnum("preview", ["preview", "pv"]);
         cmd.setEnum("pv_pos", ["set", "se", "click", "ck", "move", "mv"]);
-        cmd.setEnum("pv_plain", ["rotate", "rt", "mirror", "mi", "confirm", "ok", "cancel", "cc", "info", "in"]);
+        cmd.setEnum("pv_plain", [
+            "rotate", "rt", "mirror", "mi", "confirm", "ok", "cancel", "cc", "info", "in",
+            "nudgeface", "nf"
+        ]);
         cmd.setEnum("pv_num", ["calib", "ca", "probe", "pb", "trim", "tm"]);
         cmd.setEnum("pv_mode", ["mode", "mo"]);
         cmd.setEnum("pv_mode_val", ["ghost", "wireframe"]);
+        cmd.setEnum("pv_pivot", ["pivot", "pvt"]);
+        cmd.setEnum("pv_pivot_val", ["inplace", "anchor"]);
+        cmd.setEnum("pv_nudge", ["nudge", "ng"]);
         cmd.mandatory("action", ParamType.Enum, "preview", "preview_man", 1);
         cmd.mandatory("enum_1", ParamType.Enum, "pv_pos", "pv_pos_man", 1);
         cmd.mandatory("enum_1", ParamType.Enum, "pv_plain", "pv_plain_man", 1);
         cmd.mandatory("enum_1", ParamType.Enum, "pv_num", "pv_num_man", 1);
         cmd.mandatory("enum_1", ParamType.Enum, "pv_mode", "pv_mode_man", 1);
         cmd.mandatory("enum_2", ParamType.Enum, "pv_mode_val", "pv_mode_val_man", 1);
+        cmd.mandatory("enum_1", ParamType.Enum, "pv_pivot", "pv_pivot_man", 1);
+        cmd.optional("enum_2", ParamType.Enum, "pv_pivot_val", "pv_pivot_val_opt", 1);
+        cmd.mandatory("enum_1", ParamType.Enum, "pv_nudge", "pv_nudge_man", 1);
+        // A relative nudge takes three real numbers: like the other numeric preview arguments
+        // they must be Float, or the vanilla parser eats a leading "-" as an option flag.
+        cmd.mandatory("dx", ParamType.Float, "", "pv_dx_man");
+        cmd.mandatory("dy", ParamType.Float, "", "pv_dy_man");
+        cmd.mandatory("dz", ParamType.Float, "", "pv_dz_man");
         cmd.overload(["preview_man", "pv_pos_man"]);
         cmd.overload(["preview_man", "pv_pos_man", "IntPos"]);
         cmd.overload(["preview_man", "pv_plain_man"]);
@@ -103,6 +117,10 @@ export default class CACommand {
         cmd.overload(["preview_man", "pv_num_man", "delta_opt"]);
         cmd.overload(["preview_man", "pv_mode_man", "pv_mode_val_man"]);
         cmd.overload(["preview_man", "pv_mode_man"]);
+        cmd.overload(["preview_man", "pv_pivot_man"]);
+        cmd.overload(["preview_man", "pv_pivot_man", "pv_pivot_val_opt"]);
+        cmd.overload(["preview_man", "pv_nudge_man"]);
+        cmd.overload(["preview_man", "pv_nudge_man", "pv_dx_man", "pv_dy_man", "pv_dz_man"]);
 
         //tools (3.2.0)
         cmd.setEnum("tools", ["tools", "tl"]);
@@ -591,6 +609,18 @@ export default class CACommand {
                     case "info":
                     case "in":
                         PreviewOperation.info(output, caPlayer);
+                        return;
+                    case "pivot":
+                    case "pvt":
+                        PreviewOperation.pivot(output, caPlayer, res.enum_2);
+                        return;
+                    case "nudge":
+                    case "ng":
+                        PreviewOperation.nudge(output, caPlayer, res.dx, res.dy, res.dz);
+                        return;
+                    case "nudgeface":
+                    case "nf":
+                        PreviewOperation.nudgeFace(output, caPlayer);
                         return;
                 }
                 output.error("用法: /ca preview set|click|move|rotate|mirror|confirm|cancel|mode|calib|info");

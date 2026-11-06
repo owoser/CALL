@@ -29,6 +29,7 @@ export const TOOL = {
     copy: "call:wand_copy",
     paste: "call:wand_paste",
     preview: "call:wand_preview",
+    adjust: "call:wand_adjust",
 } as const;
 
 export const TOOL_IDS: string[] = Object.values(TOOL);
@@ -64,6 +65,15 @@ export const TOOL_SPECS: ToolSpec[] = [
         id: TOOL.preview,
         name: "§6预览魔杖",
         lore: ["§7右键 = 设落点 / 再点一次旋转 90°", "§7潜行右键 = 确认粘贴", "§7左键 = 换落点"],
+    },
+    {
+        id: TOOL.adjust,
+        name: "§6调整魔杖",
+        lore: [
+            "§7右键点方块的某个面 = 朝那一面挪 1 格",
+            "§7潜行右键 = 反方向挪 1 格",
+            "§7左键 = 切换 原地 / 绕落点 旋转",
+        ],
     },
 ];
 

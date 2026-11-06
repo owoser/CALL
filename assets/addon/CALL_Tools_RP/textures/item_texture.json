@@ -16,6 +16,9 @@
     },
     "call:wand_preview": {
       "textures": "textures/items/call_wand_preview"
+    },
+    "call:wand_adjust": {
+      "textures": "textures/items/call_wand_adjust"
     }
   }
 }

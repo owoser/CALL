@@ -20,7 +20,12 @@ export const RP_FOLDER = "CALL_Tools_RP";
 
 const BP_UUID = "b7c1f2a4-1d3e-4a55-9a10-6c0f5e7d8a01";
 const RP_UUID = "b7c1f2a4-1d3e-4a55-9a10-6c0f5e7d8a03";
-const PACK_VERSION = [1, 0, 0];
+/**
+ * Version written into the world pack lists. MUST be bumped whenever the bundled packs
+ * change: the world pins a version, and with an unchanged one BDS keeps using the copy it
+ * already knows, so a new item silently never appears.
+ */
+const PACK_VERSION = [1, 1, 0];
 
 export interface AddonResult {
     /** The packs are on disk and enabled for the world. */
@@ -96,13 +101,26 @@ export function findWorldDir(serverRoot: string): string | null {
     return null;
 }
 
-/** Append our pack to a world pack list, keeping every entry that is already there. */
+/** Is a pack-list entry already pinned to the version we ship? */
+function sameVersion(entry: any, version: number[]): boolean {
+    const v = entry?.version;
+    return Array.isArray(v) && v.length === version.length && v.every((n: any, i: number) => Number(n) === version[i]);
+}
+
+/**
+ * Append our pack to a world pack list, keeping every entry that is already there.
+ *
+ * A pack that is present but pinned to an older version is UPDATED: the world list is what
+ * BDS loads, so leaving it at 1.0.0 after shipping new items means the items do not exist no
+ * matter how many times the server restarts.
+ */
 function enablePack(worldDir: string, file: string, uuid: string): { changed: boolean; error?: string } {
     const full = path.join(worldDir, file);
     const current = readJson<any[]>(full);
     const list: any[] = Array.isArray(current) ? current : [];
+    const at = list.findIndex((e) => e && String(e.pack_id).toLowerCase() === uuid);
 
-    if (list.some((e) => e && String(e.pack_id).toLowerCase() === uuid)) {
+    if (at >= 0 && sameVersion(list[at], PACK_VERSION)) {
         return { changed: false };
     }
 
@@ -114,7 +132,12 @@ function enablePack(worldDir: string, file: string, uuid: string): { changed: bo
         }
     }
 
-    list.push({ pack_id: uuid, version: PACK_VERSION });
+    if (at >= 0) {
+        list[at] = { ...list[at], version: PACK_VERSION };
+    } else {
+        list.push({ pack_id: uuid, version: PACK_VERSION });
+    }
+
     try {
         writeJson(full, list);
         return { changed: true };

@@ -15,6 +15,7 @@ const require = createRequire(import.meta.url);
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SURF = join(ROOT, 'dist', 'call', 'core', 'src', 'structure', 'SurfaceExtract.js');
 const CLIP = join(ROOT, 'dist', 'call', 'core', 'src', 'structure', 'Clipboard.js');
+const ORDER = join(ROOT, 'dist', 'call', 'core', 'src', 'io', 'StructureOrder.js');
 
 function loadSurf() {
     assert.ok(existsSync(SURF), 'build first: npm run build:fast');
@@ -23,6 +24,10 @@ function loadSurf() {
 function loadClip() {
     assert.ok(existsSync(CLIP), 'build first: npm run build:fast');
     return require(CLIP);
+}
+function loadOrder() {
+    assert.ok(existsSync(ORDER), 'build first: npm run build:fast');
+    return require(ORDER);
 }
 
 /** Build a solid cube layout of the given size. */
@@ -74,6 +79,85 @@ test('air and structure_void are not counted', () => {
     const res = extractSurface([{ origin: [0, 0, 0], layout }], 0, 'none', 100000);
     assert.equal(res.solid, 1);
     assert.equal(res.visible, 1);
+});
+
+/**
+ * The preview used to decode block_indices with "X varies fastest" (i = z*sx*sy + y*sx + x)
+ * instead of the format's ZYX order (SZ*SY*X + SZ*Y + Z), i.e. it TRANSPOSED x and z. A 3x1x3
+ * clipboard of horizontal stripes previewed as vertical stripes while the paste wrote the
+ * real ones - the user report "预览和粘贴不一致 / 预览像是按我的朝向转了".
+ *
+ * Solid cubes cannot catch this (any axis permutation of a cube is the same cube), so every
+ * fixture here now carries a unique block per cell.
+ */
+function labelledLayout(sx, sy, sz) {
+    const indices = new Array(sx * sy * sz).fill(-1);
+    const palette = [];
+    for (let x = 0; x < sx; x++) {
+        for (let y = 0; y < sy; y++) {
+            for (let z = 0; z < sz; z++) {
+                palette.push({ name: 'minecraft:c' + x + '_' + y + '_' + z, states: {}, version: 0 });
+                indices[loadOrder().cellIndex(x, y, z, sz, sy)] = palette.length - 1;
+            }
+        }
+    }
+    return { size: [sx, sy, sz], indices, palette };
+}
+
+test('every block keeps its real coordinate (no x/z transpose)', () => {
+    const { extractSurface } = loadSurf();
+
+    for (const [sx, sy, sz] of [[3, 1, 3], [2, 3, 2], [3, 1, 5]]) {
+        const layout = labelledLayout(sx, sy, sz);
+        const res = extractSurface([{ origin: [0, 0, 0], layout }], 0, 'none', 100000);
+        assert.ok(res.blocks.length > 0, 'something to check');
+        for (const block of res.blocks) {
+            const m = /^minecraft:c(\d+)_(\d+)_(\d+)$/.exec(block.id);
+            assert.ok(m != null, 'unexpected id ' + block.id);
+            const [, x, y, z] = m.map(Number);
+            assert.deepEqual(
+                [block.dx, block.dy, block.dz], [x, y, z],
+                `${sx}x${sy}x${sz}: ${block.id} landed on ${block.dx},${block.dy},${block.dz}`
+            );
+        }
+    }
+});
+
+test('a striped clipboard previews the same stripes the paste writes', () => {
+    const { extractSurface } = loadSurf();
+    const { cellIndex } = loadOrder();
+
+    // the real clipboard from the report: 3 wide, 1 tall, 3 deep, whole rows of one material
+    const sx = 3, sy = 1, sz = 3;
+    const rows = [
+        ['bamboo_planks', 'bamboo_planks', 'bamboo_planks'],
+        ['crimson_planks', 'warped_planks', 'jungle_planks'],
+        ['cherry_planks', 'cherry_planks', 'cherry_planks'],
+    ];
+    const indices = new Array(sx * sy * sz).fill(-1);
+    const palette = [];
+    const pi = new Map();
+    for (let z = 0; z < sz; z++) {
+        for (let x = 0; x < sx; x++) {
+            const name = 'minecraft:' + rows[z][x];
+            if (!pi.has(name)) { pi.set(name, palette.length); palette.push({ name, states: {}, version: 0 }); }
+            indices[cellIndex(x, 0, z, sz, sy)] = pi.get(name);
+        }
+    }
+
+    const res = extractSurface([{ origin: [0, 0, 0], layout: { size: [sx, sy, sz], indices, palette } }], 0, 'none', 100000);
+    assert.equal(res.blocks.length, 9, 'a single layer is fully visible');
+
+    // every block must sit where the paste will put it, with the same material
+    for (const block of res.blocks) {
+        assert.equal(
+            block.id, 'minecraft:' + rows[block.dz][block.dx],
+            'block at (' + block.dx + ',' + block.dz + ') is ' + block.id
+        );
+    }
+    // and the stripes stay stripes along X (a transposed decode turns them into columns)
+    assert.equal(new Set(res.blocks.filter((b) => b.dz === 0).map((b) => b.id)).size, 1, 'top row is one material');
+    assert.equal(new Set(res.blocks.filter((b) => b.dz === 2).map((b) => b.id)).size, 1, 'bottom row is one material');
 });
 
 test('the budget truncates the list but keeps the top layers', () => {

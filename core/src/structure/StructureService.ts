@@ -12,7 +12,7 @@ import { MsgType, online, tell } from "../util/Msg";
 import { describeError, logFailure, sleep } from "../util/Safe";
 import { acquire, isLoaded, waitLoaded } from "../game/Chunks";
 import { clipboardMin } from "./Clipboard";
-import { Degrees, MirrorMode, sliceDestMin, transformedSize } from "./Rotate";
+import { Degrees, MirrorMode, PivotMode, sliceDestMin, transformedSize } from "./Rotate";
 
 
 /**
@@ -302,7 +302,8 @@ export default class StructureService {
         integrity = 100,
         seed = "",
         overCallback: () => void,
-        clipboardOrigin: { x: number; y: number; z: number } | null = null
+        clipboardOrigin: { x: number; y: number; z: number } | null = null,
+        pivot: PivotMode = "inplace"
     ): Promise<number> {
         let failedSlices = 0;
         // A slice keeps its offset inside the clipboard: subtracting the clipboard's minimum
@@ -346,7 +347,7 @@ export default class StructureService {
                     slice.start.z - area.start.z,
                     sw, sd,
                     boxW, boxD,
-                    rotateDeg, mirrorMode
+                    rotateDeg, mirrorMode, pivot
                 );
                 const [ow, od] = transformedSize(sw, sd, rotateDeg);
                 areas[ix][iz] = new Area3(
@@ -665,7 +666,8 @@ export default class StructureService {
         data: any,
         overCallback: () => void,
         mirror: "none" | "x" | "z" | "xz" = "none",
-        degrees: string = "0_degrees"
+        degrees: string = "0_degrees",
+        pivot: PivotMode = "inplace"
     ): Promise<void> {
         const complex = data?.copy ?? {};
         const keys = Object.keys(complex);
@@ -678,7 +680,8 @@ export default class StructureService {
                 caPlayer, complex[sid], sid, pos, i, keys.length,
                 mirror, degrees, false, true, false, 100, "",
                 () => { /* per-slice */ },
-                origin
+                origin,
+                pivot
             );
         }
         overCallback();

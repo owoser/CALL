@@ -1,4 +1,5 @@
 import { StructureLayout } from "../io/NbtCodec";
+import { cellCoords } from "../io/StructureOrder";
 import { Degrees, MirrorMode, transformOffset } from "./Rotate";
 
 /**
@@ -72,10 +73,13 @@ export function extractSurface(
             if (entry == null) continue;
             if (AIR.has(entry.name)) continue;
 
-            const z = Math.floor(i / (sx * sy));
-            const rest = i - z * sx * sy;
-            const y = Math.floor(rest / sx);
-            const x = rest - y * sx;
+            // ZYX order, the format's own order: SZ*SY*X + SZ*Y + Z (see StructureOrder).
+            // A hand-rolled i = z*sx*sy + y*sx + x (X fastest) TRANSPOSES x and z: a 3x1x3
+            // clipboard of horizontal stripes previewed as vertical stripes while the paste
+            // (which goes through cellCoords()) wrote the correct ones - the "preview is
+            // rotated towards my facing" report. Every preview fixture used to be a solid
+            // cube, so the transpose was invisible.
+            const { x, y, z } = cellCoords(i, sz, sy);
 
             solid.set(
                 key(slice.origin[0] + x, slice.origin[1] + y, slice.origin[2] + z),

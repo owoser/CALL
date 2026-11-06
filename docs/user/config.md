@@ -61,6 +61,7 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 | `toolItems` | `true` | true / false | 是否安装并启用内置工具物品。关闭后不再复制物品包，物品自然不可用 |
 | `previewTimeout` | `60` | 10 – 600 | 预览魔杖多久没操作就自动取消（秒） |
 | `previewMode` | `"ghost"` | `ghost` / `wireframe` | `ghost` = 真方块预览（itemDisplay，客户端可见不写世界）+ 线框；`wireframe` = 只线框 |
+| `previewPivot` | `"inplace"` | `inplace` / `anchor` | 旋转基准。`inplace` = 框停在落点、只转框内排布；`anchor` = 绕你点的那一格转，框会甩到相邻象限（可到落点负方向）。`/ca preview pivot` 切换，调整魔杖左键也能切 |
 | `previewMaxBlocks` | `2000` | 200 – 20000 | 预览最多画多少个表面方块，超过只显示线框 |
 | `previewBatchSize` | `200` | 50 – 1000 | 每 tick 生成多少个方块展示，越小越平滑 |
 | `previewViewDistance` | `64` | 16 – 256 | 预览方块的可见距离 |

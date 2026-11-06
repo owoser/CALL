@@ -11,6 +11,51 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.5.0] - 2026-11-06
+
+Preview content that finally matches the paste, a selectable rotation pivot, and one
+adjustment wand instead of six directional tools.
+
+### Fixed
+
+- **The preview showed the clipboard transposed** ("最终粘贴还是和预览不一致"):
+  `SurfaceExtract` decoded `block_indices` with `i = z*sx*sy + y*sx + x` (X fastest), while
+  the format is ZYX (`SZ*SY*X + SZ*Y + Z`, see `StructureOrder`). A 3x1x3 clipboard of
+  horizontal stripes previewed as vertical stripes while the paste - which goes through
+  `cellCoords()` - wrote the correct ones, so it looked like the ghost had been rotated
+  towards the player. The preview now uses `cellCoords()` too. Every preview fixture used to
+  be a solid cube, where any axis permutation is invisible; the tests now label each cell.
+- **New tool items could never appear**: `enablePack()` returned `changed: false` whenever
+  our uuid was already in the world pack list, so a bumped pack version was never written and
+  BDS kept loading the old copy. It now compares the version and rewrites the entry.
+
+### Added
+
+- **Rotation pivot** `previewPivot`:
+  - `inplace` (default) - the box stays on the anchor and only its contents turn;
+  - `anchor` - the clicked cell is the vertical axis, so the box swings into the neighbouring
+    quadrant (offsets may go negative). This is the behaviour CALL had before the box was
+    normalised, and what is described as "绕轴旋转".
+  `/ca preview pivot [inplace|anchor]`, or left-click the adjust wand. Preview, wireframe,
+  undo snapshot and paste all read the same offset, so they cannot drift apart.
+- **Position nudge** `/ca preview nudge <dx> <dy> <dz>` (no arguments clears it). The offset
+  moves the ghost AND the paste - re-anchoring resets it.
+- **Adjust wand** `call:wand_adjust` (bundled item pack 1.1.0):
+
+  | click | effect |
+  |---|---|
+  | right-click a block face | nudge one block along that face's normal (top = up) |
+  | sneak + right-click | nudge the opposite way |
+  | left-click | switch the rotation pivot |
+
+  The clicked face reaches the command layer through `caPlayer.lastClickSide`, because a bound
+  command only receives coordinates.
+
+### Tests
+
+- Unit 75: adds the transpose regression (unique block per cell, 3x1x3/2x3x2/3x1x5, plus the
+  real striped clipboard) and runs the preview-vs-paste matrix over both pivots.
+
 ## [3.4.0] - 2026-11-06
 
 Bundled tool items, a server-side selection wireframe, and a real fake-block paste preview.

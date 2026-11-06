@@ -45,6 +45,7 @@ function load() {
 const api = load();
 const DEGREES = [0, 90, 180, 270];
 const MIRRORS = ['none', 'x', 'z', 'xz'];
+const PIVOTS = ['inplace', 'anchor'];
 
 /** A clipboard copied from (srcX, srcY, srcZ), W x H x D blocks. */
 function clipboard(W, H, D, srcX = 0, srcY = 64, srcZ = 0) {
@@ -61,11 +62,11 @@ function clipboard(W, H, D, srcX = 0, srcY = 64, srcZ = 0) {
 const pos = (x, y, z) => ({ x, y, z, dimid: 0 });
 
 /** Destination of every source cell, straight from the preview mapping. */
-function previewCells(W, D, deg, mirror) {
+function previewCells(W, D, deg, mirror, pivot = 'inplace') {
     const out = new Map();
     for (let x = 0; x < W; x++) {
         for (let z = 0; z < D; z++) {
-            out.set(x + ',' + z, api.transformCell(x, z, W, D, deg, mirror).join(','));
+            out.set(x + ',' + z, api.cellOffset(x, z, W, D, deg, mirror, pivot).join(','));
         }
     }
     return out;
@@ -76,7 +77,7 @@ function previewCells(W, D, deg, mirror) {
  * relative slice areas -> sliceDestMin for the slice corner -> transformLayout per slice.
  * Mirrors StructureService.load() + placeBytesAsync() without touching the engine.
  */
-function pasteCells(W, H, D, deg, mirror) {
+function pasteCells(W, H, D, deg, mirror, pivot = 'inplace') {
     const box = api.clipboardBox(clipboard(W, H, D));
     assert.ok(box != null, 'clipboard box');
 
@@ -93,7 +94,7 @@ function pasteCells(W, H, D, deg, mirror) {
             const sd = slice.end.z - slice.start.z + 1;
             const [dx, dz] = api.sliceDestMin(
                 slice.start.x, slice.start.z, sw, sd,
-                box.size.x, box.size.z, deg, mirror
+                box.size.x, box.size.z, deg, mirror, pivot
             );
 
             // one palette entry per cell so every block can be followed individually
@@ -135,21 +136,25 @@ const SIZES = [
     [130, 1, 5],
 ];
 
-test('preview and paste land every block on the same cell (all sizes/angles/mirrors)', () => {
+test('preview and paste land every block on the same cell (sizes x angles x mirrors x pivots)', () => {
     for (const [W, H, D] of SIZES) {
         for (const deg of DEGREES) {
             for (const mirror of MIRRORS) {
-                const preview = previewCells(W, D, deg, mirror);
-                const paste = pasteCells(W, H, D, deg, mirror);
-                const label = W + 'x' + H + 'x' + D + ' rot ' + deg + ' mirror ' + mirror;
-                assert.equal(paste.size, W * D, 'block count ' + label);
-                const tw = deg === 90 || deg === 270 ? D : W;
-                const td = deg === 90 || deg === 270 ? W : D;
-                for (const [src, dst] of preview) {
-                    assert.equal(paste.get(src), dst,
-                        label + ': ' + src + ' preview ' + dst + ' paste ' + paste.get(src));
-                    const [x, z] = dst.split(',').map(Number);
-                    assert.ok(x >= 0 && x < tw && z >= 0 && z < td, dst + ' outside ' + tw + 'x' + td);
+                for (const pivot of PIVOTS) {
+                    const preview = previewCells(W, D, deg, mirror, pivot);
+                    const paste = pasteCells(W, H, D, deg, mirror, pivot);
+                    const label = W + 'x' + H + 'x' + D + ' rot ' + deg + ' mirror ' + mirror + ' pivot ' + pivot;
+                    assert.equal(paste.size, W * D, 'block count ' + label);
+                    for (const [src, dst] of preview) {
+                        assert.equal(paste.get(src), dst,
+                            label + ': ' + src + ' preview ' + dst + ' paste ' + paste.get(src));
+                        const [x, z] = dst.split(',').map(Number);
+                        if (pivot === 'inplace') {
+                            const tw = deg === 90 || deg === 270 ? D : W;
+                            const td = deg === 90 || deg === 270 ? W : D;
+                            assert.ok(x >= 0 && x < tw && z >= 0 && z < td, dst + ' outside ' + tw + 'x' + td);
+                        }
+                    }
                 }
             }
         }
@@ -167,6 +172,25 @@ test('four quarter turns return a cell to where it started', () => {
                 [w, d] = [d, w];
             }
             assert.deepEqual([x, z], [sx, sz], 'cell ' + sx + ',' + sz + ' of ' + W + 'x' + D);
+        }
+    }
+});
+
+test('pivot anchor swings the box around the clicked cell, pivot inplace keeps it in place', () => {
+    const complex = clipboard(4, 2, 6, 1200, 22, 3500);
+    const anchor = pos(-3, 22, 363);
+
+    for (const deg of DEGREES) {
+        for (const mirror of MIRRORS) {
+            const inplace = api.rotatedUnion(complex, anchor, deg, mirror, 'inplace');
+            const swung = api.rotatedUnion(complex, anchor, deg, mirror, 'anchor');
+            const [sx, sz] = api.pivotShift(4, 6, deg, mirror, 'anchor');
+            assert.deepEqual([swung.x1, swung.z1], [anchor.x + sx, anchor.z + sz], 'rot ' + deg + ' mirror ' + mirror);
+            // same size, different corner
+            assert.equal(swung.x2 - swung.x1, inplace.x2 - inplace.x1);
+            assert.equal(swung.z2 - swung.z1, inplace.z2 - inplace.z1);
+            // 0 deg / no mirror is the identity: nothing may move
+            if (deg === 0 && mirror === 'none') assert.deepEqual([sx, sz], [0, 0]);
         }
     }
 });
@@ -195,10 +219,10 @@ test('the undo snapshot covers exactly the box the paste writes', () => {
     const complex = clipboard(4, 2, 6, 1200, 22, 3500);
     const anchor = pos(-3, 22, 363);
 
-    for (const deg of DEGREES) {
+    for (const pivot of PIVOTS) for (const deg of DEGREES) {
         for (const mirror of MIRRORS) {
-            const box = api.rotatedUnion(complex, anchor, deg, mirror);
-            const areas = api.rotatedTargetAreas(complex, anchor, deg, mirror);
+            const box = api.rotatedUnion(complex, anchor, deg, mirror, pivot);
+            const areas = api.rotatedTargetAreas(complex, anchor, deg, mirror, pivot);
             assert.equal(areas.length, 1, 'one area per clipboard entry');
             const tw = deg === 90 || deg === 270 ? 6 : 4;
             const td = deg === 90 || deg === 270 ? 4 : 6;

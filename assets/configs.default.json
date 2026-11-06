@@ -316,6 +316,14 @@
                         "describe": "预览魔杖（设落点/旋转/潜行确认）\nPreview wand"
                     }
                 },
+                "call:wand_adjust": {
+                    "": {
+                        "cmds": [
+                            "call preview nudgeface"
+                        ],
+                        "describe": "调整魔杖（朝点击的那一面挪一格，潜行反向）\nAdjust wand: nudge along the clicked face"
+                    }
+                },
                 "minecraft:clock": {
                     "": {
                         "cmds": [
@@ -414,6 +422,14 @@
                         "describe": "预览魔杖 · 换落点\nPreview wand: move anchor"
                     }
                 },
+                "call:wand_adjust": {
+                    "": {
+                        "cmds": [
+                            "call preview pivot"
+                        ],
+                        "describe": "调整魔杖 · 切换旋转基准\nAdjust wand: switch rotation pivot"
+                    }
+                },
                 "minecraft:trident": {
                     "": {
                         "cmds": [
@@ -476,6 +492,19 @@
     * ###Preview timeout (seconds)###   (new in 3.2.0)
     */
     "previewTimeout": 60,
+
+    /*
+    *   ###预览旋转基准###   (3.5.0 新增)
+    *   "inplace"   [解析] 原地：旋转只改框内排布，框停在落点上（默认）
+    *   "anchor"    [解析] 绕落点：你点的那一格当竖轴，框会转到相邻象限（可到落点负方向）
+    *   用 /ca preview pivot 切换（调整魔杖左键也能切）
+    *
+    * ###Preview rotation pivot###   (new in 3.5.0)
+    *   "inplace"   the box stays on the anchor and only its contents turn (default)
+    *   "anchor"    the clicked cell is the vertical axis, so the box swings into the
+    *               neighbouring quadrant (offsets may become negative)
+    */
+    "previewPivot": "inplace",
 
     /*
     *   ###预览渲染方式###   (3.3.0 新增)

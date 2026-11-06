@@ -1,0 +1,23 @@
+{
+  "format_version": "1.26.60",
+  "minecraft:item": {
+    "description": {
+      "identifier": "call:wand_adjust",
+      "menu_category": {
+        "category": "equipment"
+      }
+    },
+    "components": {
+      "minecraft:icon": "call:wand_adjust",
+      "minecraft:display_name": {
+        "value": "item.call:wand_adjust"
+      },
+      "minecraft:max_stack_size": 1,
+      "minecraft:hand_equipped": true,
+      "minecraft:glint": true,
+      "minecraft:can_destroy_in_creative": false,
+      "minecraft:should_despawn": false,
+      "minecraft:hover_text_color": "gold"
+    }
+  }
+}

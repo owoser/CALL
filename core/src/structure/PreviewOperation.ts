@@ -5,7 +5,7 @@ import PreviewScene from "./PreviewScene";
 import ItemDisplay from "../holo/ItemDisplay";
 import StructureService from "./StructureService";
 import StructureOperation from "./StructureOperation";
-import { Box, Degrees, MirrorMode, rotatedUnion } from "./Rotate";
+import { Box, Degrees, MirrorMode, PivotMode, rotatedUnion } from "./Rotate";
 import CAPlayer from "../user/CAPlayer";
 import { Pos3 as Pos3Type } from "../common/Pos3";
 import { MsgType, tell } from "../util/Msg";
@@ -26,9 +26,27 @@ import StrFactory from "../util/StrFactory";
 
 interface PreviewState {
     pos: Pos3Type;
+    /** Manual nudge on top of pos; the ghost AND the paste use pos + offset. */
+    offset: { x: number; y: number; z: number };
     degrees: Degrees;
     mirror: MirrorMode;
+    pivot: PivotMode;
     timer: ReturnType<typeof setTimeout> | null;
+}
+
+/** Where the paste will actually start: the anchor plus every manual nudge. */
+function anchorOf(st: PreviewState): Pos3Type {
+    // Pos3.add() mutates, and the state must survive a failed paste - always work on a copy.
+    return st.pos.clone().add(st.offset.x, st.offset.y, st.offset.z);
+}
+
+function pivotOf(value: any): PivotMode {
+    return String(value ?? "").toLowerCase() === "anchor" ? "anchor" : "inplace";
+}
+
+/** Config default for the rotation pivot (key: previewPivot). */
+function defaultPivot(): PivotMode {
+    return pivotOf(Config.get(Config.GLOBAL, "previewPivot", "inplace"));
 }
 
 const states = new Map<string, PreviewState>();
@@ -53,7 +71,12 @@ function label(st: PreviewState, box: Box): string {
     const w = Math.abs(box.x2 - box.x1) + 1;
     const h = Math.abs(box.y2 - box.y1) + 1;
     const d = Math.abs(box.z2 - box.z1) + 1;
-    return "§b预览 §7旋转 §f" + st.degrees + "° §7镜像 §f" + st.mirror + "§7 · §f" + w + "§7×§f" + h + "§7×§f" + d;
+    const pivot = st.pivot === "anchor" ? " §7绕落点" : "";
+    const nudge = st.offset.x !== 0 || st.offset.y !== 0 || st.offset.z !== 0
+        ? " §7偏移 §f" + st.offset.x + "/" + st.offset.y + "/" + st.offset.z
+        : "";
+    return "§b预览 §7旋转 §f" + st.degrees + "° §7镜像 §f" + st.mirror + pivot + nudge +
+        "§7 · §f" + w + "§7×§f" + h + "§7×§f" + d;
 }
 
 export default class PreviewOperation {
@@ -62,7 +85,7 @@ export default class PreviewOperation {
         const complex = (data as any)?.copy ?? {};
         if (Object.keys(complex).length === 0) return false;
 
-        const box = rotatedUnion(complex, st.pos, st.degrees, st.mirror);
+        const box = rotatedUnion(complex, anchorOf(st), st.degrees, st.mirror, st.pivot);
         if (box == null) return false;
 
         return Wireframe.show(
@@ -88,10 +111,10 @@ export default class PreviewOperation {
             return null;
         }
         if (rebuild) {
-            const result = PreviewScene.build(caPlayer, st.pos, st.degrees, st.mirror);
+            const result = PreviewScene.build(caPlayer, anchorOf(st), st.degrees, st.mirror, st.pivot);
             return result;
         }
-        PreviewScene.rotate(caPlayer, st.degrees, st.mirror);
+        PreviewScene.rotate(caPlayer, st.degrees, st.mirror, st.pivot);
         return null;
     }
 
@@ -119,8 +142,11 @@ export default class PreviewOperation {
         const prev = states.get(caPlayer.xuid);
         const st: PreviewState = {
             pos,
+            // a fresh anchor means a fresh nudge: the offset belongs to the old placement
+            offset: { x: 0, y: 0, z: 0 },
             degrees: prev?.degrees ?? 0,
             mirror: prev?.mirror ?? "none",
+            pivot: prev?.pivot ?? defaultPivot(),
             timer: null,
         };
         states.set(caPlayer.xuid, st);
@@ -207,6 +233,102 @@ export default class PreviewOperation {
         output.success("预览镜像: " + st.mirror);
     }
 
+    /** Reposition the live scene without re-reading the clipboard. */
+    private static reposition(caPlayer: CAPlayer, st: PreviewState): void {
+        PreviewOperation.render(caPlayer, st);
+        if (PreviewOperation.mode() === "wireframe") {
+            PreviewScene.clear(caPlayer.xuid);
+        } else if (!PreviewScene.move(caPlayer, anchorOf(st), st.degrees, st.mirror, st.pivot)) {
+            PreviewOperation.syncScene(caPlayer, st, true);
+        }
+        PreviewOperation.arm(caPlayer, st);
+    }
+
+    /**
+     * Rotation pivot: inplace = the box stays put, anchor = rotate around the clicked cell.
+     *
+     * Switching it changes where every block lands, so the live scene is rebuilt from the
+     * cached block list and the wireframe is redrawn with the same box the paste will cover.
+     */
+    public static pivot(output: any, caPlayer: CAPlayer, value?: string): void {
+        const st = states.get(caPlayer.xuid);
+        const requested = value == null || String(value) === "" ? null : pivotOf(value);
+        const current = st != null ? st.pivot : defaultPivot();
+        const next: PivotMode = requested ?? (current === "inplace" ? "anchor" : "inplace");
+
+        Config.set(Config.GLOBAL, "previewPivot", next);
+        if (st != null) {
+            st.pivot = next;
+            PreviewOperation.reposition(caPlayer, st);
+        }
+        output.success(next === "anchor"
+            ? "旋转基准: §e绕落点§r（你点的那一格是竖轴，旋转后框会转到相邻象限）"
+            : "旋转基准: §a原地§r（框不动，图案在框内旋转）");
+    }
+
+    /**
+     * Relative nudge. Without arguments the offset is cleared.
+     *
+     * The ghost and the paste read the same anchor, so a nudge moves both - it is not a
+     * preview-only offset.
+     */
+    public static nudge(output: any, caPlayer: CAPlayer, dx?: number, dy?: number, dz?: number): void {
+        const st = states.get(caPlayer.xuid);
+        if (st == null) {
+            output.error("还没有预览：先用预览魔杖右键点一个方块");
+            return;
+        }
+
+        const args = [dx, dy, dz].map((n) => Number(n));
+        if (args.some((n) => !Number.isFinite(n))) {
+            st.offset = { x: 0, y: 0, z: 0 };
+            PreviewOperation.reposition(caPlayer, st);
+            output.success("预览偏移已清零");
+            return;
+        }
+
+        st.offset = {
+            x: st.offset.x + Math.trunc(args[0]),
+            y: st.offset.y + Math.trunc(args[1]),
+            z: st.offset.z + Math.trunc(args[2]),
+        };
+        PreviewOperation.reposition(caPlayer, st);
+        const target = anchorOf(st);
+        output.success("预览偏移 " + st.offset.x + "/" + st.offset.y + "/" + st.offset.z +
+            " → 落点 " + target.floor().toString() + "（粘贴会跟着走）");
+    }
+
+    /** Bedrock block face -> nudge direction. 0=down 1=up 2=north(-Z) 3=south(+Z) 4=west(-X) 5=east(+X). */
+    private static readonly FACE_DELTA: Record<number, [number, number, number]> = {
+        0: [0, -1, 0],
+        1: [0, 1, 0],
+        2: [0, 0, -1],
+        3: [0, 0, 1],
+        4: [-1, 0, 0],
+        5: [1, 0, 0],
+    };
+
+    /**
+     * Adjust wand: move one block along the normal of the face that was clicked.
+     *
+     * The click pipeline turns an item click into a bound command and loses the face, so
+     * app.ts stores it on the player right before dispatching (see caPlayer.lastClickSide).
+     */
+    public static nudgeFace(output: any, caPlayer: CAPlayer): void {
+        const delta = PreviewOperation.FACE_DELTA[Number(caPlayer.lastClickSide)];
+        if (delta == null) {
+            output.error("没拿到点击的面：换调整魔杖右键点方块的某个面");
+            return;
+        }
+        let sign = 1;
+        try {
+            if (caPlayer.$.isSneaking === true) sign = -1;
+        } catch {
+            sign = 1;
+        }
+        PreviewOperation.nudge(output, caPlayer, delta[0] * sign, delta[1] * sign, delta[2] * sign);
+    }
+
     /** Paste for real, using the previewed position and transform. */
     public static confirm(output: any, caPlayer: CAPlayer): void {
         const st = states.get(caPlayer.xuid);
@@ -214,13 +336,14 @@ export default class PreviewOperation {
             output.error("还没有预览：先用预览魔杖右键点一个方块");
             return;
         }
-        const pos = st.pos;
+        const pos = anchorOf(st);
         const mirror = st.mirror;
         const degrees = st.degrees;
+        const pivot = st.pivot;
         PreviewOperation.cancelFor(caPlayer.xuid);
 
         try {
-            StructureOperation.pasteTransformed(output, caPlayer, pos, mirror, degrees);
+            StructureOperation.pasteTransformed(output, caPlayer, pos, mirror, degrees, pivot);
         } catch (e) {
             output.error("粘贴失败: " + describeError(e));
         }
@@ -245,7 +368,7 @@ export default class PreviewOperation {
             Config.set(Config.GLOBAL, "previewBlockScale", String(chosen));
             PreviewOperation.clearCalib();
             const st = states.get(caPlayer.xuid);
-            if (st != null) PreviewScene.build(caPlayer, st.pos, st.degrees, st.mirror);
+            if (st != null) PreviewScene.build(caPlayer, anchorOf(st), st.degrees, st.mirror, st.pivot);
             output.success("已保存 previewBlockScale = " + chosen + "（预览已按新值重建）");
             return;
         }
@@ -324,7 +447,7 @@ export default class PreviewOperation {
             Config.set(Config.GLOBAL, "previewBlockYCorrection", -chosen);
             PreviewOperation.clearProbe();
             const st = states.get(caPlayer.xuid);
-            if (st != null) PreviewScene.build(caPlayer, st.pos, st.degrees, st.mirror);
+            if (st != null) PreviewScene.build(caPlayer, anchorOf(st), st.degrees, st.mirror, st.pivot);
             output.success("已保存 previewBlockYCorrection = " + (-chosen) + " 格（预览已重建）");
             return;
         }
@@ -416,7 +539,7 @@ export default class PreviewOperation {
         const st = states.get(caPlayer.xuid);
         if (st != null) {
             if (value === "wireframe") PreviewScene.clear(caPlayer.xuid);
-            else PreviewScene.build(caPlayer, st.pos, st.degrees, st.mirror);
+            else PreviewScene.build(caPlayer, anchorOf(st), st.degrees, st.mirror, st.pivot);
         }
         output.success("预览模式: " + value + "（已写入 configs.json）");
     }
@@ -440,7 +563,7 @@ export default class PreviewOperation {
         PreviewOperation.clearProbe();
         const st = states.get(caPlayer.xuid);
         if (st != null) {
-            PreviewScene.build(caPlayer, st.pos, st.degrees, st.mirror);
+            PreviewScene.build(caPlayer, anchorOf(st), st.degrees, st.mirror, st.pivot);
             output.success("竖直修正: " + current + " → " + next + " 格（预览已重建）");
             return;
         }
@@ -455,12 +578,14 @@ export default class PreviewOperation {
         const st = states.get(caPlayer.xuid);
         output.success(
             "模式 " + PreviewOperation.mode() +
+            " · 基准 " + (st != null ? st.pivot : defaultPivot()) +
+            " · 偏移 " + (st != null ? st.offset.x + "/" + st.offset.y + "/" + st.offset.z : "0/0/0") +
             " · 已生成 " + scene.blocks + " 个方块" + (scene.building ? "（生成中）" : "") +
             " · 上限 " + Config.get(Config.GLOBAL, "previewMaxBlocks", 2000) +
             " · 缩放 " + Config.get(Config.GLOBAL, "previewBlockScale", "1") +
             " · 竖直修正 " + PreviewScene.correction() + " 格" +
             (scene.truncated ? " · 已截断" : "") +
-            (st != null ? " · 落点 " + st.pos.floor().toString() + " 旋转 " + st.degrees + "°" : " · 当前无预览")
+            (st != null ? " · 落点 " + anchorOf(st).floor().toString() + " 旋转 " + st.degrees + "°" : " · 当前无预览")
         );
     }
 

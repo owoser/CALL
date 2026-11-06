@@ -83,6 +83,9 @@ namespace ListenerHandler {
 
         safeCall("onUseItemOn", () => {
             try {
+                // The bound commands only get coordinates, so the clicked face has to ride on
+                // the player (the adjust wand nudges along it).
+                caPlayer.lastClickSide = Number(side);
                 ToolOperation.onClick(ToolType.RIGHT, caPlayer, item, block, pos);
             } catch (e) {
                 reportToPlayer(player, e);

@@ -5,7 +5,7 @@ import NBTService from "./NBTService";
 import StructureService from "./StructureService";
 import { parseStructureLayout } from "../io/NbtCodec";
 import { extractSurface, PreviewBlock, SliceInput } from "./SurfaceExtract";
-import { Degrees, MirrorMode, transformCell } from "./Rotate";
+import { Degrees, MirrorMode, PivotMode, cellOffset } from "./Rotate";
 import { applyYCorrection, clipboardBox } from "./Clipboard";
 import Area3 from "../common/Area3";
 import { Structure } from "../common/Structure";
@@ -41,6 +41,7 @@ interface Scene {
     ids: number[];
     degrees: Degrees;
     mirror: MirrorMode;
+    pivot: PivotMode;
     cancelled: boolean;
     playerName: string;
     visible: number;
@@ -106,9 +107,10 @@ function worldPos(
     block: PreviewBlock,
     degrees: Degrees,
     mirror: MirrorMode,
-    size: [number, number, number]
+    size: [number, number, number],
+    pivot: PivotMode
 ): [number, number, number] {
-    const [dx, dz] = transformCell(block.dx, block.dz, size[0], size[2], degrees, mirror);
+    const [dx, dz] = cellOffset(block.dx, block.dz, size[0], size[2], degrees, mirror, pivot);
     return [
         anchor.x + dx + 0.5,
         // bottom centre: y is the block's own level, offY/measured correction lift the model
@@ -197,7 +199,13 @@ export const PreviewScene = {
      * Returns immediately after the first batch: the rest is created over the following
      * ticks, and a progress tip tells the player how far along it is.
      */
-    build(caPlayer: CAPlayer, anchor: Pos3, degrees: Degrees, mirror: MirrorMode): BuildResult {
+    build(
+        caPlayer: CAPlayer,
+        anchor: Pos3,
+        degrees: Degrees,
+        mirror: MirrorMode,
+        pivot: PivotMode = "inplace"
+    ): BuildResult {
         const xuid = caPlayer.xuid;
         PreviewScene.clear(xuid);
 
@@ -227,6 +235,7 @@ export const PreviewScene = {
             ids: [],
             degrees,
             mirror,
+            pivot,
             cancelled: false,
             playerName: String(caPlayer.$.realName ?? ""),
             visible: extracted.visible,
@@ -252,7 +261,7 @@ export const PreviewScene = {
 
         for (let i = scene.ids.length; i < end; i++) {
             const block = scene.blocks[i];
-            const [x, y, z] = worldPos(scene.anchor, block, scene.degrees, scene.mirror, scene.size);
+            const [x, y, z] = worldPos(scene.anchor, block, scene.degrees, scene.mirror, scene.size, scene.pivot);
             const id = ItemDisplay.create({
                 x, y, z, dim,
                 blockId: block.id,
@@ -294,11 +303,12 @@ export const PreviewScene = {
      * changed), and a rebuild is deterministic. Creation is batched, so the cost is the same
      * as the first build.
      */
-    rotate(caPlayer: CAPlayer, degrees: Degrees, mirror: MirrorMode): boolean {
+    rotate(caPlayer: CAPlayer, degrees: Degrees, mirror: MirrorMode, pivot: PivotMode): boolean {
         const scene = scenes.get(caPlayer.xuid);
         if (scene == null) return false;
         scene.degrees = degrees;
         scene.mirror = mirror;
+        scene.pivot = pivot;
         PreviewScene.rebuild(caPlayer.xuid);
         return true;
     },
@@ -318,12 +328,13 @@ export const PreviewScene = {
     },
 
     /** Move the whole scene to a new anchor (also a rebuild, for the same reason). */
-    move(caPlayer: CAPlayer, anchor: Pos3, degrees: Degrees, mirror: MirrorMode): boolean {
+    move(caPlayer: CAPlayer, anchor: Pos3, degrees: Degrees, mirror: MirrorMode, pivot: PivotMode): boolean {
         const scene = scenes.get(caPlayer.xuid);
         if (scene == null) return false;
         scene.anchor = anchor;
         scene.degrees = degrees;
         scene.mirror = mirror;
+        scene.pivot = pivot;
         PreviewScene.rebuild(caPlayer.xuid);
         return true;
     },

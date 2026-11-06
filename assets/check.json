@@ -124,6 +124,10 @@
             "type": "enum",
             "values": ["ghost", "wireframe"]
         },
+        "previewPivot": {
+            "type": "enum",
+            "values": ["inplace", "anchor"]
+        },
         "previewMaxBlocks": {
             "type": "number",
             "min": 200,

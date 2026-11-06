@@ -22,6 +22,20 @@ import { clipboardBox } from "./Clipboard";
 export type MirrorMode = "none" | "x" | "z" | "xz";
 export type Degrees = 0 | 90 | 180 | 270;
 
+/**
+ * Where the rotation pivots.
+ *
+ *  - "inplace": the rotated box's minimum corner stays on the anchor. Turning a clipboard
+ *    rearranges it inside a box that does not move (90/270 swap width and depth).
+ *  - "anchor": the anchor cell is the vertical axis, so the box swings into the neighbouring
+ *    quadrant (offsets may become negative). This is the behaviour CALL had before the box
+ *    was normalised, and what users describe as "绕轴旋转".
+ *
+ * Both are the same mapping plus a constant shift, so preview / wireframe / undo / paste stay
+ * in agreement whichever one is active.
+ */
+export type PivotMode = "inplace" | "anchor";
+
 export interface Box {
     x1: number;
     y1: number;
@@ -116,6 +130,39 @@ export function transformCell(
 }
 
 /**
+ * Constant offset that turns the normalised mapping into the requested pivot mode.
+ *
+ * "inplace" is [0,0]. "anchor" subtracts wherever the anchor cell ends up, so that cell stays
+ * put and the rest of the box rotates around it.
+ */
+export function pivotShift(
+    w: number,
+    d: number,
+    degrees: Degrees,
+    mirror: MirrorMode,
+    pivot: PivotMode = "inplace"
+): [number, number] {
+    if (pivot !== "anchor") return [0, 0];
+    const [px, pz] = transformCell(0, 0, w, d, degrees, mirror);
+    return [0 - px, 0 - pz];
+}
+
+/** transformCell() plus the pivot shift: the offset every consumer actually needs. */
+export function cellOffset(
+    dx: number,
+    dz: number,
+    w: number,
+    d: number,
+    degrees: Degrees,
+    mirror: MirrorMode,
+    pivot: PivotMode = "inplace"
+): [number, number] {
+    const [x, z] = transformCell(dx, dz, w, d, degrees, mirror);
+    const [sx, sz] = pivotShift(w, d, degrees, mirror, pivot);
+    return [x + sx, z + sz];
+}
+
+/**
  * Destination minimum corner of one 64-block slice, relative to the anchor.
  *
  * A slice is rotated on its OWN (placeBytesAsync calls transformLayout per slice), so the
@@ -132,11 +179,13 @@ export function sliceDestMin(
     w: number,
     d: number,
     degrees: Degrees,
-    mirror: MirrorMode
+    mirror: MirrorMode,
+    pivot: PivotMode = "inplace"
 ): [number, number] {
     const a = transformCell(x0, z0, w, d, degrees, mirror);
     const b = transformCell(x0 + sw - 1, z0 + sd - 1, w, d, degrees, mirror);
-    return [Math.min(a[0], b[0]), Math.min(a[1], b[1])];
+    const [sx, sz] = pivotShift(w, d, degrees, mirror, pivot);
+    return [Math.min(a[0], b[0]) + sx, Math.min(a[1], b[1]) + sz];
 }
 
 /**
@@ -151,19 +200,21 @@ export function rotatedUnion(
     complex: Record<string, any>,
     targetPos: Pos3,
     degrees: Degrees,
-    mirror: MirrorMode
+    mirror: MirrorMode,
+    pivot: PivotMode = "inplace"
 ): Box | null {
     const clipboard = clipboardBox(complex);
     if (clipboard == null) return null;
 
     const [w, d] = transformedSize(clipboard.size.x, clipboard.size.z, degrees);
+    const [sx, sz] = pivotShift(clipboard.size.x, clipboard.size.z, degrees, mirror, pivot);
     return {
-        x1: targetPos.x,
+        x1: targetPos.x + sx,
         y1: targetPos.y,
-        z1: targetPos.z,
-        x2: targetPos.x + w - 1,
+        z1: targetPos.z + sz,
+        x2: targetPos.x + sx + w - 1,
         y2: targetPos.y + clipboard.size.y - 1,
-        z2: targetPos.z + d - 1,
+        z2: targetPos.z + sz + d - 1,
     };
 }
 
@@ -177,7 +228,8 @@ export function rotatedTargetAreas(
     complex: Record<string, any>,
     targetPos: Pos3,
     degrees: Degrees,
-    mirror: MirrorMode
+    mirror: MirrorMode,
+    pivot: PivotMode = "inplace"
 ): Array<{ start: { x: number; y: number; z: number }; end: { x: number; y: number; z: number } }> {
     const out: Array<{ start: any; end: any }> = [];
     const clipboard = clipboardBox(complex);
@@ -199,7 +251,7 @@ export function rotatedTargetAreas(
         const [dx, dz] = sliceDestMin(
             x0, z0, sw, sd,
             clipboard.size.x, clipboard.size.z,
-            degrees, mirror
+            degrees, mirror, pivot
         );
         const [ow, od] = transformedSize(sw, sd, degrees);
 
