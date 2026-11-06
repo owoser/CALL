@@ -3,7 +3,10 @@
  * Dev-only helper: run a Bedrock Dedicated Server copy with LeviLamina, capture its
  * console, and forward commands from a small file-based inbox.
  *
- *   node scripts/dev-run-server.mjs <serverDir> [--minutes 5]
+ *   node scripts/dev-run-server.mjs [serverDir] [--minutes 5]
+ *
+ * Without serverDir it uses build.json -> bdsDir, i.e. the same single dev server that
+ * `npm run deploy` and `npm run test:live` use.
  *
  * Console input: append one command per line to <serverDir>/.console-in and this
  * process forwards it to BDS' stdin (e.g. "help", "ll list", "stop").
@@ -14,9 +17,26 @@
  */
 import { spawn } from 'node:child_process';
 import { createWriteStream, existsSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const serverDir = resolve(process.argv[2] ?? '.');
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+/** build.json -> bdsDir, so every dev entry point talks to the same server. */
+function configuredServerDir() {
+    try {
+        const cfg = JSON.parse(readFileSync(join(ROOT, 'build.json'), 'utf8'));
+        if (cfg != null && typeof cfg.bdsDir === 'string' && cfg.bdsDir !== '') {
+            return resolve(ROOT, cfg.bdsDir);
+        }
+    } catch {
+        /* no build.json */
+    }
+    return null;
+}
+
+const argDir = process.argv.slice(2).find((a) => !a.startsWith('--') && !/^\d+$/.test(a));
+const serverDir = resolve(argDir ?? configuredServerDir() ?? '.');
 const argMinutes = (() => {
     const i = process.argv.indexOf('--minutes');
     return i >= 0 ? Number(process.argv[i + 1]) : 5;
