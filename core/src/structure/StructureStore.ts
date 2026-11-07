@@ -62,6 +62,8 @@ const NAMES = new Map<string, string>();
 const ALIAS = new Map<string, string>();
 
 export interface PublicEntry {
+    /** What the menu shows and what the player types (unique per folder). */
+    id: string;
     sid: string;
     folder: string;
     name: string;
@@ -357,15 +359,23 @@ export const StructureStore = {
             }
             if (files.length === 0) continue;
 
-            for (const group of groupSlices(files)) {
+            const groups = groupSlices(files).sort((a, b) => b.files.length - a.files.length);
+            let primarySeen = false;
+            for (const group of groups) {
                 const key = dirent.name + "/" + group.sid;
                 const cached = previous.get(key);
-                if (!force && cached != null && cached.mtime === mtime
+                // A folder may accidentally hold slices of TWO structures. Only the biggest
+                // one owns the folder name; the others get a stable suffix so the menu id,
+                // the alias and the slice files can never point at different structures.
+                const id = primarySeen ? dirent.name + "~" + group.sid : (dirent.isDirectory() ? dirent.name : group.sid);
+                primarySeen = true;
+                if (!force && cached != null && cached.mtime === mtime && cached.id === id
                     && cached.present === group.present && cached.xSize === group.xSize && cached.zSize === group.zSize) {
                     out.push(cached);
                     continue;
                 }
                 out.push({
+                    id,
                     sid: group.sid,
                     folder: dirent.name,
                     name: dirent.isDirectory() ? dirent.name : group.sid,
@@ -382,7 +392,7 @@ export const StructureStore = {
         publicCache = out;
         for (const entry of out) {
             StructureStore.register(entry.sid, path.posix.join("public", entry.folder), entry.xSize, entry.zSize);
-            StructureStore.alias(entry.name, entry.sid);
+            StructureStore.alias(entry.id, entry.sid);
         }
         return out;
     },
@@ -432,10 +442,12 @@ export function resolveStructureId(
     if (sources.own.includes(raw)) return { kind: "own", sid: raw, display: raw };
     if (sources.registry.includes(raw)) return { kind: "registry", sid: raw, display: raw };
 
+    const byId = sources.scanned.find((e) => (e as any).id === raw);
+    if (byId != null) return { kind: "scanned", sid: byId.sid, display: (byId as any).id ?? byId.name };
     const byName = sources.scanned.find((e) => e.name === raw);
     if (byName != null) return { kind: "scanned", sid: byName.sid, display: byName.name };
     const bySid = sources.scanned.find((e) => e.sid === raw);
-    if (bySid != null) return { kind: "scanned", sid: bySid.sid, display: bySid.name };
+    if (bySid != null) return { kind: "scanned", sid: bySid.sid, display: (bySid as any).id ?? bySid.name };
 
     return { kind: "missing", sid: "", display: "" };
 }

@@ -241,6 +241,11 @@ export default class CACommand {
         cmd.mandatory("action", ParamType.Enum, "range", "range_man", 1);
         cmd.overload(["range_man", "id_man"]);
         cmd.overload(["range_man"]);
+        // diagnostics: why cannot this public structure load?
+        cmd.setEnum("pubdebug", ["publicdebug", "pdb"]);
+        cmd.mandatory("action", ParamType.Enum, "pubdebug", "pubdebug_man", 1);
+        cmd.overload(["pubdebug_man", "id_man"]);
+        cmd.overload(["range_man", "id_man"]);
 
         //copy
         cmd.setEnum("copy", ["copy", "co"]);
@@ -754,6 +759,10 @@ export default class CACommand {
             case "private":
             case "pr":
                 StructureOperation.private(output, caPlayer, res);
+                return;
+            case "publicdebug":
+            case "pdb":
+                StructureOperation.publicDebug(output, caPlayer, res);
                 return;
             case "undo":
             case "ud":

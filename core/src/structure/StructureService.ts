@@ -649,7 +649,7 @@ export default class StructureService {
         //    folder names are unique on disk, while two copies of the same structure would
         //    share the internal slice id).
         for (const entry of StructureStore.scanPublic(true)) {
-            const id = entry.name;
+            const id = entry.id ?? entry.name;
             if (seen.has(id)) continue;
             seen.add(id);
             arr.push({ id, name: entry.name, author: "public", isPublic: true });
@@ -685,7 +685,10 @@ export default class StructureService {
         if (found != null) return found;
 
         const scanned = StructureStore.scanPublic();
-        const entry = scanned.find((e) => e.name === sid) ?? scanned.find((e) => e.sid === sid) ?? null;
+        const entry = scanned.find((e) => (e.id ?? e.name) === sid)
+            ?? scanned.find((e) => e.name === sid)
+            ?? scanned.find((e) => e.sid === sid)
+            ?? null;
         if (entry == null) return null;
         // Point the reader at this folder: the internal slice id may be shared by two copies.
         StructureStore.register(entry.sid, "public/" + entry.folder, entry.xSize, entry.zSize);

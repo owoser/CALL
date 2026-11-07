@@ -13,6 +13,19 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 4)
+
+- **A public folder that holds slices of two structures loaded nothing at all.** The folder
+  `完整结构test测试` contained `mw53lhiyuc_0_0/_1_0/_2_0` plus a stray `mw53oq4jl7_0_0`; the scan
+  produced two entries with the same display name, the name->slice-id alias kept only one of
+  them, and the size came from the other - so every slice was looked up under the wrong id.
+  Entries now carry a unique id (`folder` for the biggest structure, `folder~sid` for the
+  extras) and the alias is keyed by that id.
+- **A failed load still reported success.** `StructureService.load()` returns the number of
+  failed slices and the caller ignored it; it now reports "加载失败：N 段切片没有读出来" with the
+  folder it looked in, and the per-slice console spam is gone.
+- `/ca publicdebug <id>` prints the scan result, the resolved slice id and the absolute path of
+  every slice with a present/missing marker.
 ### Fixed (3.9.5-beta1, build 3)
 
 - **`/ca load` on a public folder crashed with `Cannot read properties of null (reading

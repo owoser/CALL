@@ -903,6 +903,45 @@ async function runSuite() {
         assert(stillThere, "delete() removed a file it must not touch");
         return "loaded " + placed + " blocks, delete refused";
     });
+    // --- a public folder that holds slices of TWO structures ----------------
+    await checkAsync("ca.publicMixedFolder", async () => {
+        const fs = require("fs");
+        const path = require("path");
+        const folder = "HarnessMixed";
+        const dir = path.join(M.Paths.NBT, "public", folder);
+        fs.mkdirSync(dir, { recursive: true });
+
+        // Build a 2x1 structure out of two copies of the captured file, plus a stray file of a
+        // different structure - exactly what a hand-copied folder looks like.
+        const src = path.join(M.Paths.NBT, "calltest_persist.mcstructure");
+        assert(fs.existsSync(src), "the earlier capture is missing: " + src);
+        fs.copyFileSync(src, path.join(dir, "mixA_0_0.mcstructure"));
+        fs.copyFileSync(src, path.join(dir, "mixA_1_0.mcstructure"));
+        fs.copyFileSync(src, path.join(dir, "mixB_0_0.mcstructure"));
+
+        const list = M.StructureService.getPublicArr();
+        const ids = list.filter((e) => String(e.id).startsWith(folder)).map((e) => e.id).sort();
+        assert(ids.length === 2, "expected two distinct ids for the mixed folder, got " + JSON.stringify(ids));
+
+        const cap = fakePlayer(sim);
+        const primary = M.StructureOperation.findId(ids[0], cap);
+        const secondary = M.StructureOperation.findId(ids[1], cap);
+        assert(primary.kind === "scanned" && secondary.kind === "scanned", "findId kinds: " + primary.kind + "/" + secondary.kind);
+        assert(primary.structid !== secondary.structid, "both ids resolve to the same structure");
+
+        // and the biggest one must actually load both of its slices
+        const st = M.StructureService.getStructureById(cap, primary.structid);
+        assert(st != null, "primary structure did not resolve");
+        const where = spot(44);
+        fillBox(where.x, where.y, where.z, 10, 6, 10, "minecraft:air");
+        const failed = await M.StructureService.load(
+            cap, st, primary.structid, new M.Pos3(where.x, where.y, where.z, DIM), 0, 1,
+            "none", "0_degrees", false, true, false, 100, "", () => { }
+        );
+        fs.rmSync(dir, { recursive: true, force: true });
+        assert(failed === 0, "load reported " + failed + " failed slices");
+        return ids.join(", ") + " -> " + primary.structid + " (0 failed slices)";
+    });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;
         const t = spot(19);

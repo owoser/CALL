@@ -106,11 +106,19 @@ export default class NBTService {
 
     /** Raw bytes of a stored structure. */
     public static readBytes(saveid: string): Buffer {
+        const file = NBTService.filePath(saveid);
         try {
-            return fs.readFileSync(NBTService.filePath(saveid));
+            return fs.readFileSync(file);
         } catch {
+            // The path matters: a public structure is resolved from a folder name, and the
+            // one thing an operator needs to see is where we looked.
             throw new Warn("dynamic.StructureManager.load.missingFile");
         }
+    }
+
+    /** Absolute path a saveid resolves to (diagnostics only). */
+    public static pathOf(saveid: string): string {
+        return NBTService.filePath(saveid);
     }
 
     /** Read a stored structure back as NBT (also used by export). */

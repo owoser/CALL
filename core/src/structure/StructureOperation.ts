@@ -2,6 +2,7 @@ import Config from "../common/Config";
 import Constant from "../temp/Constant";
 import StructureService from "./StructureService";
 import StructureStore, { resolveStructureId } from "./StructureStore";
+import NBTService from "./NBTService";
 import Area3 from "../common/Area3";
 import CAPlayer from "../user/CAPlayer";
 import { Pos3 } from "../common/Pos3";
@@ -42,7 +43,7 @@ export default class StructureOperation {
             if (!registryOwner.has(id)) registryOwner.set(id, key);
         });
 
-        const scanned = StructureStore.scanPublic().map((e) => ({ name: e.name, sid: e.sid }));
+        const scanned = StructureStore.scanPublic().map((e) => ({ id: e.id ?? e.name, name: e.name, sid: e.sid }));
         const hit = resolveStructureId(input, { own: Object.keys(saveList), registry, scanned });
 
         if (hit.kind === "own") return { xuid, structid: hit.sid, kind: hit.kind };
@@ -202,6 +203,8 @@ export default class StructureOperation {
             (a) => new Structure(StructureOperation.areaOf(a, pos.dimid))
         );
         StructureOperation.setDimid({ st: structure }, pos.dimid); // set dimid to structure
+        /** Slices that failed to load; the success message must not claim otherwise. */
+        let failedSlices = 0;
         //save dist area
         StructureService.undoSave(caPlayer, undoStructs, () => {
             StructureService.load(
@@ -219,6 +222,14 @@ export default class StructureOperation {
                 res.Integrity,
                 res.Seed,
                 () => {
+                    // tell the truth about the slices, not just "started"
+                    if (failedSlices > 0) {
+                        tell(online(player.xuid), StrFactory.cmdErr(
+                            "加载失败：" + failedSlices + " 段切片没有读出来（结构：" + structure.name + "，id: " + r.structid + "，路径: " +
+                            StructureStore.absDir(StructureStore.sliceSidOf(r.structid)) + "）"
+                        ), MsgType.RAW);
+                        return;
+                    }
                     tell(online(player.xuid), StrFactory.cmdSuccess(
                         Tr._(
                             player.langCode,
@@ -230,7 +241,9 @@ export default class StructureOperation {
                         )
                     ), MsgType.RAW);
                 }
-            ).catch((e) => {
+            ).then((failed) => {
+                failedSlices = Number(failed) || 0;
+            }).catch((e) => {
                 tell(online(player.xuid), StrFactory.cmdErr(describeError(e)), MsgType.RAW);
             });
         });
@@ -279,6 +292,48 @@ export default class StructureOperation {
                 )
             )
         );
+    }
+
+    /**
+     * `/ca public debug [id]` - why can't this public structure load?
+     *
+     * Prints what the scanner sees, what the id resolves to and where every slice is expected,
+     * so a report contains paths instead of a screenshot.
+     */
+    public static publicDebug(output: CommandOutput, caPlayer: CAPlayer, res: { id?: string }) {
+        const player = caPlayer.$;
+        const scanned = StructureStore.scanPublic(true);
+        const lines: string[] = [];
+        lines.push("公共结构 " + scanned.length + " 个：");
+        for (const e of scanned) {
+            lines.push("  id=" + (e.id ?? e.name) + " sid=" + e.sid + " dir=" + e.folder +
+                " 切片=" + e.present + "/" + (e.xSize * e.zSize) + (e.complete ? "" : "（不全）"));
+        }
+        const wanted = String(res?.id ?? "").trim();
+        if (wanted !== "") {
+            const entry = scanned.find((e) => (e.id ?? e.name) === wanted) ?? scanned.find((e) => e.sid === wanted);
+            if (entry == null) {
+                lines.push("id " + wanted + " 不在公共结构里");
+            } else {
+                const sid = entry.sid;
+                lines.push("解析：" + wanted + " -> sid=" + sid + " 目录=" + StructureStore.absDir(sid));
+                for (let z = 0; z < entry.zSize; z++) {
+                    for (let x = 0; x < entry.xSize; x++) {
+                        const saveid = sid + "_" + x + "_" + z;
+                        const file = NBTService.pathOf(saveid);
+                        let exists = false;
+                        try {
+                            exists = require("fs").existsSync(file);
+                        } catch {
+                            exists = false;
+                        }
+                        lines.push("  " + saveid + " -> " + file + (exists ? "  [有]" : "  [缺]"));
+                    }
+                }
+            }
+        }
+        tell(player, StrFactory.cmdMsg(lines.join("\n")), MsgType.RAW);
+        output.success("公共结构诊断已输出（" + scanned.length + " 项）");
     }
 
     public static list(output: CommandOutput, caPlayer: CAPlayer) {
