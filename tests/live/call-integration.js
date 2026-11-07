@@ -63,6 +63,7 @@ function loadCallModules() {
         StructureService: require(path.join(core, "structure", "StructureService.js")).default,
         NBTService: require(path.join(core, "structure", "NBTService.js")).default,
         Placement: require(path.join(core, "structure", "StructurePlacement.js")),
+        StructureOperation: require(path.join(core, "structure", "StructureOperation.js")).default,
     };
 }
 
@@ -828,6 +829,27 @@ async function runSuite() {
         assert(placed > 0, "nothing was written from the public structure");
         fs.rmSync(dir, { recursive: true, force: true });
         return "listed + loaded " + lens.join("x") + " (" + placed + " blocks)";
+    });
+    // --- public structure through the COMMAND path (the menu does exactly this) ---
+    // --- public structure resolved the way /ca load resolves it --------------
+    await checkAsync("ca.publicLoadCommand", async () => {
+        const fs = require("fs");
+        const path = require("path");
+        const folder = "HarnessCmd";
+        const dir = path.join(M.Paths.NBT, "public", folder);
+        fs.mkdirSync(dir, { recursive: true });
+        const src = path.join(M.Paths.NBT, "calltest_persist.mcstructure");
+        assert(fs.existsSync(src), "the earlier capture is missing: " + src);
+        fs.copyFileSync(src, path.join(dir, "cmddemo.mcstructure"));
+
+        const cap = fakePlayer(sim);
+        // This is exactly what the menu click ends up doing: "/ca load <folder name> ..."
+        const hit = M.StructureOperation.findId(folder, cap);
+        fs.rmSync(dir, { recursive: true, force: true });
+        assert(hit != null, "findId threw for the public folder name");
+        assert(hit.kind === "scanned", "findId resolved " + folder + " as " + hit.kind);
+        assert(hit.structid === folder, "findId returned " + hit.structid);
+        return "findId -> " + hit.kind + " (" + hit.structid + ")";
     });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;

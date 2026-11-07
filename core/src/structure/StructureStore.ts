@@ -404,3 +404,38 @@ export const StructureStore = {
 };
 
 export default StructureStore;
+
+/** Which table an id was found in. */
+export type StructureIdKind = "own" | "registry" | "scanned" | "missing";
+
+export interface StructureIdSources {
+    own: string[];
+    registry: string[];
+    scanned: Array<{ name: string; sid: string }>;
+}
+
+/**
+ * Resolve whatever the player typed or picked from the menu.
+ *
+ * Saved structures answer to their internal id, public folders answer to their FOLDER name
+ * (which is what the list shows), and a loose file in public/ answers to its file base name.
+ * Kept pure so the resolution table can be unit tested - the menu and /ca load must agree on
+ * what a given string means.
+ */
+export function resolveStructureId(
+    input: string,
+    sources: StructureIdSources
+): { kind: StructureIdKind; sid: string; display: string } {
+    const raw = String(input ?? "").trim();
+    if (raw === "") return { kind: "missing", sid: "", display: "" };
+
+    if (sources.own.includes(raw)) return { kind: "own", sid: raw, display: raw };
+    if (sources.registry.includes(raw)) return { kind: "registry", sid: raw, display: raw };
+
+    const byName = sources.scanned.find((e) => e.name === raw);
+    if (byName != null) return { kind: "scanned", sid: byName.sid, display: byName.name };
+    const bySid = sources.scanned.find((e) => e.sid === raw);
+    if (bySid != null) return { kind: "scanned", sid: bySid.sid, display: bySid.name };
+
+    return { kind: "missing", sid: "", display: "" };
+}

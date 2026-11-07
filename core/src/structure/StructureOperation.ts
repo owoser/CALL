@@ -1,7 +1,7 @@
 import Config from "../common/Config";
 import Constant from "../temp/Constant";
 import StructureService from "./StructureService";
-import StructureStore from "./StructureStore";
+import StructureStore, { resolveStructureId } from "./StructureStore";
 import Area3 from "../common/Area3";
 import CAPlayer from "../user/CAPlayer";
 import { Pos3 } from "../common/Pos3";
@@ -22,36 +22,40 @@ export default class StructureOperation {
         });
     }
 
+    /**
+     * Resolve a structure id the player typed or picked.
+     *
+     * Three tables, in order: the player's own saves, the published registry, and the folders
+     * under data/nbt/public/. The last one is what the menu shows - it used to be missing here,
+     * so a freshly copied public structure listed fine and then answered "无法找到结构".
+     */
     public static findId(input: string, caPlayer: CAPlayer) {
-        let xuid = caPlayer.$.xuid;
-        let data = StructureService.getData(xuid);
-        let saveList = data.saveList;
-        let structid;
-        if (saveList[input] != null) {
-            structid = input;
-        }
-        if (structid == null) {
-            //从public寻找id
-            StructureService.publicForEach((id: string, key: string) => {
-                if (id === input) {
-                    structid = id;
-                    xuid = key;
-                }
-            });
-        }
+        const xuid = caPlayer.$.xuid;
+        const data = StructureService.getData(xuid);
+        const saveList = data.saveList ?? {};
 
-        if (structid == null) {
-            throw new Error(
-                Tr._(
-                    caPlayer.$.langCode,
-                    "dynamic.StructureOperation.findId.s0"
-                )
-            );
-        } else {
-            return { xuid, structid };
+        const registry: string[] = [];
+        const registryOwner = new Map<string, string>();
+        StructureService.publicForEach((id: string, key: string) => {
+            if (id == null) return;
+            registry.push(id);
+            if (!registryOwner.has(id)) registryOwner.set(id, key);
+        });
+
+        const scanned = StructureStore.scanPublic().map((e) => ({ name: e.name, sid: e.sid }));
+        const hit = resolveStructureId(input, { own: Object.keys(saveList), registry, scanned });
+
+        if (hit.kind === "own") return { xuid, structid: hit.sid, kind: hit.kind };
+        if (hit.kind === "registry") {
+            return { xuid: registryOwner.get(hit.sid) ?? xuid, structid: hit.sid, kind: hit.kind };
         }
+        if (hit.kind === "scanned") return { xuid, structid: hit.display, kind: hit.kind };
+
+        throw new Error(
+            Tr._(caPlayer.$.langCode, "dynamic.StructureOperation.findId.s0") +
+            "（自己的结构用 id；公共结构用文件夹名，如 public/领地02号）"
+        );
     }
-
     /** Plain {start,end} corners (no dimid) -> a real Area3 in the target dimension. */
     private static areaOf(
         a: { start: { x: number; y: number; z: number }; end: { x: number; y: number; z: number } },
@@ -323,6 +327,9 @@ export default class StructureOperation {
     ) {
         const player = caPlayer.$;
         let r = StructureOperation.findId(res.id, caPlayer);
+        if (r.kind === "scanned") {
+            throw new Error("公共结构是只读的：请在 data/nbt/public 目录里改名或删除");
+        }
         if (r.xuid != player.xuid) {
             throw new Error(
                 Tr._(player.langCode, "dynamic.StructureOperation.public.s14")
@@ -364,6 +371,9 @@ export default class StructureOperation {
     ) {
         const player = caPlayer.$;
         let r = StructureOperation.findId(res.id, caPlayer);
+        if (r.kind === "scanned") {
+            throw new Error("公共结构是只读的：请在 data/nbt/public 目录里改名或删除");
+        }
         if (r.xuid != player.xuid) {
             throw new Error(
                 Tr._(player.langCode, "dynamic.StructureOperation.public.s14")
