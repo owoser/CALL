@@ -3,6 +3,7 @@ import * as path from "path";
 import Version from "../util/Version";
 import Paths from "./Paths";
 import { mergeDefaults } from "../user/Bindings";
+import JsoncConfigFile, { migrateToTemplate } from "./JsoncConfig";
 
 export enum PermissionsType {
     ALL = "all",
@@ -13,12 +14,12 @@ export enum PermissionsType {
 }
 
 // read-only assets (shipped with the plugin)
-const CHECK_PATH = path.join(Paths.ASSETS, "check.json");
+const CHECK_PATH = path.join(Paths.ASSETS, "check.jsonc");
 const ICONS_PATH = path.join(Paths.ASSETS, "icons.json");
 const ITEM_TEXTURE_PATH = path.join(Paths.ASSETS, "item_texture.json");
 
 // user configuration
-const GLOBAL_PATH = path.join(Paths.CONFIG, "configs.json");
+const GLOBAL_PATH = path.join(Paths.CONFIG, "configs.jsonc");
 const PERMISSIONS_PATH = path.join(Paths.CONFIG, "userlist.json");
 const PERMISSION_FILE_PATH = path.join(Paths.CONFIG, "permission.json");
 
@@ -35,11 +36,27 @@ const DATA_VERSION_PATH = path.join(Paths.DATA, "version");
  * the code defaults and there is nothing to read or edit. Restore the annotated template
  * instead, before the handles below are opened.
  */
-const CONFIG_TEMPLATE_PATH = path.join(Paths.ASSETS, "configs.default.json");
+const CONFIG_TEMPLATE_PATH = path.join(Paths.ASSETS, "configs.default.jsonc");
 
 function healGlobalConfig(): void {
     try {
         fs.mkdirSync(Paths.CONFIG, { recursive: true });
+        // 3.9.5-beta1 renamed the file to configs.jsonc so it can keep its comments; carry an
+        // existing configs.json over instead of starting from scratch.
+        const legacy = path.join(Paths.CONFIG, "configs.json");
+        try {
+            const hasNew = fs.statSync(GLOBAL_PATH).size > 3;
+            if (!hasNew && fs.existsSync(legacy)) {
+                fs.copyFileSync(legacy, GLOBAL_PATH);
+                logger.warn("[CALL] configs.json -> configs.jsonc（文件内容已保留，注释将在下次升级时补齐）");
+            }
+        } catch {
+            // GLOBAL_PATH missing
+        }
+    } catch {
+        // ignore
+    }
+    try {
         let missing = true;
         try {
             const st = fs.statSync(GLOBAL_PATH);
@@ -61,6 +78,42 @@ function healGlobalConfig(): void {
 }
 
 healGlobalConfig();
+
+/**
+ * Merge the shipped template into the user file when its `version` moved.
+ *
+ * Only runs when the versions differ (or a key is missing), so an ordinary start does not
+ * touch the file at all. The old file is always backed up first.
+ */
+function migrateConfigFile(): void {
+    try {
+        const templateText = fs.readFileSync(CONFIG_TEMPLATE_PATH, "utf8");
+        const userText = fs.readFileSync(GLOBAL_PATH, "utf8");
+        const result = migrateToTemplate(templateText, userText);
+        if (result.text == null) return;
+        const backupDir = path.join(Paths.CONFIG, "backup");
+        fs.mkdirSync(backupDir, { recursive: true });
+        const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+        fs.writeFileSync(path.join(backupDir, "configs.v" + result.from + "." + stamp + ".jsonc"), userText, "utf8");
+        fs.writeFileSync(GLOBAL_PATH, result.text, "utf8");
+        try {
+            logger.warn("[CALL] configs.jsonc 升级 v" + result.from + " → v" + result.to +
+                (result.added.length ? "，新增 " + result.added.join(", ") : "") +
+                (result.dropped.length ? "，移除 " + result.dropped.join(", ") : "") +
+                "（旧文件已备份到 config/backup/）");
+        } catch {
+            // logger may not be ready
+        }
+    } catch (e) {
+        try {
+            logger.warn("[CALL] configs.jsonc 升级失败: " + (e && (e as any).message ? (e as any).message : e));
+        } catch {
+            // ignore
+        }
+    }
+}
+
+migrateConfigFile();
 
 /** Strip // and /* *\/ comments so a commented template can be parsed with JSON.parse. */
 function stripJsonComments(text: string): string {
@@ -168,6 +221,16 @@ function migratePreviewDefaults(): void {
             current.previewBatchSize = 1000;
             changes.push("previewBatchSize 200 → 1000");
         }
+        // 3.9.5-beta1 makes the selection and the clipboard survive a relog/restart. The old
+        // defaults (false) wiped them in CAPlayer.saveAll().
+        if (current.saveArea === false) {
+            current.saveArea = true;
+            changes.push("saveArea false → true（退出不再清选区）");
+        }
+        if (current.saveCopy === false) {
+            current.saveCopy = true;
+            changes.push("saveCopy false → true（退出不再清剪贴板）");
+        }
         // 3.9.0 shipped "auto" (only the last 20s); the countdown is meant to be visible for the
         // whole preview.
         if (String(current.previewCountdown ?? "") === "auto") {
@@ -219,8 +282,9 @@ function detectPluginVersion(): Version {
     for (const file of ["manifest.json", "package.json"]) {
         const json = readJson(path.join(Paths.ROOT, file));
         const raw = json && json.version;
-        if (typeof raw === "string" && /^\d+(\.\d+)*$/.test(raw.trim())) {
-            return Version.fromString(raw.trim());
+        // "3.9.5-beta1" is a valid manifest version; Version only keeps the numeric part.
+        if (typeof raw === "string" && /^\d+(\.\d+)*(-[0-9A-Za-z.]+)?$/.test(raw.trim())) {
+            return Version.fromString(raw.trim().split("-")[0]);
         }
     }
     return Version.fromArr([0, 0, 0]);
@@ -342,11 +406,11 @@ export default class Config {
     public static readonly PERMISSION_FILE_PATH = PERMISSION_FILE_PATH;
 
     // ---- config handles ---------------------------------------------------
-    public static GLOBAL = new JsonConfigFile(GLOBAL_LSE);
+    public static GLOBAL: any = new JsoncConfigFile(GLOBAL_PATH, CONFIG_TEMPLATE_PATH);
     public static PERMISSIONS = new JsonConfigFile(PERMISSIONS_LSE);
     public static PLAYERS_SETTINGS = new JsonConfigFile(PLAYERS_SETTINGS_LSE);
     public static STRUCTURES = new JsonConfigFile(STRUCTURES_LSE);
-    public static CHECK = new JsonConfigFile(CHECK_LSE);
+    public static CHECK: any = new JsoncConfigFile(CHECK_PATH);
     public static ITEM_TEXTURES = new JsonConfigFile(ITEM_TEXTURE_LSE);
 
     public static readonly ITEM_ICONS: Set<string> = new Set<string>(readJson<string[]>(ICONS_PATH) ?? []);
@@ -358,7 +422,7 @@ export default class Config {
      * try/catch, so a missing intermediate path returned the *parent object*
      * instead of null and `if (value == null)` guards never fired.
      */
-    public static get(config: JsonConfigFile, str: string, def?: any): any {
+    public static get(config: any, str: string, def?: any): any {
         const keys = str.split(".");
         let current: any;
         try {
@@ -374,7 +438,7 @@ export default class Config {
         return current;
     }
 
-    public static set(config: JsonConfigFile, str: string, data: any): boolean {
+    public static set(config: any, str: string, data: any): boolean {
         const keys = str.split(".");
         if (keys.length === 1) {
             config.set(keys[0], data);
@@ -400,7 +464,7 @@ export default class Config {
         return true;
     }
 
-    public static del(config: JsonConfigFile, str: string): boolean {
+    public static del(config: any, str: string): boolean {
         const keys = str.split(".");
         if (keys.length === 1) {
             return config.delete(keys[0]);
@@ -430,11 +494,11 @@ export default class Config {
     }
 
     public static openAll() {
-        Config.GLOBAL = new JsonConfigFile(GLOBAL_LSE);
+        Config.GLOBAL = new JsoncConfigFile(GLOBAL_PATH, CONFIG_TEMPLATE_PATH);
         Config.PERMISSIONS = new JsonConfigFile(PERMISSIONS_LSE);
         Config.PLAYERS_SETTINGS = new JsonConfigFile(PLAYERS_SETTINGS_LSE);
         Config.STRUCTURES = new JsonConfigFile(STRUCTURES_LSE);
-        Config.CHECK = new JsonConfigFile(CHECK_LSE);
+        Config.CHECK = new JsoncConfigFile(CHECK_PATH);
         Config.ITEM_TEXTURES = new JsonConfigFile(ITEM_TEXTURE_LSE);
     }
 }

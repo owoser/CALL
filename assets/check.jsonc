@@ -257,6 +257,10 @@
         },
         "previewBossBarRebuild": {
             "type": "boolean"
+        },
+        "suvivalModeActive": {
+            "type": "boolean"
         }
-    }
+    },
+    "version": 1
 }

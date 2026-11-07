@@ -57,8 +57,8 @@ function loadJsonc(file) {
     return JSON.parse(stripComments(readFileSync(file, 'utf8')));
 }
 
-const configsPath = join(ROOT, 'assets', 'configs.default.json');
-const checkPath = join(ROOT, 'assets', 'check.json');
+const configsPath = join(ROOT, 'assets', 'configs.default.jsonc');
+const checkPath = join(ROOT, 'assets', 'check.jsonc');
 
 const configs = loadJsonc(configsPath);
 const check = loadJsonc(checkPath);
@@ -75,11 +75,28 @@ const getPath = (obj, dotted) => {
 let problems = 0;
 const specs = check.configs ?? {};
 
+// The template and the schema must agree on the schema version, and every documented key must
+// exist in both. That is what forces a version bump whenever a key is added or removed.
+if (Number(check.version) !== Number(configs.version)) {
+    console.log('VERSION  check.jsonc version ' + check.version + ' != configs.default.jsonc version ' + configs.version);
+    problems++;
+}
+const documented = Object.keys(specs);
+const shipped = Object.keys(configs).filter((k) => k !== 'version');
+for (const key of shipped) {
+    // A container object (e.g. "default") is documented by its dotted children.
+    const known = documented.includes(key) || documented.some((d) => d.startsWith(key + '.'));
+    if (!known) {
+        console.log('UNDOCUMENTED  "' + key + '" is in configs.default.jsonc but not in check.jsonc');
+        problems++;
+    }
+}
+
 // The specs MUST live under "configs". An edit once moved 18 of them to the root by
 // accident: both this script and the runtime read only check.configs, so those 18 keys -
 // previewMaxBlocks among them - were silently never validated, and an out-of-range value
 // looked fine until it was clamped at runtime.
-const strayRoot = Object.keys(check).filter((k) => k !== 'configs');
+const strayRoot = Object.keys(check).filter((k) => k !== 'configs' && k !== 'version');
 if (strayRoot.length > 0) {
     console.log('STRUCTURE check.json: ' + strayRoot.length + ' spec(s) outside "configs": ' + strayRoot.join(', '));
     problems++;

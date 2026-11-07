@@ -81,7 +81,7 @@ for (const file of walk(DOCS)) {
 }
 
 // ------------------------------------------- 3. documented keys == shipped keys
-const configPath = join(ROOT, 'assets', 'configs.default.json');
+const configPath = join(ROOT, 'assets', 'configs.default.jsonc');
 const docPath = join(DOCS, 'user', 'config.md');
 if (!existsSync(configPath) || !existsSync(docPath)) {
     note('cannot compare config keys (missing file)');

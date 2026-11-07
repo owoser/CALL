@@ -4,6 +4,18 @@
 */
 {
     /*
+    *   ###配置结构版本###
+    *   [解析] 任何键的新增/删除/改名都必须 +1；插件启动时比对这个值，
+    *          版本不同会自动把新模板合并进来（保留你的值，补上缺失项和注释）。
+    *          不要手动改这个数字，除非你知道自己在做什么。
+    *
+    * ###Config schema version###
+    *   Bump this whenever a key is added, removed or renamed. On startup CALL compares it with
+    *   the shipped template and merges the template in (your values win, missing keys and their
+    *   comments are added).
+    */
+    "version": 1,
+    /*
     *   ###是否开启CALL###
     *   [参数](如下)
     *   true  [解析] 启用插件CALL
@@ -260,9 +272,9 @@
         "enable": true,
         "barReplace": 0,
         "barReplaced": 1,
-        "saveArea": false,
+        "saveArea": true,
         "saveUndo": true,
-        "saveCopy": false,
+        "saveCopy": true,
         "saveEntity": true,
         "areaTextShow": true,
         "displayArea": true,

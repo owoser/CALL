@@ -58,6 +58,7 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 
 | 键 | 默认值 | 可选值 | 说明 |
 |---|---|---|---|
+| `version` | `1` | 整数 | **配置结构版本**（文件第一行）。任何键的新增/删除/改名都必须 +1；启动时版本不同会自动把新模板合并进来（你的值优先，缺失项与注释自动补齐），旧文件备份到 `config/backup/` |
 | `toolItems` | `true` | true / false | 是否安装并启用内置工具物品。关闭后不再复制物品包，物品自然不可用 |
 | `previewTimeout` | `60` | 10 – 600 | 预览魔杖多久没操作就自动取消（秒） |
 | `previewCountdown` | `"always"` | `always` / `auto` / `off` | 预览倒计时显示：`always` = 全程（默认），`auto` = 最后 20 秒，`off` = 不显示 |
