@@ -647,6 +647,20 @@ export default class StructureService {
         return arr;
     }
 
+    /**
+     * Warn (once per scan) about files that were dropped straight into public/.
+     *
+     * Silent ignoring is worse than a clear message: the file looks published, the menu does
+     * not list it, and the operator has no idea why.
+     */
+    public static loosePublicNotice(): string | null {
+        const loose = StructureStore.loosePublicFiles();
+        if (loose.length === 0) return null;
+        return "[CALL] public/ 根目录有 " + loose.length + " 个 .mcstructure 没有放进文件夹，菜单不会列出它们：" +
+            loose.slice(0, 3).join(", ") + (loose.length > 3 ? " …" : "") +
+            " —— 请建一个文件夹再放进去，例如 public/领地02号/xxx.mcstructure";
+    }
+
     public static getPublicArr(): any[] {
         const arr: any[] = [];
         const seen = new Set<string>();
@@ -691,6 +705,9 @@ export default class StructureService {
         if (found != null) return found;
 
         const scanned = StructureStore.scanPublic();
+        if (StructureStore.isLoosePublic(sid + ".mcstructure") || StructureStore.isLoosePublic(sid)) {
+            throw new Error("「" + sid + "」直接放在 public/ 根目录，不生效；请建一个文件夹（文件夹名=显示名）再放进去");
+        }
         const entry = scanned.find((e) => (e.id ?? e.name) === sid)
             ?? scanned.find((e) => e.name === sid)
             ?? scanned.find((e) => e.sid === sid)

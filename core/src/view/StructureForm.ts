@@ -4,6 +4,7 @@ import { Pos3 } from "../common/Pos3";
 import StructureOperation from "../structure/StructureOperation";
 import StructureService from "../structure/StructureService";
 import StrFactory from "../util/StrFactory";
+import { tell } from "../util/Msg";
 import Tr from "../util/Translator";
 import Form from "./Form";
 import Menu from "./Menu";
@@ -160,6 +161,16 @@ export default class StructureForm extends Form {
     }
 
     private publicForm() {
+        // Files dropped straight into public/ are not published: say so once instead of
+        // silently hiding them (that was the "我明明放进去了" report).
+        const notice = StructureService.loosePublicNotice();
+        if (notice != null) {
+            try {
+                tell(this.caPlayer.$, StrFactory.cmdWarn(notice));
+            } catch {
+                // a missing player must not block the menu
+            }
+        }
         let form = mc
             .newSimpleForm()
             .setTitle(

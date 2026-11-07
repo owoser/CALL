@@ -99,8 +99,15 @@ export class ToolOperation {
 
     public static cmdsTranslator(caPlayer: CAPlayer, itemArr: Item[], iA: number, iB: number, cmds: string[], block: Block, posFloat: FloatPos) {
         // customize variable
-        //@ts-ignore
-        block["states"] = BlockType.generateFromBlock(block).states;
+        try {
+            //@ts-ignore
+            block["states"] = BlockType.generateFromBlock(block).states;
+        } catch {
+            // A click on air has no real block behind it; commands that never touch $states
+            // (call menu, call copy, ...) must still run.
+            //@ts-ignore
+            block["states"] = {};
+        }
 
         const data: ToolVariable = {
             pos: Pos3.fromPos(block.pos).floor(),
@@ -153,6 +160,46 @@ export class ToolOperation {
             StrFactory.cmdErr("这个工具还没有绑定：/ca tools give 重新领取，或重进一次服务器"),
             MsgType.RAW
         );
+    }
+
+    /**
+     * A right-click that did not land on a block.
+     *
+     * Only `onUseItemOn` used to be wired, so a player had to aim at a block before the menu
+     * or the copy wand responded. `onUseItem` fires for air too; the target is then whatever
+     * the player is looking at, else the block under their feet, else a stand-in at their
+     * position so position-free bindings (call menu, call copy) still work.
+     */
+    public static onAirClick(caPlayer: CAPlayer, item: Item) {
+        const player = caPlayer?.$;
+        if (player == null) return;
+        let block: any = null;
+        try {
+            block = player.getBlockFromViewVector(false, false, 6, false);
+        } catch {
+            block = null;
+        }
+        if (block == null) {
+            try {
+                block = mc.getBlock(player.pos);
+            } catch {
+                block = null;
+            }
+        }
+        if (block == null) {
+            let pos: any = { x: 0, y: 64, z: 0, dimid: 0 };
+            try {
+                pos = player.pos;
+            } catch {
+                // keep the default
+            }
+            block = {
+                pos: { x: Math.floor(pos.x), y: Math.floor(pos.y), z: Math.floor(pos.z), dimid: pos.dimid ?? 0 },
+                type: "minecraft:air",
+                states: {},
+            };
+        }
+        ToolOperation.onClick(ToolType.RIGHT, caPlayer, item, block, block.pos);
     }
 
     public static onClick(type: ToolType, caPlayer: CAPlayer, item: Item, block: Block, posFloat: FloatPos) {

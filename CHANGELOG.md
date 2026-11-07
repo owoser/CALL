@@ -13,6 +13,17 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Changed (3.9.5-beta1, build 7)
+
+- **The tools respond to a right-click on air.** Only `onUseItemOn` was wired, so the menu and
+  the copy wand required a block under the crosshair. `onUseItem` is now listened to as well
+  (ignored within 250ms of a block click to avoid double handling) and targets what the player
+  looks at, then the block under their feet, then a stand-in at their position - which is
+  enough for position-free bindings such as `call menu` and `call copy`.
+- **Loose files in `public/` are no longer published.** The README and the docs claimed a bare
+  `.mcstructure` in the root would work; it did not, and clicking it only produced a console
+  error. Such files are now ignored, and opening the menu says how many were found and where
+  they must go (`public/<名字>/`). Loading one by id answers with the same explanation.
 ### Fixed (3.9.5-beta1, build 6)
 
 - **The menu's 提交 button produced a syntax error for names with spaces.** The form built

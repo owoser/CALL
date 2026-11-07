@@ -121,6 +121,8 @@ export function groupSlices(fileNames: string[]): SliceGroup[] {
 }
 
 let publicCache: PublicEntry[] = [];
+/** Files left in the root of public/ (ignored until they get a folder). */
+let looseFiles: string[] = [];
 
 export const StructureStore = {
     root(): string {
@@ -136,18 +138,26 @@ export const StructureStore = {
             fs.mkdirSync(Paths.NBT, { recursive: true });
             fs.mkdirSync(StructureStore.publicRoot(), { recursive: true });
             const readme = path.join(StructureStore.publicRoot(), "README.txt");
-            if (!fs.existsSync(readme)) {
-                fs.writeFileSync(readme, [
-                    "把 .mcstructure 文件放进这个目录，服务器里的「公开结构」就会出现它。",
-                    "",
-                    "- 一个结构一个文件夹，文件夹名就是显示名：public/领地02号/<id>.mcstructure",
-                    "- 直接放在 public/ 下的单个 .mcstructure 也认，显示名取文件名。",
-                    "- 增删改文件后打开菜单即可刷新，不需要重启服务器。",
-                    "",
-                    "Drop .mcstructure files here to publish them. One folder per structure; the",
-                    "folder name is the display name. Changes are picked up when the menu opens.",
-                ].join("\r\n"), "utf8");
+            const text = [
+                "公开结构：一个结构 = 一个文件夹，文件夹名就是菜单里显示的名字。",
+                "",
+                "    public/领地02号/<id>.mcstructure            ← 正确：放进文件夹",
+                "    public/领地02号/<id>_1_0.mcstructure        ← 大结构的多张切片要一起放进来",
+                "",
+                "- 直接把 .mcstructure 丢在 public/ 根目录是**不生效**的，菜单不会列出它；",
+                "  请先在 public/ 下建一个文件夹，再把文件放进去。",
+                "- 增删改文件后打开菜单即可刷新，不需要重启服务器。",
+                "",
+                "Publish a structure by putting it in a FOLDER: the folder name is the display",
+                "name. Files left loose in public/ are ignored - create a folder for them first.",
+            ].join("\r\n");
+            let current = "";
+            try {
+                current = fs.readFileSync(readme, "utf8");
+            } catch {
+                current = "";
             }
+            if (current !== text) fs.writeFileSync(readme, text, "utf8");
         } catch {
             // the root may be read only
         }
@@ -336,6 +346,7 @@ export const StructureStore = {
         }
 
         const previous = new Map(publicCache.map((e) => [e.folder + "/" + e.sid, e]));
+        looseFiles = [];
         for (const dirent of dirs) {
             const full = path.join(root, dirent.name);
             let files: string[] = [];
@@ -348,12 +359,11 @@ export const StructureStore = {
                     continue;
                 }
             } else if (dirent.name.toLowerCase().endsWith(".mcstructure")) {
-                try {
-                    mtime = fs.statSync(full).mtimeMs;
-                } catch {
-                    continue;
-                }
-                files = [dirent.name];
+                // A file dropped straight into public/ is NOT a published structure: the
+                // folder is the structure (and its name). Remember it so the menu can say so
+                // instead of failing later at load time.
+                looseFiles.push(dirent.name);
+                continue;
             } else {
                 continue;
             }
@@ -396,6 +406,17 @@ export const StructureStore = {
         }
         return out;
     },
+    /** .mcstructure files sitting in the root of public/ - they are ignored until moved into a folder. */
+    loosePublicFiles(): string[] {
+        StructureStore.scanPublic();
+        return looseFiles.slice();
+    },
+
+    /** Is this file name one of the ignored loose files? */
+    isLoosePublic(name: string): boolean {
+        return looseFiles.includes(name);
+    },
+
     cachedPublic(): PublicEntry[] {
         return publicCache;
     },

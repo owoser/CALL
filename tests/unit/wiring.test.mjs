@@ -101,3 +101,20 @@ test('structure ids are quoted before they reach a command', () => {
     assert.ok(src.includes('call delete ${quoteArg(data.id)}'), 'delete must quote the id');
     assert.ok(!/call load \$\{stData\.id\}/.test(src), 'an unquoted load id splits on spaces');
 });
+
+test('air clicks reach the tools', () => {
+    const app = read('core/src/app.ts');
+    assert.ok(app.includes('"onUseItem"'), 'the plugin must listen to onUseItem for air clicks');
+    assert.ok(app.includes('onAirClick('), 'the air click must be routed to the tools');
+    const op = read('core/src/user/ToolOperation.ts');
+    assert.ok(op.includes('public static onAirClick('), 'ToolOperation needs onAirClick');
+    assert.ok(op.includes('getBlockFromViewVector'), 'the air click needs a target: what the player looks at');
+});
+
+test('public structures must live in a folder', () => {
+    const store = read(STORE);
+    assert.ok(store.includes('loosePublicFiles'), 'loose files must be tracked, not published');
+    assert.ok(store.includes('不生效'), 'the README must say loose files are ignored');
+    const svc = read(SERVICE);
+    assert.ok(svc.includes('没有放进文件夹'), 'the player must be told why it is not listed');
+});

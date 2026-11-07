@@ -35,6 +35,7 @@ namespace ListenerHandler {
     const Join = "onJoin";
     const Left = "onLeft";
     const UseItemOn = "onUseItemOn";
+const UseItem = "onUseItem";
     const StartDestroyBlock = "onStartDestroyBlock";
 
     function onJoinHandler(player: Player) {
@@ -131,13 +132,36 @@ namespace ListenerHandler {
 
         // anti-shake: onUseItemOn fires several times for one click on some clients
         const clickMap = new Map<string, boolean>();
+        // When a click lands on a block BOTH events fire; this remembers the block click so
+        // the air handler can ignore it.
+        const lastBlockClick = new Map<string, number>();
         mc.listen(UseItemOn, (player: Player, item: Item, block: Block, side: number, pos: any) => {
             safeCall("onUseItemOn.gate", () => {
                 if (!player) return;
+                lastBlockClick.set(player.xuid, Date.now());
                 if (clickMap.get(player.xuid)) return;
                 clickMap.set(player.xuid, true);
                 setTimeout(() => clickMap.set(player.xuid, false), 200);
                 onUseItemOnHandler(player, item, block, side, pos);
+            });
+        });
+
+        // Right-clicking AIR: onUseItemOn never fires there, so the menu / copy wand used to
+        // need a block under the crosshair. onUseItem does fire, so route it through the same
+        // click pipeline when no block click just happened.
+        mc.listen(UseItem, (player: Player, item: Item) => {
+            safeCall("onUseItem", () => {
+                if (player == null || item == null) return;
+                if (!Players.hasPermission(player)) return;
+                if (!ToolItems.isTool(String(item.type))) return;
+                const caPlayer = Players.fetchCAPlayer(player.xuid);
+                if (caPlayer == null || !EnableOperation.isEnable(caPlayer)) return;
+                const last = lastBlockClick.get(player.xuid) ?? 0;
+                if (Date.now() - last < 250) return;   // already handled as a block click
+                if (clickMap.get(player.xuid)) return;
+                clickMap.set(player.xuid, true);
+                setTimeout(() => clickMap.set(player.xuid, false), 200);
+                ToolOperation.onAirClick(caPlayer, item);
             });
         });
 
