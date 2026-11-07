@@ -13,6 +13,19 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 3)
+
+- **`/ca load` on a public folder crashed with `Cannot read properties of null (reading
+  'area')`**: `load()` still read the structure out of `saveList`, which never contains a
+  public folder. It now resolves through `StructureService.getStructureById()` (own saves /
+  published registry / `data/nbt/public`) and answers with a readable message when the id
+  really does not exist.
+- **`/ca delete` refuses public folders instead of failing obscurely**: it resolves through
+  `findId` and answers "公共结构是只读的" without touching a file. A bare `/ca delete` now
+  prints the usage line rather than the vanilla "unexpected argument".
+- Both of the above were patches that had silently not been applied: the files use CRLF and
+  the `String.replace` anchors were LF-only. New `tests/unit/wiring.test.mjs` reads the
+  sources and fails when a critical integration point is missing, so that cannot happen again.
 ### Fixed (3.9.5-beta1, build 2)
 
 - **Opening the public structure list crashed the whole form** (`StructureForm.ts:169`): the

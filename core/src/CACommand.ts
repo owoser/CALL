@@ -232,11 +232,15 @@ export default class CACommand {
         cmd.setEnum("delete", ["delete", "de"]);
         cmd.mandatory("action", ParamType.Enum, "delete", "delete_man", 1);
         cmd.overload(["delete_man", "id_man"]);
+        // bare `/ca delete` reaches the handler so it can print the usage instead of the
+        // vanilla "unexpected argument" message.
+        cmd.overload(["delete_man"]);
 
         //range
         cmd.setEnum("range", ["public", "pu", "private", "pr"]);
         cmd.mandatory("action", ParamType.Enum, "range", "range_man", 1);
         cmd.overload(["range_man", "id_man"]);
+        cmd.overload(["range_man"]);
 
         //copy
         cmd.setEnum("copy", ["copy", "co"]);

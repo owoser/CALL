@@ -851,6 +851,58 @@ async function runSuite() {
         assert(hit.structid === folder, "findId returned " + hit.structid);
         return "findId -> " + hit.kind + " (" + hit.structid + ")";
     });
+    // --- /ca load on a public folder (the menu click path) ------------------
+    await checkAsync("ca.publicLoadCrash", async () => {
+        const fs = require("fs");
+        const path = require("path");
+        const folder = "HarnessLoad";
+        const dir = path.join(M.Paths.NBT, "public", folder);
+        fs.mkdirSync(dir, { recursive: true });
+        const src = path.join(M.Paths.NBT, "calltest_persist.mcstructure");
+        assert(fs.existsSync(src), "the earlier capture is missing: " + src);
+        fs.copyFileSync(src, path.join(dir, "loaddemo.mcstructure"));
+
+        const cap = fakePlayer(sim);
+        const where = spot(42);
+        fillBox(where.x, where.y, where.z, 8, 6, 8, "minecraft:air");
+        const output = { success(m) { this.last = String(m); }, error(m) { throw new Error("command error: " + m); } };
+        // This is exactly what the form runs after /ca load <id> <pos>
+        await M.StructureOperation.load(output, cap, {
+            id: folder,
+            IntPos: new M.Pos3(where.x, where.y, where.z, DIM),
+            Mirror: "none",
+            Degrees: "0",
+            IncludeEntities: false,
+            IncludeBlocks: true,
+            Waterlogged: false,
+            Integrity: 100,
+            Seed: "",
+        });
+        await new Promise((r) => setTimeout(r, 4000));
+        let placed = 0;
+        for (let dx = 0; dx < 4; dx++) {
+            for (let dy = 0; dy < 4; dy++) {
+                for (let dz = 0; dz < 4; dz++) {
+                    if (blockTypeAt(where.x + dx, where.y + dy, where.z + dz) !== "minecraft:air") placed++;
+                }
+            }
+        }
+
+        // deleting a public folder must be refused, and the files must survive
+        let refused = false;
+        try {
+            M.StructureOperation.delete({ success() { }, error() { } }, cap, { id: folder });
+        } catch (e) {
+            refused = /只读/.test(String(e && e.message));
+        }
+        const stillThere = fs.existsSync(path.join(dir, "loaddemo.mcstructure"));
+        fs.rmSync(dir, { recursive: true, force: true });
+
+        assert(placed > 0, "nothing was placed by load() for the public folder");
+        assert(refused, "delete() did not refuse a public folder");
+        assert(stillThere, "delete() removed a file it must not touch");
+        return "loaded " + placed + " blocks, delete refused";
+    });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;
         const t = spot(19);

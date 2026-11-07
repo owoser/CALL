@@ -160,11 +160,17 @@ export default class StructureOperation {
     ) {
         const player = caPlayer.$;
         let r = StructureOperation.findId(res.id, caPlayer);
-        let st = Config.get(
-            Config.STRUCTURES,
-            `private.${r.xuid}.saveList.${r.structid}`
-        );
-        let structure = new Structure(st.area, st.name, st.isPublic);
+        // getStructureById knows all three homes: own saves, the published registry and the
+        // folders under data/nbt/public/. Looking only at saveList is what produced
+        // "Cannot read properties of null (reading 'area')" for a public folder.
+        let structure = StructureService.getStructureById(caPlayer, r.structid);
+        if (structure == null) {
+            const st = Config.get(Config.STRUCTURES, `private.${r.xuid}.saveList.${r.structid}`);
+            if (st == null) {
+                throw new Error("找不到结构：" + res.id + "（私有结构用 id，公共结构用文件夹名）");
+            }
+            structure = new Structure(st.area, st.name, st.isPublic);
+        }
         let pos: Pos3;
         if (res.IntPos == null) {
             pos = Pos3.fromPos(player.pos).calibration().floor();
@@ -217,7 +223,7 @@ export default class StructureOperation {
                         Tr._(
                             player.langCode,
                             "dynamic.StructureOperation.load.s5",
-                            st.name,
+                            structure.name,
                             pos,
                             r.structid,
                             targetArea
@@ -236,9 +242,17 @@ export default class StructureOperation {
         res: { id: any }
     ) {
         const player = caPlayer.$;
+        if (res?.id == null || String(res.id).trim() === "") {
+            throw new Error("用法: /ca delete <结构id>（公共结构请在 data/nbt/public 里删除）");
+        }
+        const r = StructureOperation.findId(res.id, caPlayer);
+        if (r.kind === "scanned") {
+            // Public folders are files on disk; CALL never edits them.
+            throw new Error("公共结构是只读的：请在 data/nbt/public 目录里删除或改名");
+        }
         let data = StructureService.getData(player.xuid);
         let saveList = data.saveList;
-        let sid = res.id;
+        let sid = r.structid;
         let st = saveList[sid];
         if (st == null) {
             throw new Error(
