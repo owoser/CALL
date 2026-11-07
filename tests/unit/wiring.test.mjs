@@ -93,3 +93,11 @@ test('the load failure path is reported, not swallowed', () => {
     assert.ok(src.includes('加载失败'), 'a failed load must say so');
     assert.ok(src.includes('publicCheck(') && src.includes('publicReload('), 'the diagnostics commands must exist');
 });
+
+test('structure ids are quoted before they reach a command', () => {
+    const src = read(FORM);
+    assert.ok(src.includes('function quoteArg'), 'the form needs a quoting helper');
+    assert.ok(src.includes('call load ${quoteArg(stData.id)}'), 'load must quote the id');
+    assert.ok(src.includes('call delete ${quoteArg(data.id)}'), 'delete must quote the id');
+    assert.ok(!/call load \$\{stData\.id\}/.test(src), 'an unquoted load id splits on spaces');
+});

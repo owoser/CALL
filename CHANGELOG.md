@@ -13,6 +13,13 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 6)
+
+- **The menu's 提交 button produced a syntax error for names with spaces.** The form built
+  `call load 233 FF 黑黑 _ 啊啊_ 641 136 6019 ...` unquoted, so the parser read `233` as the id and
+  `FF` as a coordinate. Every id interpolated into a command (load / delete / public / private)
+  now goes through `quoteArg()`, which wraps it in double quotes - the same form that works when
+  typed by hand.
 ### Fixed (3.9.5-beta1, build 5)
 
 - **A failed load no longer reports success.** The callback ran inside `StructureService.load`

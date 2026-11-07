@@ -8,6 +8,18 @@ import Tr from "../util/Translator";
 import Form from "./Form";
 import Menu from "./Menu";
 
+/**
+ * Quote a structure id for a command line.
+ *
+ * Ids come from folder / structure names, which may contain spaces. The command parser
+ * splits on spaces, so `call load 233 FF 黑黑 ...` was read as id="233" and the rest as
+ * coordinates - the player saw a syntax error after clicking 提交. Double quotes make the
+ * engine hand the whole name over as one argument.
+ */
+function quoteArg(id: string): string {
+    const clean = String(id ?? "").replace(/"/g, "");
+    return `"${clean}"`;
+}
 interface Data {
     name: string;
     author: string;
@@ -140,7 +152,7 @@ export default class StructureForm extends Form {
             } catch (e) {}
             Players.silenceCmd(
                 this.caPlayer,
-                `call load ${stData.id} ${x} ${y} ${z} ${
+                `call load ${quoteArg(stData.id)} ${x} ${y} ${z} ${
                     degreeArr[data[2] as number]
                 }_degrees ${mirrorArr_select[data[3] as number]}`
             );
@@ -236,18 +248,18 @@ export default class StructureForm extends Form {
                     });
                     break;
                 case 2:
-                    Players.silenceCmd(this.caPlayer, `call delete ${data.id}`);
+                    Players.silenceCmd(this.caPlayer, `call delete ${quoteArg(data.id)}`);
                     break;
                 case 3:
                     if (data.isPublic) {
                         Players.silenceCmd(
                             this.caPlayer,
-                            `ca private ${data.id}`
+                            `ca private ${quoteArg(data.id)}`
                         );
                     } else {
                         Players.silenceCmd(
                             this.caPlayer,
-                            `ca public ${data.id}`
+                            `ca public ${quoteArg(data.id)}`
                         );
                     }
                     break;
