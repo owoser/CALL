@@ -11,6 +11,40 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [3.9.5-beta1] - 2026-11-07
+
+### Changed
+
+- **Configuration is JSONC and keeps its comments.** `config/configs.jsonc` (was `.json`) is
+  written by patching single values in place, so the annotated template survives every
+  migration - previously each upgrade rewrote the document with `JSON.stringify` and deleted
+  every explanation.
+- **The config carries a schema `version` on its first line.** When the shipped template's
+  version differs, CALL merges it in (your values win, missing keys and their comments are
+  added), backs the old file up to `config/backup/` and reports what changed. Equal versions
+  mean the file is not touched at all. `check-config.mjs` now fails when the template and
+  `assets/check.jsonc` disagree, or when a key is undocumented.
+- **Structure storage is per player and browsable**: `data/nbt/<player>/<name-or-id>/<id>.mcstructure`,
+  the clipboard in `<player>/copy/<id>/`, undo/redo in `<player>/undo|redo/<id>/`, and
+  hand-managed public structures in `data/nbt/public/<name>/`. Existing flat files are migrated
+  on first start (originals kept in `data/nbt/_legacy/`, unattributable ones in `_orphan/`).
+- **Public structures hot reload**: `data/nbt/public/` is rescanned when the menu opens (only
+  directories whose mtime moved are re-read), so dropping a `.mcstructure` in makes it appear
+  without a restart.
+- **Selections and the clipboard survive a relog / restart**: `saveArea` and `saveCopy` now
+  default to true (the old defaults wiped both in `CAPlayer.saveAll()` on logout). The area is
+  re-drawn on join until `/ca area cancel`.
+
+### Fixed
+
+- `suvivalModeActive` was never validated by the schema; the check now also understands that a
+  container key (`default`) is documented by its dotted children.
+- The version parser rejected a prerelease suffix (`3.9.5-beta1` parsed as 0.0.0).
+
+### Tests
+
+- Unit 116: JSONC parser/patcher (comments preserved, nested paths, template rendering) and the
+  store layout (illegal names, folder tree, slice naming, id index).
 ## [3.9.5] - 2026-11-07
 
 ### Fixed

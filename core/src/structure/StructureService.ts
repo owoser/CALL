@@ -1,4 +1,6 @@
 import Config from "../common/Config";
+import * as fs from "fs";
+import * as path from "path";
 import Players from "../user/Players";
 import Area3 from "../common/Area3";
 import CAPlayer from "../user/CAPlayer";
@@ -12,6 +14,8 @@ import { MsgType, online, tell } from "../util/Msg";
 import { describeError, logFailure, sleep } from "../util/Safe";
 import { acquire, isLoaded, waitLoaded } from "../game/Chunks";
 import { clipboardMin } from "./Clipboard";
+import StructureStore, { StoreKind, sliceFileName } from "./StructureStore";
+import { parseStructureLayout } from "../io/NbtCodec";
 import { Degrees, MirrorMode, PivotMode, sliceDestMin, transformedSize } from "./Rotate";
 
 
@@ -236,7 +240,8 @@ export default class StructureService {
         structure: Structure,
         index: number,
         total: number,
-        overCallback: (structid: string, data: any) => void
+        overCallback: (structid: string, data: any) => void,
+        kind: StoreKind = "save"
     ): Promise<void> {
         const xuid = caPlayer.xuid;
         const data = StructureService.getData(xuid);
@@ -244,6 +249,12 @@ export default class StructureService {
         const structid = StructureService.generateSid();
         const lang = StructureService.langOf(caPlayer);
         let failed = false;
+
+        // Where this structure lives: <player>/<name-or-id>/ for a save, copy/<id>/ for the
+        // clipboard, undo|redo/<id>/ for snapshots. Registered before the first slice so
+        // NBTService.filePath() resolves to the right folder.
+        const ownerName = String(caPlayer.$?.realName ?? caPlayer.xuid ?? "player");
+        StructureStore.prepare(kind, ownerName, structure.name, structid, structure.xSize, structure.zSize);
 
         await StructureService.traversal(
             caPlayer,
@@ -387,11 +398,14 @@ export default class StructureService {
 
     public static delete(caPlayer: CAPlayer, sid: string, st: Structure) {
         if (st == null) return;
+        const saveids: string[] = [];
         for (let z = 0; z < st.zSize; z++) {
             for (let x = 0; x < st.xSize; x++) {
+                saveids.push(sid + "_" + x + "_" + z);
                 NBTService.del(sid + "_" + x + "_" + z);
             }
         }
+        StructureStore.remove(sid, saveids, (saveid) => NBTService.filePath(saveid));
         if (!st.isPublic) return;
 
         const pu = Config.get(Config.STRUCTURES, "public");
@@ -416,6 +430,148 @@ export default class StructureService {
         return arr;
     }
 
+    /**
+     * Rebuild the id → folder index and move any flat legacy file into the new layout.
+     *
+     * Runs once at startup. Every flat `data/nbt/<id>_x_z.mcstructure` is matched against
+     * the metadata in data/structures.json so it lands in the right player's folder; files
+     * that cannot be attributed go to `data/nbt/_orphan/`. Originals are copied into
+     * `data/nbt/_legacy/` first, so nothing is lost if the layout ever needs a rollback.
+     */
+    public static migrateStore(): void {
+        try {
+            StructureStore.ensureRoots();
+            const root = StructureStore.root();
+            const legacyDir = path.join(root, "_legacy");
+            const orphanDir = path.join(root, "_orphan");
+            const privateRoot = Config.get(Config.STRUCTURES, "private");
+            let moved = 0;
+            let orphans = 0;
+
+            const moveSlices = (sid: string, st: any, kind: StoreKind, ownerKey: string, displayName: string) => {
+                if (st == null) return;
+                const xSize = Number(st.xSize) || 1;
+                const zSize = Number(st.zSize) || 1;
+                const ownerName = StructureStore.playerNameOf(ownerKey) ?? ownerKey;
+                StructureStore.prepare(kind, ownerName, displayName ?? st.name ?? sid, sid, xSize, zSize);
+                for (let z = 0; z < zSize; z++) {
+                    for (let x = 0; x < xSize; x++) {
+                        const saveid = sid + "_" + x + "_" + z;
+                        const src = path.join(root, saveid + ".mcstructure");
+                        if (!fs.existsSync(src)) continue;
+                        try {
+                            fs.mkdirSync(legacyDir, { recursive: true });
+                            fs.copyFileSync(src, path.join(legacyDir, saveid + ".mcstructure"));
+                            StructureStore.writeAtomic(NBTService.filePath(saveid), fs.readFileSync(src));
+                            fs.unlinkSync(src);
+                            moved++;
+                        } catch (e) {
+                            logFailure("StructureService.migrate.move " + saveid, e);
+                        }
+                    }
+                }
+            };
+
+            if (privateRoot != null && typeof privateRoot === "object") {
+                for (const xuid of Object.keys(privateRoot)) {
+                    const data = privateRoot[xuid];
+                    if (data == null || typeof data !== "object") continue;
+                    for (const sid of Object.keys(data.saveList ?? {})) {
+                        moveSlices(sid, data.saveList[sid], "save", xuid, data.saveList[sid]?.name ?? sid);
+                    }
+                    for (const sid of Object.keys(data.copy ?? {})) {
+                        moveSlices(sid, data.copy[sid], "copy", xuid, sid);
+                    }
+                    for (const [listName, kind] of [["undoList", "undo"], ["redoList", "redo"]] as Array<[string, StoreKind]>) {
+                        const list = data[listName];
+                        if (!Array.isArray(list)) continue;
+                        for (const complex of list) {
+                            for (const sid of Object.keys(complex ?? {})) {
+                                moveSlices(sid, complex[sid], kind, xuid, sid);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Repair pass: an earlier build could produce `<sid>_NaN_<z>` when the slice index
+            // failed to parse. The x index was 0 in every such case, so rename deterministically.
+            const repair = (dir: string) => {
+                let files: string[] = [];
+                try {
+                    files = fs.readdirSync(dir);
+                } catch {
+                    return;
+                }
+                for (const file of files) {
+                    const m = /^(.*)_NaN_(\d+)\.mcstructure$/.exec(file);
+                    if (m == null) continue;
+                    const sid = m[1];
+                    const z = Number(m[2]);
+                    const slices = StructureStore.slicesOf(sid);
+                    const target = path.join(dir, sliceFileName(sid, 0, z, slices?.[0] ?? 1, slices?.[1] ?? 2) + ".mcstructure");
+                    try {
+                        if (fs.existsSync(target)) fs.unlinkSync(path.join(dir, file));
+                        else fs.renameSync(path.join(dir, file), target);
+                    } catch {
+                        // leave it
+                    }
+                }
+            };
+            const repairTree = (dir: string, depth: number) => {
+                if (depth > 4) return;
+                repair(dir);
+                let subs: fs.Dirent[] = [];
+                try {
+                    subs = fs.readdirSync(dir, { withFileTypes: true });
+                } catch {
+                    return;
+                }
+                for (const sub of subs) {
+                    if (!sub.isDirectory()) continue;
+                    if (sub.name === "_legacy" || sub.name === "_orphan") continue;
+                    repairTree(path.join(dir, sub.name), depth + 1);
+                }
+            };
+            try {
+                for (const dirent of fs.readdirSync(root, { withFileTypes: true })) {
+                    if (!dirent.isDirectory()) continue;
+                    if (dirent.name === "_legacy" || dirent.name === "_orphan") continue;
+                    repairTree(path.join(root, dirent.name), 0);
+                }
+            } catch {
+                // ignore
+            }
+
+            // Anything still flat is not referenced by any metadata: keep it, but somewhere tidy.
+            let leftovers: string[] = [];
+            try {
+                leftovers = fs.readdirSync(root).filter((f) => f.endsWith(".mcstructure"));
+            } catch {
+                leftovers = [];
+            }
+            for (const file of leftovers) {
+                try {
+                    fs.mkdirSync(orphanDir, { recursive: true });
+                    const src = path.join(root, file);
+                    fs.copyFileSync(src, path.join(orphanDir, file));
+                    fs.unlinkSync(src);
+                    orphans++;
+                } catch {
+                    // ignore
+                }
+            }
+
+            if (moved > 0 || orphans > 0) {
+                logger.info("[CALL][store] 结构目录已整理：移动 " + moved + " 个切片" +
+                    (orphans > 0 ? "，未归属 " + orphans + " 个（data/nbt/_orphan/）" : "") +
+                    "；原件备份在 data/nbt/_legacy/");
+            }
+        } catch (e) {
+            logFailure("StructureService.migrateStore", e);
+        }
+    }
+
     public static getPrivate(): any {
         return Config.get(Config.STRUCTURES, "private");
     }
@@ -434,12 +590,70 @@ export default class StructureService {
 
     public static getPublicArr(): any[] {
         const arr: any[] = [];
+        const seen = new Set<string>();
+
+        // 1. files dropped into data/nbt/public/ - the folder IS the structure, hot reloaded
+        for (const entry of StructureStore.scanPublic(true)) {
+            seen.add(entry.sid);
+            arr.push({ id: entry.sid, name: entry.name, author: "public", isPublic: true });
+        }
+
+        // 2. structures an admin published through /ca save, kept for older servers
         StructureService.publicForEach((id: string, key: string) => {
+            if (seen.has(id)) return;
             const st: Structure = Config.get(Config.STRUCTURES, `private.${key}.saveList.${id}`);
             if (st == null) return;
+            seen.add(id);
             arr.push({ id: id, name: st.name, author: key, isPublic: !!st.isPublic });
         });
         return arr;
+    }
+
+    /**
+     * Resolve a structure id the player asked for, regardless of where it lives.
+     *
+     * Own saves first, then the published registry, then a file in data/nbt/public/ - the
+     * last one has no metadata anywhere, so its size is read from the file header.
+     */
+    public static getStructureById(caPlayer: CAPlayer, sid: string): Structure | null {
+        const own: any = Config.get(Config.STRUCTURES, `private.${caPlayer.xuid}.saveList.${sid}`);
+        if (own != null) return new Structure(own.area, own.name, !!own.isPublic);
+
+        let found: Structure | null = null;
+        StructureService.publicForEach((id: string, key: string) => {
+            if (found != null || id !== sid) return;
+            const st: any = Config.get(Config.STRUCTURES, `private.${key}.saveList.${id}`);
+            if (st != null) found = new Structure(st.area, st.name, true);
+        });
+        if (found != null) return found;
+
+        const entry = StructureStore.scanPublic().find((e) => e.sid === sid);
+        if (entry == null) return null;
+        const size = StructureService.publicSizeOf(entry);
+        if (size == null) return null;
+        const area = new Area3(
+            new Pos3(0, 0, 0, 0),
+            new Pos3(Math.max(0, size[0] - 1), Math.max(0, size[1] - 1), Math.max(0, size[2] - 1), 0)
+        );
+        return new Structure(area, entry.name, true);
+    }
+
+    /** Size of a public structure, read from its first slice (cached by mtime). */
+    private static publicSizeCache = new Map<string, { mtime: number; size: [number, number, number] }>();
+
+    public static publicSizeOf(entry: { sid: string; folder: string; files: string[]; mtime: number }): [number, number, number] | null {
+        const cached = StructureService.publicSizeCache.get(entry.sid);
+        if (cached != null && cached.mtime === entry.mtime) return cached.size;
+        try {
+            const file = entry.files[0];
+            const layout = parseStructureLayout(
+                fs.readFileSync(path.join(StructureStore.publicRoot(), entry.folder, file))
+            );
+            StructureService.publicSizeCache.set(entry.sid, { mtime: entry.mtime, size: layout.size });
+            return layout.size;
+        } catch {
+            return null;
+        }
     }
 
     public static getTargetStruct(st: Structure, pos: Pos3) {
@@ -464,7 +678,8 @@ export default class StructureService {
     private static async otherSave(
         caPlayer: CAPlayer,
         structArr: Array<Structure>,
-        overCallback: (complex: Complex) => void
+        overCallback: (complex: Complex) => void,
+        kind: StoreKind = "undo"
     ): Promise<Complex> {
         const complex: Complex = {};
         for (let i = 0; i < structArr.length; i++) {
@@ -473,7 +688,7 @@ export default class StructureService {
             // save() now really waits for its traversal, so slices stay sequential
             await StructureService.save(caPlayer, st, i, structArr.length, (structid: string) => {
                 complex[structid] = st;
-            });
+            }, kind);
         }
         overCallback(complex);
         return complex;
@@ -608,7 +823,7 @@ export default class StructureService {
             }
             Config.set(Config.STRUCTURES, `private.${caPlayer.xuid}`, data);
             overCallback(complex);
-        }).catch((e) => {
+        }, "undo").catch((e) => {
             logFailure("StructureService.undoPush", e);
             if (failCallback != null) {
                 try {
@@ -626,7 +841,7 @@ export default class StructureService {
             data.redoList.push(complex);
             Config.set(Config.STRUCTURES, `private.${caPlayer.xuid}`, data);
             overCallback();
-        }).catch((e) => {
+        }, "redo").catch((e) => {
             logger.error("[CALL][StructureService.redoPush] snapshot failed: " + describeError(e));
         });
     }
@@ -655,7 +870,7 @@ export default class StructureService {
                 StructureService.delete(caPlayer, sid, lastComplex[sid]);
             });
         }
-        StructureService.otherSave(caPlayer, structArr, overCallback).catch((e) =>
+        StructureService.otherSave(caPlayer, structArr, overCallback, "copy").catch((e) =>
             logger.error("[CALL][StructureService.copy] " + describeError(e))
         );
     }

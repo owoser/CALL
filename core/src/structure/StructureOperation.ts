@@ -1,6 +1,7 @@
 import Config from "../common/Config";
 import Constant from "../temp/Constant";
 import StructureService from "./StructureService";
+import StructureStore from "./StructureStore";
 import Area3 from "../common/Area3";
 import CAPlayer from "../user/CAPlayer";
 import { Pos3 } from "../common/Pos3";

@@ -8,6 +8,7 @@ import { Warn } from "../util/Error";
 import { describeError } from "../util/Safe";
 import { MsgType, online, tell } from "../util/Msg";
 import { placeBytesAsync } from "./StructurePlacement";
+import StructureStore, { sliceFileName } from "./StructureStore";
 
 /**
  * Structure slices: capture to CALL's own .mcstructure files, restore them into the world.
@@ -32,8 +33,25 @@ export default class NBTService {
     /** CALL's own structure store. */
     public static readonly PATH = Paths.NBT;
 
+    /**
+     * Absolute path of one slice.
+     *
+     * `saveid` stays the historical `<sid>_<x>_<z>` key so every call site keeps working; the
+     * folder and the on-disk name come from StructureStore. A structure that fits in one slice
+     * is stored as `<sid>.mcstructure`, a split one as `<sid>_<x>_<z>.mcstructure`.
+     */
     public static filePath(saveid: string): string {
-        return path.join(NBTService.PATH, saveid + ".mcstructure");
+        const raw = String(saveid ?? "");
+        // `<sid>_<x>_<z>` when the caller passes a slice id; a bare `<sid>` otherwise.
+        const m = /^(.*)_(\d+)_(\d+)$/.exec(raw);
+        const sid = m == null ? raw.split("_")[0] : m[1];
+        const dir = StructureStore.dirOf(sid);
+        const slices = StructureStore.slicesOf(sid);
+        const file = slices == null
+            ? raw
+            : sliceFileName(sid, m == null ? 0 : Number(m[2]), m == null ? 0 : Number(m[3]), slices[0], slices[1]);
+        const folder = dir == null ? NBTService.PATH : path.join(NBTService.PATH, dir);
+        return path.join(folder, file + ".mcstructure");
     }
 
     private static ensureDir(): void {
@@ -75,7 +93,7 @@ export default class NBTService {
         if (comp == null) throw new Error("writeFile: empty nbt");
         NBTService.ensureDir();
         const bytes = Buffer.from(new Uint8Array(comp.toBinaryNBT() as ArrayBuffer));
-        fs.writeFileSync(NBTService.filePath(saveid), bytes);
+        StructureStore.writeAtomic(NBTService.filePath(saveid), bytes);
     }
 
     public static exists(saveid: string): boolean {

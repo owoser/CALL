@@ -9,6 +9,7 @@ import Constant from "../temp/Constant";
 import ExportService from "./ExportService";
 import { Pos3, Vec3Tuple } from "../common/Pos3";
 import NBTService from "../structure/NBTService";
+import StructureStore from "../structure/StructureStore";
 import Tr from "../util/Translator";
 
 export default class ImportService {
@@ -254,7 +255,7 @@ export default class ImportService {
             loop1: for (let i = 0; i < mx; i++) {
                 for (let j = 0; j < mz; j++) {
                     if (i == x && j == z) break loop1;
-                    file.delete(`${NBTService.PATH}/${sid}_${x}_${z}`);
+                    NBTService.del(sid + "_" + x + "_" + z);
                 }
             }
         }

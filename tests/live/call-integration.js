@@ -153,10 +153,10 @@ async function runSuite() {
         const fs = require("fs");
         const root = M.root;
         const mustExist = [
-            "config/configs.json",
+            "config/configs.jsonc",
             "assets/lang/zh_CN.lang",
-            "assets/check.json",
-            "assets/configs.default.json",
+            "assets/check.jsonc",
+            "assets/configs.default.jsonc",
             "data/nbt",
             "data/shapes",
             "data/import",
@@ -172,7 +172,7 @@ async function runSuite() {
             "userdata/build",
             "config/update.json",
             "config/url.json",
-            "config/check.json",
+            "config/check.jsonc",
             "config/configs.default.json",
         ];
         for (const rel of mustNotExist) {
@@ -192,7 +192,7 @@ async function runSuite() {
 
     check("config.templateShipped", () => {
         const fs = require("fs");
-        const p = path.join(M.root, "assets", "configs.default.json");
+        const p = path.join(M.root, "assets", "configs.default.jsonc");
         assert(fs.existsSync(p), "missing read-only template used for self-heal: " + p);
         return p;
     });

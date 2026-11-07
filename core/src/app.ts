@@ -15,6 +15,8 @@ import CACommand from "./CACommand";
 import { AddonInstaller } from "./addon/AddonInstaller";
 import PreviewOperation from "./structure/PreviewOperation";
 import PreviewScene from "./structure/PreviewScene";
+import StructureStore from "./structure/StructureStore";
+import StructureService from "./structure/StructureService";
 import Wireframe from "./holo/Wireframe";
 import Holo from "./holo/Holo";
 import ItemDisplay from "./holo/ItemDisplay";
@@ -43,6 +45,11 @@ namespace ListenerHandler {
 
             if (!Players.hasPermission(player)) return;
 
+            try {
+                StructureStore.rememberPlayer(player.xuid, String(player.realName ?? ""));
+            } catch {
+                // ignore
+            }
             Activity.onCreate(player.xuid);
             const caPlayer = Players.getCAPlayer(player.xuid);
             if (caPlayer == null) return;
@@ -118,6 +125,7 @@ namespace ListenerHandler {
     }
 
     export function init() {
+        StructureService.migrateStore();
         mc.listen(Join, (player: Player) => onJoinHandler(player));
         mc.listen(Left, (player: Player) => onLeftHandler(player));
 

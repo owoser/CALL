@@ -1,0 +1,337 @@
+import * as fs from "fs";
+import * as path from "path";
+import Paths from "../common/Paths";
+
+/**
+ * Where a structure lives on disk.
+ *
+ * The old store was one flat folder: every slice of every structure of every player in
+ * `data/nbt/<id>_x_z.mcstructure`, with ownership only recorded in data/structures.json. That
+ * is impossible to browse, impossible to hand-edit and impossible to isolate per player.
+ *
+ * Layout (all relative to data/nbt):
+ *
+ *   <player>/<name-or-id>/<id>[_x_z].mcstructure     a saved structure
+ *   <player>/copy/<id>/<id>[_x_z].mcstructure        the clipboard
+ *   <player>/undo/<id>/…  <player>/redo/<id>/…       snapshots
+ *   public/<name-or-id>/<id>[_x_z].mcstructure       hand-managed, hot reloaded
+ *
+ * The id -> folder map is rebuilt at startup from data/structures.json plus a scan of public/,
+ * so nothing in the metadata files has to change shape for old servers.
+ */
+
+export type StoreKind = "save" | "copy" | "undo" | "redo" | "public";
+
+/** Characters Windows refuses in a file name, plus control characters. */
+const ILLEGAL = /[\\/:*?"<>|\u0000-\u001f]/g;
+/** Reserved device names: `CON`, `NUL`, `COM1`… are unusable as folders. */
+const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+export const MAX_FOLDER = 48;
+
+export function sanitizeFolder(raw: any, fallback: string): string {
+    let name = String(raw ?? "").replace(ILLEGAL, "_").trim();
+    // Windows silently strips trailing dots and spaces; do it explicitly so the folder we
+    // register is the folder that actually exists.
+    name = name.replace(/[. ]+$/g, "");
+    if (name === "" || RESERVED.test(name)) name = String(fallback || "structure");
+    name = name.replace(ILLEGAL, "_").replace(/[. ]+$/g, "");
+    if (name.length > MAX_FOLDER) name = name.slice(0, MAX_FOLDER).replace(/[. ]+$/g, "");
+    return name === "" ? "structure" : name;
+}
+
+/** Slice file name: the bare id for a single slice, `<id>_<x>_<z>` when it is split. */
+export function sliceFileName(sid: string, x: number, z: number, xSize: number, zSize: number): string {
+    return xSize * zSize <= 1 ? sid : sid + "_" + x + "_" + z;
+}
+
+export function folderPath(kind: StoreKind, playerName: string, displayName: string, sid: string): string {
+    const owner = sanitizeFolder(playerName, "player");
+    if (kind === "public") return path.posix.join("public", sanitizeFolder(displayName, sid));
+    if (kind === "copy") return path.posix.join(owner, "copy", sid);
+    if (kind === "undo") return path.posix.join(owner, "undo", sid);
+    if (kind === "redo") return path.posix.join(owner, "redo", sid);
+    return path.posix.join(owner, sanitizeFolder(displayName, sid));
+}
+
+const INDEX = new Map<string, string>();
+/** sid -> [xSize, zSize]; lets a single-slice structure use `<sid>.mcstructure`. */
+const SLICES = new Map<string, [number, number]>();
+/** xuid -> last known player name, so folders can be named after the player. */
+const NAMES = new Map<string, string>();
+
+export interface PublicEntry {
+    sid: string;
+    folder: string;
+    name: string;
+    files: string[];
+    size: [number, number, number] | null;
+    mtime: number;
+}
+
+let publicCache: PublicEntry[] = [];
+
+export const StructureStore = {
+    root(): string {
+        return Paths.NBT;
+    },
+
+    publicRoot(): string {
+        return path.join(Paths.NBT, "public");
+    },
+
+    ensureRoots(): void {
+        try {
+            fs.mkdirSync(Paths.NBT, { recursive: true });
+            fs.mkdirSync(StructureStore.publicRoot(), { recursive: true });
+            const readme = path.join(StructureStore.publicRoot(), "README.txt");
+            if (!fs.existsSync(readme)) {
+                fs.writeFileSync(readme, [
+                    "把 .mcstructure 文件放进这个目录，服务器里的「公开结构」就会出现它。",
+                    "",
+                    "- 一个结构一个文件夹，文件夹名就是显示名：public/领地02号/<id>.mcstructure",
+                    "- 直接放在 public/ 下的单个 .mcstructure 也认，显示名取文件名。",
+                    "- 增删改文件后打开菜单即可刷新，不需要重启服务器。",
+                    "",
+                    "Drop .mcstructure files here to publish them. One folder per structure; the",
+                    "folder name is the display name. Changes are picked up when the menu opens.",
+                ].join("\r\n"), "utf8");
+            }
+        } catch {
+            // the root may be read only
+        }
+    },
+
+    /** Remember which folder a structure id lives in. */
+    register(sid: string, rel: string, xSize?: number, zSize?: number): void {
+        if (!sid) return;
+        INDEX.set(sid, rel.replace(/\\/g, "/"));
+        if (xSize != null && zSize != null) SLICES.set(sid, [xSize, zSize]);
+    },
+
+    slicesOf(sid: string): [number, number] | null {
+        return SLICES.get(sid) ?? null;
+    },
+
+    /**
+     * Remember the display name of a player (persisted in data/players.jsonc).
+     *
+     * Existing data is usually keyed by xuid (migration happens before anyone logs in), so the
+     * first time we learn the name the folder is renamed to the readable one and the index is
+     * rewritten. Nothing else changes: the ids stay the same.
+     */
+    rememberPlayer(xuid: string, name: string): void {
+        if (!xuid || !name) return;
+        NAMES.set(xuid, name);
+        StructureStore.renameOwnerFolder(xuid, sanitizeFolder(name, xuid));
+        try {
+            const file = path.join(Paths.DATA, "players.jsonc");
+            let map: any = {};
+            try {
+                map = JSON.parse(fs.readFileSync(file, "utf8").replace(/^\s*\/\/.*$/gm, "")) ?? {};
+            } catch {
+                map = {};
+            }
+            if (map[xuid] === name) return;
+            map[xuid] = name;
+            fs.mkdirSync(Paths.DATA, { recursive: true });
+            fs.writeFileSync(file, JSON.stringify(map, null, 4) + "\n", "utf8");
+        } catch {
+            // a read-only data folder must not break a login
+        }
+    },
+
+    /** data/nbt/<xuid> -> data/nbt/<player name> once the name is known. */
+    renameOwnerFolder(xuid: string, folder: string): void {
+        if (folder === xuid) return;
+        const root = Paths.NBT;
+        const from = path.join(root, xuid);
+        let to = path.join(root, folder);
+        try {
+            if (!fs.existsSync(from) || fs.statSync(from).isDirectory() === false) return;
+            if (fs.existsSync(to)) to = path.join(root, StructureStore.uniqueFolder(root, folder));
+            if (path.dirname(to) !== root) return;
+            fs.renameSync(from, to);
+        } catch {
+            return;
+        }
+        const target = path.relative(root, to).replace(/\\/g, "/");
+        for (const [sid, rel] of [...INDEX.entries()]) {
+            if (rel === xuid) INDEX.set(sid, target);
+            else if (rel.startsWith(xuid + "/")) INDEX.set(sid, target + rel.slice(xuid.length));
+        }
+    },
+
+    playerNameOf(xuid: string): string | null {
+        const cached = NAMES.get(xuid);
+        if (cached != null) return cached;
+        try {
+            const file = path.join(Paths.DATA, "players.jsonc");
+            const map = JSON.parse(fs.readFileSync(file, "utf8")) ?? {};
+            const name = map[xuid];
+            if (typeof name === "string" && name !== "") {
+                NAMES.set(xuid, name);
+                return name;
+            }
+        } catch {
+            // first run
+        }
+        return null;
+    },
+
+    forget(sid: string): void {
+        INDEX.delete(sid);
+    },
+
+    /** Folder of a structure id, or null when it was never registered (legacy flat file). */
+    dirOf(sid: string): string | null {
+        const dir = INDEX.get(sid);
+        return dir == null ? null : dir;
+    },
+
+    /** Absolute folder for a structure id, creating nothing. */
+    absDir(sid: string): string {
+        const rel = StructureStore.dirOf(sid);
+        return rel == null ? Paths.NBT : path.join(Paths.NBT, rel);
+    },
+
+    /** Pick a folder name that does not collide with an existing one. */
+    uniqueFolder(parentAbs: string, base: string): string {
+        let candidate = base;
+        let n = 2;
+        while (true) {
+            try {
+                if (!fs.existsSync(path.join(parentAbs, candidate))) return candidate;
+            } catch {
+                return candidate;
+            }
+            candidate = base + "-" + n;
+            n++;
+            if (n > 99) return base + "-" + Date.now().toString(36);
+        }
+    },
+
+    /** Create (if needed) and return the folder for a new structure. */
+    prepare(kind: StoreKind, playerName: string, displayName: string, sid: string, xSize = 1, zSize = 1): string {
+        const rel = folderPath(kind, playerName, displayName, sid);
+        const abs = path.join(Paths.NBT, rel);
+        try {
+            fs.mkdirSync(abs, { recursive: true });
+        } catch {
+            // fall back to the flat root rather than losing the structure
+            return "";
+        }
+        StructureStore.register(sid, rel, xSize, zSize);
+        return rel;
+    },
+
+    /** Atomic write: a half-written slice must never be visible to a reader. */
+    writeAtomic(file: string, bytes: Buffer): void {
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        const tmp = file + ".tmp";
+        fs.writeFileSync(tmp, bytes);
+        fs.renameSync(tmp, file);
+    },
+
+    /** Remove a structure's files and its folder if it became empty. */
+    remove(sid: string, saveids: string[], filePathOf: (saveid: string) => string): void {
+        let dir: string | null = null;
+        for (const saveid of saveids) {
+            const file = filePathOf(saveid);
+            try {
+                dir = path.dirname(file);
+                fs.unlinkSync(file);
+            } catch {
+                // already gone
+            }
+        }
+        if (dir != null) {
+            try {
+                const left = fs.readdirSync(dir);
+                if (left.length === 0) fs.rmdirSync(dir);
+            } catch {
+                // keep the folder
+            }
+        }
+        StructureStore.forget(sid);
+    },
+
+    /**
+     * Rescan `public/`.
+     *
+     * Cheap enough to run every time the menu opens: directories are stat-ed first and only
+     * ones whose mtime moved are read again.
+     */
+    scanPublic(force = false): PublicEntry[] {
+        StructureStore.ensureRoots();
+        const root = StructureStore.publicRoot();
+        const out: PublicEntry[] = [];
+        let dirs: fs.Dirent[] = [];
+        try {
+            dirs = fs.readdirSync(root, { withFileTypes: true });
+        } catch {
+            return publicCache;
+        }
+
+        const previous = new Map(publicCache.map((e) => [e.folder, e]));
+        for (const dirent of dirs) {
+            const full = path.join(root, dirent.name);
+            let files: string[] = [];
+            let mtime = 0;
+            if (dirent.isDirectory()) {
+                try {
+                    const st = fs.statSync(full);
+                    mtime = st.mtimeMs;
+                    files = fs.readdirSync(full).filter((f) => f.toLowerCase().endsWith(".mcstructure"));
+                } catch {
+                    continue;
+                }
+            } else if (dirent.name.toLowerCase().endsWith(".mcstructure")) {
+                try {
+                    mtime = fs.statSync(full).mtimeMs;
+                } catch {
+                    continue;
+                }
+                files = [dirent.name];
+            } else {
+                continue;
+            }
+            if (files.length === 0) continue;
+
+            const cached = previous.get(dirent.name);
+            if (!force && cached != null && cached.mtime === mtime && cached.files.length === files.length) {
+                out.push(cached);
+                continue;
+            }
+
+            const sid = files[0].replace(/_\d+_\d+\.mcstructure$/i, "").replace(/\.mcstructure$/i, "");
+            out.push({
+                sid,
+                folder: dirent.name,
+                name: dirent.isDirectory() ? dirent.name : sid,
+                files,
+                size: null,
+                mtime,
+            });
+        }
+        publicCache = out;
+        for (const entry of out) StructureStore.register(entry.sid, path.posix.join("public", entry.folder));
+        return out;
+    },
+
+    cachedPublic(): PublicEntry[] {
+        return publicCache;
+    },
+
+    /** Test/relogin helper. */
+    clearIndex(): void {
+        INDEX.clear();
+        SLICES.clear();
+        publicCache = [];
+    },
+
+    indexSize(): number {
+        return INDEX.size;
+    },
+};
+
+export default StructureStore;
