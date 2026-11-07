@@ -746,3 +746,4 @@ word.unpublic=private
 dynamic.FillManager.reason.notLoaded=The area is outside the loaded chunks.\nMove closer, or raise chunkLoadTimeout in configs.json and retry
 dynamic.FillManager.reason.invalidBlock=Invalid block name or region
 dynamic.StructureManager.undo.incomplete=Undo incomplete: %d slice(s) failed to restore. The snapshot was kept - run undo again to retry
+dynamic.StructureService.author.public=Public

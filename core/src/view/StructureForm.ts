@@ -1,6 +1,8 @@
 import Players from "../user/Players";
+import { describeError } from "../util/Safe";
 import { Pos3 } from "../common/Pos3";
 import StructureOperation from "../structure/StructureOperation";
+import StructureService from "../structure/StructureService";
 import StrFactory from "../util/StrFactory";
 import Tr from "../util/Translator";
 import Form from "./Form";
@@ -84,7 +86,7 @@ export default class StructureForm extends Form {
                     this.player.langCode,
                     "dynamic.StructureForm.loadOpertionForm.s5",
                     stData.name,
-                    Players.getCAPlayer(stData.author).$.name
+                    StructureService.authorLabel(stData.author, this.player.langCode)
                 )
             )
             .addLabel(
@@ -166,7 +168,7 @@ export default class StructureForm extends Form {
                     this.player.langCode,
                     "dynamic.StructureForm.publicForm.s13",
                     list[i].name,
-                    Players.getCAPlayer(list[i].author).$.name,
+                    StructureService.authorLabel(list[i].author, this.player.langCode),
                     list[i].id
                 )
             );

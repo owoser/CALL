@@ -788,6 +788,47 @@ async function runSuite() {
     });
 
     // --- /ca clear really clears (regression: "invalid block or region: air") ---
+    // --- public structure folder (hand managed, hot reloaded) --------------
+    await checkAsync("ca.publicStructure", async () => {
+        const fs = require("fs");
+        const path = require("path");
+        const pubRoot = path.join(M.Paths.NBT, "public");
+        const folder = "HarnessPublic";
+        const dir = path.join(pubRoot, folder);
+        fs.mkdirSync(dir, { recursive: true });
+        // publish the file the NBT round-trip case captured earlier
+        const src = path.join(M.Paths.NBT, "calltest_persist.mcstructure");
+        assert(fs.existsSync(src), "the earlier capture is missing: " + src);
+        fs.copyFileSync(src, path.join(dir, "publicdemo.mcstructure"));
+
+        const list = M.StructureService.getPublicArr();
+        const entry = list.find((e) => e.id === folder);
+        assert(entry != null, "public list has no " + folder + ": " + JSON.stringify(list));
+
+        const cap = fakePlayer(sim);
+        const st = M.StructureService.getStructureById(cap, folder);
+        assert(st != null, "getStructureById returned null for " + folder);
+        const lens = st.area.getLens();
+        assert(lens[0] > 0 && lens[1] > 0 && lens[2] > 0, "bad size " + JSON.stringify(lens));
+
+        const spot2 = spot(34);
+        fillBox(spot2.x, spot2.y, spot2.z, lens[0] + 2, lens[1] + 2, lens[2] + 2, "minecraft:air");
+        await M.StructureService.load(
+            cap, st, folder, new M.Pos3(spot2.x, spot2.y, spot2.z, DIM), 0, 1,
+            "none", "0_degrees", false, true, false, 100, "", () => { }
+        );
+        let placed = 0;
+        for (let dx = 0; dx < lens[0]; dx++) {
+            for (let dy = 0; dy < lens[1]; dy++) {
+                for (let dz = 0; dz < lens[2]; dz++) {
+                    if (blockTypeAt(spot2.x + dx, spot2.y + dy, spot2.z + dz) !== "minecraft:air") placed++;
+                }
+            }
+        }
+        assert(placed > 0, "nothing was written from the public structure");
+        fs.rmSync(dir, { recursive: true, force: true });
+        return "listed + loaded " + lens.join("x") + " (" + placed + " blocks)";
+    });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;
         const t = spot(19);

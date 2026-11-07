@@ -52,6 +52,37 @@ function runBuild() {
   });
 }
 
+/**
+ * Mirror dist/call into the server we are about to boot.
+ *
+ * build.mjs only deploys to build.json's bdsDir, so testing another server used to run
+ * whatever happened to be installed there - which silently tested stale code.
+ */
+async function deployTo(serverDir) {
+  const dist = join(ROOT, 'dist', 'call');
+  const target = join(serverDir, 'plugins', 'CALL');
+  if (!existsSync(join(target, 'manifest.json'))) {
+    console.log('[test-live] ' + target + ' does not look like CALL, skipping the copy');
+    return;
+  }
+  const stash = join(serverDir, '.calltest-stash');
+  await rm(stash, { recursive: true, force: true });
+  for (const keep of ['config', 'data']) {
+    if (existsSync(join(target, keep))) {
+      await cp(join(target, keep), join(stash, keep), { recursive: true });
+    }
+  }
+  await rm(target, { recursive: true, force: true });
+  await cp(dist, target, { recursive: true });
+  for (const keep of ['config', 'data']) {
+    if (existsSync(join(stash, keep))) {
+      await cp(join(stash, keep), join(target, keep), { recursive: true });
+    }
+  }
+  await rm(stash, { recursive: true, force: true });
+  console.log('[test-live] copied dist/call -> ' + target);
+}
+
 async function installHarness(serverDir) {
   const src = join(ROOT, 'tests', 'live');
   const dst = join(serverDir, 'plugins', 'CALLTEST');
@@ -122,6 +153,7 @@ async function main() {
   }
 
   runBuild();
+  await deployTo(serverDir);
   await installHarness(serverDir);
   killStale();
   await sleep(1500);

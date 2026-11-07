@@ -58,6 +58,8 @@ const INDEX = new Map<string, string>();
 const SLICES = new Map<string, [number, number]>();
 /** xuid -> last known player name, so folders can be named after the player. */
 const NAMES = new Map<string, string>();
+/** public display id (folder) -> internal slice id */
+const ALIAS = new Map<string, string>();
 
 export interface PublicEntry {
     sid: string;
@@ -65,7 +67,55 @@ export interface PublicEntry {
     name: string;
     files: string[];
     size: [number, number, number] | null;
+    /** Slices that make up the structure (1x1 for anything that fits in one file). */
+    xSize: number;
+    zSize: number;
+    /** Files present vs slices expected - a hand-copied structure is often incomplete. */
+    present: number;
+    complete: boolean;
     mtime: number;
+}
+
+export interface SliceGroup {
+    sid: string;
+    files: string[];
+    xSize: number;
+    zSize: number;
+    present: number;
+    complete: boolean;
+}
+
+/**
+ * Group the `.mcstructure` files of one folder into structures.
+ *
+ * A structure that fits in one slice is a single `<id>.mcstructure`; a bigger one is split
+ * into `<id>_<x>_<z>.mcstructure`. Hand-copied public structures routinely arrive with only
+ * some of the slices, so the caller needs to know whether the set is complete instead of
+ * silently loading half a building.
+ */
+export function groupSlices(fileNames: string[]): SliceGroup[] {
+    const bySid = new Map<string, { files: string[]; maxX: number; maxZ: number }>();
+    for (const file of fileNames) {
+        if (!/\.mcstructure$/i.test(file)) continue;
+        const m = /^(.*?)(?:_(\d+)_(\d+))?\.mcstructure$/i.exec(file);
+        if (m == null) continue;
+        const sid = m[1];
+        const x = m[2] == null ? 0 : Number(m[2]);
+        const z = m[3] == null ? 0 : Number(m[3]);
+        const entry = bySid.get(sid) ?? { files: [], maxX: 0, maxZ: 0 };
+        entry.files.push(file);
+        if (x > entry.maxX) entry.maxX = x;
+        if (z > entry.maxZ) entry.maxZ = z;
+        bySid.set(sid, entry);
+    }
+    const out: SliceGroup[] = [];
+    for (const [sid, entry] of bySid) {
+        const xSize = entry.maxX + 1;
+        const zSize = entry.maxZ + 1;
+        const present = entry.files.length;
+        out.push({ sid, files: entry.files.sort(), xSize, zSize, present, complete: present >= xSize * zSize });
+    }
+    return out;
 }
 
 let publicCache: PublicEntry[] = [];
@@ -106,6 +156,17 @@ export const StructureStore = {
         if (!sid) return;
         INDEX.set(sid, rel.replace(/\\/g, "/"));
         if (xSize != null && zSize != null) SLICES.set(sid, [xSize, zSize]);
+    },
+
+    /** Map a user-facing id (a public folder name) to the internal slice id. */
+    alias(display: string, sid: string): void {
+        if (!display || !sid) return;
+        ALIAS.set(display, sid);
+    },
+
+    /** Internal slice id for whatever the player typed / picked from the menu. */
+    sliceSidOf(key: string): string {
+        return ALIAS.get(String(key ?? "")) ?? String(key ?? "");
     },
 
     slicesOf(sid: string): [number, number] | null {
@@ -272,15 +333,14 @@ export const StructureStore = {
             return publicCache;
         }
 
-        const previous = new Map(publicCache.map((e) => [e.folder, e]));
+        const previous = new Map(publicCache.map((e) => [e.folder + "/" + e.sid, e]));
         for (const dirent of dirs) {
             const full = path.join(root, dirent.name);
             let files: string[] = [];
             let mtime = 0;
             if (dirent.isDirectory()) {
                 try {
-                    const st = fs.statSync(full);
-                    mtime = st.mtimeMs;
+                    mtime = fs.statSync(full).mtimeMs;
                     files = fs.readdirSync(full).filter((f) => f.toLowerCase().endsWith(".mcstructure"));
                 } catch {
                     continue;
@@ -297,27 +357,35 @@ export const StructureStore = {
             }
             if (files.length === 0) continue;
 
-            const cached = previous.get(dirent.name);
-            if (!force && cached != null && cached.mtime === mtime && cached.files.length === files.length) {
-                out.push(cached);
-                continue;
+            for (const group of groupSlices(files)) {
+                const key = dirent.name + "/" + group.sid;
+                const cached = previous.get(key);
+                if (!force && cached != null && cached.mtime === mtime
+                    && cached.present === group.present && cached.xSize === group.xSize && cached.zSize === group.zSize) {
+                    out.push(cached);
+                    continue;
+                }
+                out.push({
+                    sid: group.sid,
+                    folder: dirent.name,
+                    name: dirent.isDirectory() ? dirent.name : group.sid,
+                    files: group.files,
+                    size: null,
+                    xSize: group.xSize,
+                    zSize: group.zSize,
+                    present: group.present,
+                    complete: group.complete,
+                    mtime,
+                });
             }
-
-            const sid = files[0].replace(/_\d+_\d+\.mcstructure$/i, "").replace(/\.mcstructure$/i, "");
-            out.push({
-                sid,
-                folder: dirent.name,
-                name: dirent.isDirectory() ? dirent.name : sid,
-                files,
-                size: null,
-                mtime,
-            });
         }
         publicCache = out;
-        for (const entry of out) StructureStore.register(entry.sid, path.posix.join("public", entry.folder));
+        for (const entry of out) {
+            StructureStore.register(entry.sid, path.posix.join("public", entry.folder), entry.xSize, entry.zSize);
+            StructureStore.alias(entry.name, entry.sid);
+        }
         return out;
     },
-
     cachedPublic(): PublicEntry[] {
         return publicCache;
     },
@@ -326,6 +394,7 @@ export const StructureStore = {
     clearIndex(): void {
         INDEX.clear();
         SLICES.clear();
+        ALIAS.clear();
         publicCache = [];
     },
 

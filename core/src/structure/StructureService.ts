@@ -1,4 +1,5 @@
 import Config from "../common/Config";
+import Constant from "../temp/Constant";
 import * as fs from "fs";
 import * as path from "path";
 import Players from "../user/Players";
@@ -378,7 +379,9 @@ export default class StructureService {
             areas,
             Tr._(lang, "dynamic.StructureManager.load.loading", `${index + 1}/${total}`),
             (x: number, z: number) => {
-                const saveid = structid + "_" + x + "_" + z;
+                // A public structure is picked by its folder name; the files are named after
+                // the internal slice id.
+                const saveid = StructureStore.sliceSidOf(structid) + "_" + x + "_" + z;
                 const target = areas[x][z].start;
                 // placement is asynchronous (block by block, yielding between batches)
                 return NBTService.loadAsync(caPlayer, saveid, target, mirror, degreeNum).then(() => true);
@@ -420,6 +423,7 @@ export default class StructureService {
 
     public static getAllNBT(st: Structure, sid: string): NbtCompound[][] {
         const arr: NbtCompound[][] = [];
+        sid = StructureStore.sliceSidOf(sid);
         for (let x = 0; x < st.xSize; x++) {
             const row: NbtCompound[] = [];
             for (let z = 0; z < st.zSize; z++) {
@@ -572,6 +576,55 @@ export default class StructureService {
         }
     }
 
+    public static publicSizeOf(entry: { sid: string; folder: string; files: string[]; mtime: number; xSize: number; zSize: number }): [number, number, number] | null {
+        const cached = StructureService.publicSizeCache.get(entry.sid);
+        if (cached != null && cached.mtime === entry.mtime) return cached.size;
+        try {
+            const max = Constant.STRUCTURE.MAX_LENGTH;
+            const dir = path.join(StructureStore.publicRoot(), entry.folder);
+            const readLayout = (file: string) => parseStructureLayout(fs.readFileSync(path.join(dir, file)));
+
+            // The last column/row slice carries the remainder, so width = max*(xSize-1) + lastW.
+            const lastX = entry.xSize - 1;
+            const lastZ = entry.zSize - 1;
+            const lastFile = (x: number, z: number) =>
+                entry.files.find((f) => new RegExp("_" + x + "_" + z + "\\.mcstructure$", "i").test(f)) ?? entry.files[0];
+            const corner = readLayout(lastFile(lastX, lastZ));
+            const first = readLayout(entry.files[0]);
+            const width = max * lastX + corner.size[0];
+            const depth = max * lastZ + corner.size[2];
+            const height = Math.max(first.size[1], corner.size[1]);
+            const size: [number, number, number] = [width, height, depth];
+            StructureService.publicSizeCache.set(entry.sid, { mtime: entry.mtime, size });
+            return size;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * A display name for the author of a structure.
+     *
+     * Saved structures record an xuid, published ones record "public" (they come from the
+     * filesystem and have no author), and the author may simply be offline - so this must never
+     * return undefined. The old code did `getCAPlayer(author).$.name` and took the whole form
+     * down with it.
+     */
+    public static authorLabel(key: string, lang = "zh_CN"): string {
+        const raw = String(key ?? "").trim();
+        if (raw === "" || raw === "public") return Tr._(lang, "dynamic.StructureService.author.public", "公共结构");
+        const caPlayer = Players.getCAPlayer(raw);
+        if (caPlayer != null) {
+            try {
+                const name = caPlayer.$?.name;
+                if (typeof name === "string" && name !== "") return name;
+            } catch {
+                // stale handle
+            }
+        }
+        return StructureStore.playerNameOf(raw) ?? raw;
+    }
+
     public static getPrivate(): any {
         return Config.get(Config.STRUCTURES, "private");
     }
@@ -592,10 +645,14 @@ export default class StructureService {
         const arr: any[] = [];
         const seen = new Set<string>();
 
-        // 1. files dropped into data/nbt/public/ - the folder IS the structure, hot reloaded
+        // 1. files dropped into data/nbt/public/ - the FOLDER is the structure (and its id:
+        //    folder names are unique on disk, while two copies of the same structure would
+        //    share the internal slice id).
         for (const entry of StructureStore.scanPublic(true)) {
-            seen.add(entry.sid);
-            arr.push({ id: entry.sid, name: entry.name, author: "public", isPublic: true });
+            const id = entry.name;
+            if (seen.has(id)) continue;
+            seen.add(id);
+            arr.push({ id, name: entry.name, author: "public", isPublic: true });
         }
 
         // 2. structures an admin published through /ca save, kept for older servers
@@ -627,8 +684,14 @@ export default class StructureService {
         });
         if (found != null) return found;
 
-        const entry = StructureStore.scanPublic().find((e) => e.sid === sid);
+        const scanned = StructureStore.scanPublic();
+        const entry = scanned.find((e) => e.name === sid) ?? scanned.find((e) => e.sid === sid) ?? null;
         if (entry == null) return null;
+        // Point the reader at this folder: the internal slice id may be shared by two copies.
+        StructureStore.register(entry.sid, "public/" + entry.folder, entry.xSize, entry.zSize);
+        if (!entry.complete) {
+            throw new Error("公开结构「" + entry.name + "」切片不全（" + entry.present + "/" + (entry.xSize * entry.zSize) + "），请把同一结构的切片一起放进去");
+        }
         const size = StructureService.publicSizeOf(entry);
         if (size == null) return null;
         const area = new Area3(
@@ -641,20 +704,6 @@ export default class StructureService {
     /** Size of a public structure, read from its first slice (cached by mtime). */
     private static publicSizeCache = new Map<string, { mtime: number; size: [number, number, number] }>();
 
-    public static publicSizeOf(entry: { sid: string; folder: string; files: string[]; mtime: number }): [number, number, number] | null {
-        const cached = StructureService.publicSizeCache.get(entry.sid);
-        if (cached != null && cached.mtime === entry.mtime) return cached.size;
-        try {
-            const file = entry.files[0];
-            const layout = parseStructureLayout(
-                fs.readFileSync(path.join(StructureStore.publicRoot(), entry.folder, file))
-            );
-            StructureService.publicSizeCache.set(entry.sid, { mtime: entry.mtime, size: layout.size });
-            return layout.size;
-        } catch {
-            return null;
-        }
-    }
 
     public static getTargetStruct(st: Structure, pos: Pos3) {
         const area = Area3.fromArea3D(st.area).relative();

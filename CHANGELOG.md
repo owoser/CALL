@@ -11,7 +11,37 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
-## [3.9.5-beta1] - 2026-11-07
+## [3.9.5-beta1]
+
+### Fixed (3.9.5-beta1, build 2)
+
+- **Opening the public structure list crashed the whole form** (`StructureForm.ts:169`): the
+  code did `Players.getCAPlayer(author).$.name`, but structures scanned from
+  `data/nbt/public/` have `author = "public"` and any author may be offline, so `.# Changelog
+
+All notable changes to CALL are documented here.
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the project
+uses [Semantic Versioning](https://semver.org/).
+
+This is a community fork of [superx101/CALL](https://github.com/superx101/CALL), which
+is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** with
+**LegacyScriptEngine (nodejs) 0.22.4**.
+
+See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
+fixes are based on.
+
+ threw and
+  the form was never sent - the menu looked unresponsive. Authors now go through
+  `StructureService.authorLabel()`, which always returns a string (localised "Public" / the
+  player name / the last known name / the raw id).
+- Public structures are identified by their **folder name** (unique on disk) instead of the
+  internal slice id, so two copies of the same build no longer collide in the list, and
+  `load`/`getAllNBT` translate the display id back to the slice id before reading files.
+- Multi-slice public structures now report their real size (slices are grouped by
+  `<id>_<x>_<z>`), and an incomplete set is refused with a readable message instead of
+  silently pasting part of the building.
+- One malformed row can no longer take the whole structure list down (per-row guard + log).
+ - 2026-11-07
 
 ### Changed
 
