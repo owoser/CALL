@@ -338,20 +338,14 @@ export class ToolItems {
             }
         }
         lines.push("物品包: " + (ToolItems.available() ? "ready" : "未生效"));
+        // Informational only: the pack is delivered whether or not the flag is set.
         const required = ToolItems.resourcePackRequired();
-        lines.push("texturepack-required: " + (required === true ? "true" : required === false ? "false（客户端可能没有图标）" : "未设置"));
+        lines.push("texturepack-required: " + (required === true ? "true" : required === false ? "false（不影响资源包下发）" : "未设置（不影响资源包下发）"));
         output.success(lines.join("\n"));
     }
 
     public static list(output: any): void {
-        const required = ToolItems.resourcePackRequired();
         const lines: string[] = [];
-        if (required !== true) {
-            lines.push(
-                "  §e⚠ server.properties 的 texturepack-required = " + (required === false ? "false" : "未设置") +
-                "：客户端可能拿不到资源包，工具图标会是空白。改成 true，或用 /ca tools pack 导出给玩家手动安装。"
-            );
-        }
         for (const spec of TOOL_SPECS) {
             lines.push("  " + spec.name + " §8(" + spec.id + ")");
             for (const lore of spec.lore) lines.push("    " + lore);

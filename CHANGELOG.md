@@ -13,6 +13,12 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Changed (3.9.5-beta1, build 8)
+
+- **Removed the `texturepack-required` warning.** It claimed clients might not receive the
+  resource pack (blank item icons) unless the flag was `true` - that was wrong: the pack is
+  downloaded regardless, and the advice came from a time when the addon itself failed to load.
+  `/ca tools status` still shows the flag, neutrally, for diagnostics.
 ### Changed (3.9.5-beta1, build 7)
 
 - **The tools respond to a right-click on air.** Only `onUseItemOn` was wired, so the menu and
