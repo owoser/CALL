@@ -78,3 +78,18 @@ test('asset names match the JSONC rename', () => {
     assert.ok(cfg.includes('configs.jsonc'), 'the config file is configs.jsonc');
     assert.ok(cfg.includes('check.jsonc'), 'the schema file is check.jsonc');
 });
+
+test('public/ is read-only for the plugin', () => {
+    const nbt = read(NBT);
+    assert.ok(nbt.includes('refused to delete a public structure file'),
+        'NBTService.del must refuse files under data/nbt/public/');
+    const svc = read(SERVICE);
+    assert.ok(svc.includes('overCallback(failed)'), 'load must hand the failed count to its caller');
+});
+
+test('the load failure path is reported, not swallowed', () => {
+    const src = read(OP);
+    assert.ok(src.includes('(failed: number) => {'), 'the load callback must receive the failed count');
+    assert.ok(src.includes('加载失败'), 'a failed load must say so');
+    assert.ok(src.includes('publicCheck(') && src.includes('publicReload('), 'the diagnostics commands must exist');
+});

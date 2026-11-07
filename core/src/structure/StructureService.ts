@@ -313,7 +313,8 @@ export default class StructureService {
         waterlogged = false,
         integrity = 100,
         seed = "",
-        overCallback: () => void,
+        /** Receives the number of slices that failed (0 = complete success). */
+        overCallback: (failed: number) => void,
         clipboardOrigin: { x: number; y: number; z: number } | null = null,
         pivot: PivotMode = "inplace"
     ): Promise<number> {
@@ -388,7 +389,7 @@ export default class StructureService {
             },
             (failed: number) => {
                 failedSlices = failed;
-                overCallback();
+                overCallback(failed);
             },
             () => {
                 // handled by traversal (failCallback); nothing extra to clean up here
@@ -574,6 +575,11 @@ export default class StructureService {
         } catch (e) {
             logFailure("StructureService.migrateStore", e);
         }
+    }
+
+    /** Drop the cached sizes (public files were replaced on disk). */
+    public static resetPublicCache(): void {
+        StructureService.publicSizeCache.clear();
     }
 
     public static publicSizeOf(entry: { sid: string; folder: string; files: string[]; mtime: number; xSize: number; zSize: number }): [number, number, number] | null {

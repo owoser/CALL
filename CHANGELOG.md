@@ -13,6 +13,16 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 5)
+
+- **A failed load no longer reports success.** The callback ran inside `StructureService.load`
+  before the promise resolved, so the counter was still 0 when the message was printed; the
+  failed slice count is now handed to the callback directly.
+- **`data/nbt/public/` is read-only for the plugin**: `NBTService.del()` refuses any path under
+  it and logs the attempt, so a structure can only disappear if the operator removes it.
+- `/ca publiccheck` prints every public structure with per-slice presence and a
+  "N 个正常 / M 个缺片" summary; `/ca publicreload` forces a rescan after the files change.
+- Names with spaces work as before in chat: quote the argument (`/ca load "黑黑 FF 好好" 100 64 100`).
 ### Fixed (3.9.5-beta1, build 4)
 
 - **A public folder that holds slices of two structures loaded nothing at all.** The folder

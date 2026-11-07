@@ -3,6 +3,7 @@ import Constant from "../temp/Constant";
 import StructureService from "./StructureService";
 import StructureStore, { resolveStructureId } from "./StructureStore";
 import NBTService from "./NBTService";
+import * as fs from "fs";
 import Area3 from "../common/Area3";
 import CAPlayer from "../user/CAPlayer";
 import { Pos3 } from "../common/Pos3";
@@ -221,8 +222,9 @@ export default class StructureOperation {
                 res.Waterlogged,
                 res.Integrity,
                 res.Seed,
-                () => {
+                (failed: number) => {
                     // tell the truth about the slices, not just "started"
+                    failedSlices = Number(failed) || 0;
                     if (failedSlices > 0) {
                         tell(online(player.xuid), StrFactory.cmdErr(
                             "加载失败：" + failedSlices + " 段切片没有读出来（结构：" + structure.name + "，id: " + r.structid + "，路径: " +
@@ -241,9 +243,7 @@ export default class StructureOperation {
                         )
                     ), MsgType.RAW);
                 }
-            ).then((failed) => {
-                failedSlices = Number(failed) || 0;
-            }).catch((e) => {
+            ).catch((e) => {
                 tell(online(player.xuid), StrFactory.cmdErr(describeError(e)), MsgType.RAW);
             });
         });
@@ -334,6 +334,53 @@ export default class StructureOperation {
         }
         tell(player, StrFactory.cmdMsg(lines.join("\n")), MsgType.RAW);
         output.success("公共结构诊断已输出（" + scanned.length + " 项）");
+    }
+
+    /**
+     * `/ca publiccheck` - is every advertised slice actually on disk?
+     *
+     * The menu only knows what the folder scan saw; a structure whose files were moved or
+     * half-copied still shows up there, so this prints presence per slice instead of nothing.
+     */
+    public static publicCheck(output: CommandOutput, caPlayer: CAPlayer) {
+        const player = caPlayer.$;
+        const scanned = StructureStore.scanPublic(true);
+        const lines: string[] = [];
+        let ok = 0;
+        let bad = 0;
+        for (const e of scanned) {
+            const id = e.id ?? e.name;
+            const missing: string[] = [];
+            for (let z = 0; z < e.zSize; z++) {
+                for (let x = 0; x < e.xSize; x++) {
+                    const file = NBTService.pathOf(e.sid + "_" + x + "_" + z);
+                    let exists = false;
+                    try {
+                        exists = fs.existsSync(file);
+                    } catch {
+                        exists = false;
+                    }
+                    if (!exists) missing.push(x + "," + z);
+                }
+            }
+            if (missing.length === 0) {
+                ok++;
+                lines.push("✔ " + id + "  " + e.xSize + "x" + e.zSize + "  " + e.present + " 片齐全");
+            } else {
+                bad++;
+                lines.push("✘ " + id + "  缺 " + missing.length + "/" + (e.xSize * e.zSize) + " 片（" + missing.join(" | ") + "）  目录:" + StructureStore.absDir(e.sid));
+            }
+        }
+        lines.unshift("公共结构检查：" + ok + " 个正常，" + bad + " 个缺片（共 " + scanned.length + " 个）");
+        tell(player, StrFactory.cmdMsg(lines.join("\n")), MsgType.RAW);
+        output.success("检查完成");
+    }
+
+    /** `/ca publicreload` - forget the scan caches and look at public/ again. */
+    public static publicReload(output: CommandOutput, caPlayer: CAPlayer) {
+        const scanned = StructureStore.scanPublic(true);
+        StructureService.resetPublicCache();
+        output.success("已重新扫描 public/，共 " + scanned.length + " 个结构");
     }
 
     public static list(output: CommandOutput, caPlayer: CAPlayer) {

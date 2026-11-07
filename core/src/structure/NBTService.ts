@@ -171,8 +171,14 @@ export default class NBTService {
     }
 
     public static del(saveid: string): boolean {
+        const file = NBTService.filePath(saveid);
+        // data/nbt/public/ belongs to the operator: CALL may read it, never delete it.
+        if (file.replace(/\\/g, "/").includes("/public/")) {
+            logger.warn("[CALL][store] refused to delete a public structure file: " + file);
+            return false;
+        }
         try {
-            fs.unlinkSync(NBTService.filePath(saveid));
+            fs.unlinkSync(file);
             return true;
         } catch {
             return false;

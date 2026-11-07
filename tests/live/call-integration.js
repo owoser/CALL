@@ -942,6 +942,60 @@ async function runSuite() {
         assert(failed === 0, "load reported " + failed + " failed slices");
         return ids.join(", ") + " -> " + primary.structid + " (0 failed slices)";
     });
+    // --- public files are read-only for the plugin --------------------------
+    await checkAsync("ca.publicReadonly", async () => {
+        const fs = require("fs");
+        const path = require("path");
+        const folder = "HarnessRo";
+        const dir = path.join(M.Paths.NBT, "public", folder);
+        fs.mkdirSync(dir, { recursive: true });
+        const src = path.join(M.Paths.NBT, "calltest_persist.mcstructure");
+        fs.copyFileSync(src, path.join(dir, "ro.mcstructure"));
+
+        const removed = M.NBTService.del("ro_0_0");
+        const survived = fs.existsSync(path.join(dir, "ro.mcstructure"));
+        fs.rmSync(dir, { recursive: true, force: true });
+        assert(removed === false, "NBTService.del returned true for a public file");
+        assert(survived, "a public file was deleted");
+        return "delete refused, file intact";
+    });
+    // --- a public folder whose name contains spaces, loaded with quotes -----
+    await checkAsync("ca.publicQuotedName", async () => {
+        const fs = require("fs");
+        const path = require("path");
+        const folder = "Harness Cmd";
+        const dir = path.join(M.Paths.NBT, "public", folder);
+        fs.mkdirSync(dir, { recursive: true });
+        const src = path.join(M.Paths.NBT, "calltest_persist.mcstructure");
+        fs.copyFileSync(src, path.join(dir, "quoted.mcstructure"));
+
+        const cap = fakePlayer(sim);
+        // In chat the argument is quoted ("名字 带空格"); the engine strips the quotes and the
+        // parser sees one token, so the id keeps its spaces.
+        const hit = M.StructureOperation.findId(folder, cap);
+        assert(hit.kind === "scanned", "findId did not resolve the spaced name");
+
+        const where = spot(46);
+        fillBox(where.x, where.y, where.z, 8, 6, 8, "minecraft:air");
+        const st = M.StructureService.getStructureById(cap, hit.structid);
+        assert(st != null, "structure with a spaced name did not resolve");
+        const failed = await M.StructureService.load(
+            cap, st, hit.structid, new M.Pos3(where.x, where.y, where.z, DIM), 0, 1,
+            "none", "0_degrees", false, true, false, 100, "", () => { }
+        );
+        assert(failed === 0, "load of a spaced folder name failed " + failed + " slices");
+        let placed = 0;
+        for (let dx = 0; dx < 4; dx++) {
+            for (let dy = 0; dy < 4; dy++) {
+                for (let dz = 0; dz < 4; dz++) {
+                    if (blockTypeAt(where.x + dx, where.y + dy, where.z + dz) !== "minecraft:air") placed++;
+                }
+            }
+        }
+        fs.rmSync(dir, { recursive: true, force: true });
+        assert(placed > 0, "quoted folder name did not load");
+        return "loaded \"" + folder + "\" (" + placed + " blocks)";
+    });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;
         const t = spot(19);
