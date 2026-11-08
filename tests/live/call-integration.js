@@ -1046,6 +1046,39 @@ async function runSuite() {
             "wrong target: " + sent[0] + " vs " + JSON.stringify(feet));
         return sent[0];
     });
+    // --- one selection = one wireframe, no stacking -------------------------
+    await checkAsync("ca.areaNoGhost", async () => {
+        const Config = require(path.join(M.root, "core", "src", "common", "Config.js")).default;
+        const AreaDisplayer = require(path.join(M.root, "core", "src", "structure", "AreaDisplayerService.js")).default;
+        const Wireframe = require(path.join(M.root, "core", "src", "holo", "Wireframe.js")).default;
+        const previous = Config.get(Config.GLOBAL, "areaDisplayMode", "wireframe");
+        Config.set(Config.GLOBAL, "areaDisplayMode", "wireframe");
+        try {
+            const cap = fakePlayer(sim);
+            cap.settings.area = { start: null, end: null };
+            const base = spot(50);
+            for (let i = 0; i < 5; i++) {
+                cap.settings.area = {
+                    start: { x: base.x + i, y: base.y, z: base.z, dimid: DIM },
+                    end: { x: base.x + i + 2, y: base.y + 1, z: base.z + 2, dimid: DIM },
+                };
+                AreaDisplayer.set(
+                    new M.Area3(
+                        new M.Pos3(base.x + i, base.y, base.z, DIM),
+                        new M.Pos3(base.x + i + 2, base.y + 1, base.z + 2, DIM)
+                    ),
+                    cap
+                );
+            }
+            const tracked = Wireframe.count();
+            AreaDisplayer.remove(cap);
+            assert(tracked === 1, "expected one tracked area box, got " + tracked);
+            assert(Wireframe.count() === 0, "boxes were not cleaned up: " + Wireframe.count());
+            return "5 updates -> " + tracked + " box, cleaned to 0";
+        } finally {
+            Config.set(Config.GLOBAL, "areaDisplayMode", previous);
+        }
+    });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;
         const t = spot(19);

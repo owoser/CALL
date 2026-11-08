@@ -127,6 +127,9 @@
             "min": 100,
             "max": 1000
         },
+        "wireframeResetAll": {
+            "type": "boolean"
+        },
         "previewTimeout": {
             "type": "number",
             "min": 10,
@@ -270,5 +273,5 @@
             "type": "boolean"
         }
     },
-    "version": 2
+    "version": 3
 }

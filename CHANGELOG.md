@@ -13,6 +13,19 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 10)
+
+- **A left click on a block also fired a "click on air", which rewrote the selection at the
+  player's feet** - the reported "选区往外多一格". The dedupe window compared the block event
+  against the time the swing was *detected* (up to `toolSwingPollMs` later), so a block click
+  always looked like a miss. The window now spans the previous poll, plus a hard guard that
+  ignores any swing within `pollMs + 100ms + 50ms` of a real block/entity click.
+- Lossless clicks: a poll that sees `delta > 1` now dispatches every click (max 3), instead of
+  collapsing them into one.
+- Wireframe cleanup is no longer silent: if `shapeDestroy` fails the box is hidden with
+  `shapeRemove` and a warning names the key and id. `/ca tools debug` now prints every tracked
+  shape (key, box id, label id, still-exists) and the library's total shape count, and the new
+  `wireframeResetAll` option (default off) can hard-reset the library when something is stuck.
 ### Added (3.9.5-beta1, build 9)
 
 - **Tools respond to a click on air, left and right.** Right-click on air was already wired

@@ -1,5 +1,6 @@
 import Config from "../common/Config";
 import * as HoloCompat from "../holo/HoloCompat";
+import Wireframe from "../holo/Wireframe";
 import CAPlayer from "../user/CAPlayer";
 import { MsgType, tell } from "../util/Msg";
 import StrFactory from "../util/StrFactory";
@@ -339,6 +340,11 @@ export class ToolItems {
             }
         }
         lines.push("物品包: " + (ToolItems.available() ? "ready" : "未生效"));
+        try {
+            for (const line of Wireframe.debugReport()) lines.push(line);
+        } catch {
+            // the report must never break the command
+        }
         try {
             lines.push(HoloCompat.describe());
         } catch {

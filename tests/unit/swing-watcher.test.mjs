@@ -74,7 +74,7 @@ test('a block click inside the window cancels the air click', async () => {
     W.setCounterSource(null);
 });
 
-test('several swings in one window collapse into one click', async () => {
+test('several swings in one window are all delivered (no lost clicks)', async () => {
     const W = load();
     W.reset();
     let n = 0;
@@ -84,10 +84,45 @@ test('several swings in one window collapse into one click', async () => {
     W.track(p);
     n = 1;
     W.poll(p, () => fired++);
-    n = 2;                 // a second swing before the decision
+    n = 3;                 // two more swings before the first decision
     W.poll(p, () => fired++);
-    await sleep(W.DEDUPE_MS + 80);
-    assert.equal(fired, 1);
+    await sleep(W.DEDUPE_MS + 200);
+    assert.equal(fired, 3, 'every click must reach the tool');
+    W.setCounterSource(null);
+});
+
+test('a block click that arrives BEFORE the poll does not become an air click', async () => {
+    const W = load();
+    W.reset();
+    W.setPollInterval(200);
+    let n = 0;
+    W.setCounterSource(() => n);
+    let fired = 0;
+    const p = fakePlayer();
+    W.track(p);
+    // the real order: the client sends swing + block interaction together, so the block
+    // event lands first and the counter is read up to pollInterval later
+    n = 1;
+    W.noteBlockLeft(p);
+    W.poll(p, () => fired++);
+    await sleep(W.DEDUPE_MS + 120);
+    assert.equal(fired, 0, 'this is the bug that put the selection at the player feet');
+    W.setCounterSource(null);
+});
+
+test('two swings in one poll window fire twice', async () => {
+    const W = load();
+    W.reset();
+    W.setPollInterval(200);
+    let n = 0;
+    W.setCounterSource(() => n);
+    let fired = 0;
+    const p = fakePlayer();
+    W.track(p);
+    n = 2;
+    W.poll(p, () => fired++);
+    await sleep(W.DEDUPE_MS + 200);
+    assert.equal(fired, 2, 'both clicks must reach the tool');
     W.setCounterSource(null);
 });
 

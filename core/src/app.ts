@@ -155,6 +155,9 @@ const UseItem = "onUseItem";
         }
         const rawMs = Number(Config.get(Config.GLOBAL, "toolSwingPollMs", 200)) || 200;
         const ms = Math.max(100, Math.min(1000, rawMs));
+        // The watcher needs the interval to know how far back a block click can still belong
+        // to the swing it is about to judge.
+        SwingWatcher.setPollInterval(ms);
 
         safeEvery("toolSwingPoll", ms, () => {
             if (Config.get(Config.GLOBAL, "toolAirClick", true) === false) return;

@@ -14,7 +14,7 @@
     *   the shipped template and merges the template in (your values win, missing keys and their
     *   comments are added).
     */
-    "version": 2,
+    "version": 3,
     /*
     *   ###是否开启CALL###
     *   [参数](如下)
@@ -520,6 +520,19 @@
     *   How often the swing counter is read. 100-1000 ms; smaller feels snappier.
     */
     "toolSwingPollMs": 200,
+
+    /*
+    *   ###线框全清兜底###   (3.9.5 新增)
+    *   [解析] 正常情况下插件只销毁自己创建的线框；若出现旧框残留，可开启此开关，
+    *          插件在清理时直接调用 shapeDestroyAll() 把库里所有形状一并清掉。
+    *          true  [解析] 全清（会连带清掉其它模组画的形状，谨慎）
+    *          false [解析] 只清自己登记的（默认）
+    *
+    * ###Wireframe hard reset###   (new in 3.9.5)
+    *   Fallback for stuck wireframes: destroy every shape in the library instead of only ours.
+    *   Off by default because other mods may draw shapes too.
+    */
+    "wireframeResetAll": false,
 
     /*
     *   ###预览倒计时显示###   (3.9.0 新增，3.9.1 起默认全程)
