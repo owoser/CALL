@@ -184,6 +184,25 @@ const UseItem = "onUseItem";
         });
     }
 
+    /**
+     * Keep the live wireframes alive.
+     *
+     * Every shape carries a client-side lifetime (wireframeTtlSeconds) because the library's
+     * remove packet is ignored by clients; re-arming them periodically is what keeps the
+     * selection and the preview on screen while everything else expires by itself.
+     */
+    function startWireTicker() {
+        const ttl = Math.max(5, Math.min(120, Number(Config.get(Config.GLOBAL, "wireframeTtlSeconds", 5)) || 5));
+        const ms = Math.max(1000, Math.floor(ttl * 500));
+        safeEvery("wireRefresh", ms, () => {
+            try {
+                Wireframe.refresh();
+            } catch {
+                // keep the ticker alive
+            }
+        });
+    }
+
     export function init() {
         StructureService.migrateStore();
         mc.listen(Join, (player: Player) => onJoinHandler(player));
@@ -266,6 +285,7 @@ const UseItem = "onUseItem";
             return true;
         });
         startSwingTicker();
+        startWireTicker();
 
         mc.listen("onPlaceBlock", (player: Player) => {
             try {

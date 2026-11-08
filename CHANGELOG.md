@@ -13,6 +13,18 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 11)
+
+- **Wireframe ghosts are gone, and the cause was in the library, not in our drawing.**
+  `shapeDestroy` erases the shape server-side and returns true, but the packet it sends
+  (`makeRemoveShape`) carries only the network id - no `mType` - and clients ignore it, so every
+  re-render left the old box AND its label on screen. Our shapes now carry a client-side
+  lifetime (`shapeSetDuration`, default 5 s via `wireframeTtlSeconds`) and are re-armed every
+  ttl/2, so leftovers expire on their own while live shapes stay put.
+- Preview labels are no longer recreated: the same text shape is moved and rewritten
+  (`shapeSetText` + `shapeSetLocation` + `shapeUpdate`), so rotating the preview cannot stack
+  labels. Cancelling a preview fades the shapes out in 0.2 s instead of relying on destroy.
+- `/ca tools debug` reports the ttl and each key's text-reuse count.
 ### Fixed (3.9.5-beta1, build 10)
 
 - **A left click on a block also fired a "click on air", which rewrote the selection at the

@@ -1079,6 +1079,46 @@ async function runSuite() {
             Config.set(Config.GLOBAL, "areaDisplayMode", previous);
         }
     });
+    // --- one preview label, kept alive by its lifetime ----------------------
+    await checkAsync("ca.previewLabelStable", async () => {
+        const Config = require(path.join(M.root, "core", "src", "common", "Config.js")).default;
+        const PreviewOperation = require(path.join(M.root, "core", "src", "structure", "PreviewOperation.js")).default;
+        const Wireframe = require(path.join(M.root, "core", "src", "holo", "Wireframe.js")).default;
+        const previous = Config.get(Config.GLOBAL, "previewMode", "ghost");
+        Config.set(Config.GLOBAL, "previewMode", "wireframe");
+        try {
+            const cap = fakePlayer(sim);
+            const where = spot(52);
+            const out = { success() { }, error(m) { throw new Error(String(m)); } };
+            // the preview renders the clipboard, so it has to exist
+            const data = M.StructureService.getData(cap.xuid);
+            data.copy = {
+                c: new M.Structure(
+                    new M.Area3(
+                        new M.Pos3(where.x, where.y, where.z, DIM),
+                        new M.Pos3(where.x + 1, where.y + 1, where.z + 1, DIM)
+                    ),
+                    "c",
+                    false
+                ),
+            };
+            M.StructureService.setData(cap.xuid, data);
+            PreviewOperation.set(out, cap, new M.Pos3(where.x, where.y, where.z, DIM));
+            const first = Wireframe.idsOf("preview:" + cap.xuid);
+            assert(first != null, "preview did not register a wireframe");
+            for (let i = 0; i < 4; i++) PreviewOperation.rotate(out, cap);
+            const after = Wireframe.idsOf("preview:" + cap.xuid);
+            assert(after != null, "preview lost its wireframe");
+            assert(after.labelId === first.labelId,
+                "the label was recreated (" + first.labelId + " -> " + after.labelId + "), which leaves a ghost");
+            assert(Wireframe.ttl() >= 5, "ttl too small: " + Wireframe.ttl());
+            PreviewOperation.cancelFor(cap.xuid);
+            assert(Wireframe.count() === 0, "tracked wireframes after cancel: " + Wireframe.count());
+            return "label " + after.labelId + " kept over 4 rotations, ttl " + Wireframe.ttl() + "s";
+        } finally {
+            Config.set(Config.GLOBAL, "previewMode", previous);
+        }
+    });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;
         const t = spot(19);

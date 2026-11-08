@@ -130,6 +130,11 @@
         "wireframeResetAll": {
             "type": "boolean"
         },
+        "wireframeTtlSeconds": {
+            "type": "number",
+            "min": 5,
+            "max": 120
+        },
         "previewTimeout": {
             "type": "number",
             "min": 10,
@@ -273,5 +278,5 @@
             "type": "boolean"
         }
     },
-    "version": 3
+    "version": 4
 }
