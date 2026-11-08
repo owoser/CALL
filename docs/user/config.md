@@ -60,6 +60,8 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 |---|---|---|---|
 | `version` | `1` | 整数 | **配置结构版本**（文件第一行）。任何键的新增/删除/改名都必须 +1；启动时版本不同会自动把新模板合并进来（你的值优先，缺失项与注释自动补齐），旧文件备份到 `config/backup/` |
 | `toolItems` | `true` | true / false | 是否安装并启用内置工具物品。关闭后不再复制物品包，物品自然不可用 |
+| `toolAirClick` | `true` | true / false | 手持工具时点击**空气**是否也响应（右键 = 主行为，左键 = 次行为）。左键空气依赖 HologramLib 的挥动计数，需要 26.51.9 / 26.60.5 及以上；缺失或过旧会自动禁用左键并提示。设 `false` 则只有点到方块才触发 |
+| `toolSwingPollMs` | `200` | 100 – 1000 | 检测左键空气时读取挥动计数的间隔（毫秒）。越小越跟手，越大越省性能 |
 | `previewTimeout` | `60` | 10 – 600 | 预览魔杖多久没操作就自动取消（秒） |
 | `previewCountdown` | `"always"` | `always` / `auto` / `off` | 预览倒计时显示：`always` = 全程（默认），`auto` = 最后 20 秒，`off` = 不显示 |
 | `previewCountdownHud` | `"auto"` | `auto` / `bar` / `actionbar` | 倒计时用哪种 HUD：`auto` = 能建 Boss 条就用（失败自动退动作栏），`bar` = 只用 Boss 条，`actionbar` = 只用动作栏（不依赖任何库，最稳） |

@@ -64,6 +64,8 @@ function loadCallModules() {
         NBTService: require(path.join(core, "structure", "NBTService.js")).default,
         Placement: require(path.join(core, "structure", "StructurePlacement.js")),
         StructureOperation: require(path.join(core, "structure", "StructureOperation.js")).default,
+        SwingWatcher: require(path.join(core, "user", "SwingWatcher.js")).default,
+        ToolOperation: require(path.join(core, "user", "ToolOperation.js")).ToolOperation || require(path.join(core, "user", "ToolOperation.js")).default,
     };
 }
 
@@ -995,6 +997,54 @@ async function runSuite() {
         fs.rmSync(dir, { recursive: true, force: true });
         assert(placed > 0, "quoted folder name did not load");
         return "loaded \"" + folder + "\" (" + placed + " blocks)";
+    });
+    // --- left click on air (swing counter -> A point at the feet) -----------
+    // --- left click on air (swing counter -> the LEFT binding at the feet) ---
+    await checkAsync("ca.airLeftSelect", async () => {
+        const sent = [];
+        const pos = sim.pos;
+        const stub = {
+            xuid: sim.xuid,
+            realName: String(sim.realName || "CALLTEST"),
+            langCode: "zh_CN",
+            pos,
+            isSneaking: false,
+            direction: { pitch: 0, yaw: 0, toFacing: () => 0 },
+            getHand: () => ({ type: "call:wand_select" }),
+            getBlockFromViewVector: () => null,
+            getInventory: () => ({ getAllItems: () => [] }),
+            runcmd: (cmd) => { sent.push(String(cmd)); return true; },
+        };
+        const cap = fakePlayer(stub);
+        cap.settings.area = { start: null, end: null };
+        cap.settings.items = {
+            onUseItemOn: {},
+            onStartDestroyBlock: {
+                "call:wand_select": { "": { cmds: ["call area a ${block.pos.x} ${block.pos.y} ${block.pos.z}"], describe: "A" } },
+            },
+        };
+
+        let n = 0;
+        M.SwingWatcher.setCounterSource(() => n);
+        M.SwingWatcher.reset();
+        M.SwingWatcher.track(cap);
+
+        n = 1;
+        let fired = 0;
+        M.SwingWatcher.poll(cap, (cp) => {
+            fired++;
+            M.ToolOperation.onAirClick("left", cp, { type: "call:wand_select" });
+        });
+        await new Promise((r) => setTimeout(r, 400));
+        M.SwingWatcher.setCounterSource(null);
+        M.SwingWatcher.reset();
+
+        assert(fired === 1, "the swing did not turn into a left click (" + fired + ")");
+        assert(sent.length === 1, "expected one command, got " + JSON.stringify(sent));
+        const feet = { x: Math.floor(pos.x), y: Math.floor(pos.y) - 1, z: Math.floor(pos.z) };
+        assert(sent[0] === `call area a ${feet.x} ${feet.y} ${feet.z}`,
+            "wrong target: " + sent[0] + " vs " + JSON.stringify(feet));
+        return sent[0];
     });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;

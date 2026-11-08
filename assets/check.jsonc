@@ -119,6 +119,14 @@
         "toolItems": {
             "type": "boolean"
         },
+        "toolAirClick": {
+            "type": "boolean"
+        },
+        "toolSwingPollMs": {
+            "type": "number",
+            "min": 100,
+            "max": 1000
+        },
         "previewTimeout": {
             "type": "number",
             "min": 10,
@@ -262,5 +270,5 @@
             "type": "boolean"
         }
     },
-    "version": 1
+    "version": 2
 }

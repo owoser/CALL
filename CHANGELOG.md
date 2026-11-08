@@ -13,6 +13,24 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Added (3.9.5-beta1, build 9)
+
+- **Tools respond to a click on air, left and right.** Right-click on air was already wired
+  through `onUseItem`; left-click had no event at all (LSE only reports left clicks that hit a
+  block or an entity). HologramLib 26.51.9 / 26.60.5 counts every client swing, so CALL polls
+  `swingCount` and treats a swing that is not followed by a block/entity click within **100 ms**
+  as a click on air.
+- Air clicks target the block at the **feet** (`player.pos` is one block above them, which is
+  why things used to land at head height), falling back to the view ray, then to the player's
+  own position for bindings that need no coordinates.
+- The adjust wand derives a face from the view when there is none to hit: look up and it moves
+  up, look east and it moves east (sneak reverses, as before).
+- **HologramLib version gate**: `HoloCompat` reads the installed version (manifest +
+  `holoApiVersion` + a real `swingCount` probe) and warns once when it is missing or older than
+  26.51.9 / 26.60.5 (26.51.8 is withdrawn), naming the exact requirement. Air-left is disabled
+  in that case; nothing else degrades. `/ca tools status` prints the version line.
+- New config keys `toolAirClick` (default `true`) and `toolSwingPollMs` (200 ms, 100-1000),
+  schema `version` 2. `tooth.json` now depends on `github.com/Ieckseyr/HologramLib >=26.51.9`.
 ### Changed (3.9.5-beta1, build 8)
 
 - **Removed the `texturepack-required` warning.** It claimed clients might not receive the

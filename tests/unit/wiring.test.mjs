@@ -118,3 +118,25 @@ test('public structures must live in a folder', () => {
     const svc = read(SERVICE);
     assert.ok(svc.includes('没有放进文件夹'), 'the player must be told why it is not listed');
 });
+
+test('left click on air goes through the library gate', () => {
+    const app = read('core/src/app.ts');
+    assert.ok(app.includes('startSwingTicker'), 'the swing ticker must be started');
+    assert.ok(app.includes('SwingWatcher.poll('), 'the ticker must poll the swing counter');
+    assert.ok(app.includes('HoloCompat.warnOnce()'), 'the library version must be reported once');
+    assert.ok(app.includes('SwingWatcher.noteBlockLeft'), 'block clicks must cancel the air click');
+
+    const compat = read('core/src/holo/HoloCompat.ts');
+    assert.ok(compat.includes('HOLO_MIN_API') && compat.includes('swingCount'),
+        'HoloCompat must gate swingCount on the documented minimum');
+    assert.ok(compat.includes('HOLO_MIN_26_51') && compat.includes('HOLO_MIN_26_60'),
+        'both release lines need their own minimum (26.51.8 is withdrawn)');
+
+    const swing = read('core/src/user/SwingWatcher.ts');
+    assert.ok(swing.includes('DEDUPE_MS = 100'), 'the dedupe window is 100ms by decision');
+
+    const op = read('core/src/user/ToolOperation.ts');
+    assert.ok(op.includes('AIR_TOOLS'), 'only the bundled tools react to air');
+    assert.ok(op.includes('Math.floor(Number(p.y)) - 1'), 'the air target is the block at the feet');
+    assert.ok(op.includes('faceFromView('), 'the adjust wand uses the view direction on air');
+});

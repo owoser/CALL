@@ -1,4 +1,5 @@
 import Config from "../common/Config";
+import * as HoloCompat from "../holo/HoloCompat";
 import CAPlayer from "../user/CAPlayer";
 import { MsgType, tell } from "../util/Msg";
 import StrFactory from "../util/StrFactory";
@@ -338,6 +339,11 @@ export class ToolItems {
             }
         }
         lines.push("物品包: " + (ToolItems.available() ? "ready" : "未生效"));
+        try {
+            lines.push(HoloCompat.describe());
+        } catch {
+            // version probe must never break the report
+        }
         // Informational only: the pack is delivered whether or not the flag is set.
         const required = ToolItems.resourcePackRequired();
         lines.push("texturepack-required: " + (required === true ? "true" : required === false ? "false（不影响资源包下发）" : "未设置（不影响资源包下发）"));

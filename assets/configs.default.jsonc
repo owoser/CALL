@@ -14,7 +14,7 @@
     *   the shipped template and merges the template in (your values win, missing keys and their
     *   comments are added).
     */
-    "version": 1,
+    "version": 2,
     /*
     *   ###是否开启CALL###
     *   [参数](如下)
@@ -495,6 +495,31 @@
     *   Install and enable the bundled tool items. The first enable needs a server restart.
     */
     "toolItems": true,
+
+    /*
+    *   ###空气点击###   (3.9.5 新增)
+    *   [解析] 手持工具物品时，点击"空气"（没有点到方块）是否也响应。
+    *          true  [解析] 响应：右键空气 = 主行为，左键空气 = 次行为
+    *                        （左键靠 HologramLib 的挥动计数检测，需要 26.51.9 / 26.60.5 及以上）
+    *          false [解析] 不响应：只有点到方块才触发，和 3.9.5 之前一致
+    *   [注意] 左键空气需要 HologramLib 前置；缺失或版本过低时会自动降级并在启动日志提示
+    *
+    * ###Click on air###   (new in 3.9.5)
+    *   Respond to clicks that did not land on a block. Left click needs HologramLib 26.51.9
+    *   / 26.60.5 or newer (swing counter); without it CALL degrades to right-click only.
+    */
+    "toolAirClick": true,
+
+    /*
+    *   ###挥动轮询间隔###   (3.9.5 新增)
+    *   [解析] 检测"左键空气"时，每隔多少毫秒读一次 HologramLib 的挥动计数
+    *   [范围] 100--1000
+    *   [建议] 200（越小越跟手，越大越省性能）
+    *
+    * ###Swing poll interval###   (new in 3.9.5)
+    *   How often the swing counter is read. 100-1000 ms; smaller feels snappier.
+    */
+    "toolSwingPollMs": 200,
 
     /*
     *   ###预览倒计时显示###   (3.9.0 新增，3.9.1 起默认全程)

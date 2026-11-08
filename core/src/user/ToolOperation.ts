@@ -9,8 +9,9 @@ import * as escodegen from "escodegen";
 import * as estraverse from "estraverse";
 import Tr from "../util/Translator";
 import BlockType from "../common/BlockType";
+import { faceFromView } from "../common/ViewFace";
 import { matchBinding } from "./Bindings";
-import { ToolItems } from "./ToolItems";
+import { ToolItems, TOOL } from "./ToolItems";
 import { MsgType, tell } from "../util/Msg";
 
 type ToolVariable = {
@@ -162,46 +163,113 @@ export class ToolOperation {
         );
     }
 
+    /** Which tools react to a click that did not land on a block. */
+    private static readonly AIR_TOOLS = new Set<string>([
+        TOOL.gear,
+        TOOL.select,
+        TOOL.copy,
+        TOOL.paste,
+        TOOL.preview,
+        TOOL.adjust,
+    ]);
+
     /**
-     * A right-click that did not land on a block.
+     * The block at the player's feet.
      *
-     * Only `onUseItemOn` used to be wired, so a player had to aim at a block before the menu
-     * or the copy wand responded. `onUseItem` fires for air too; the target is then whatever
-     * the player is looking at, else the block under their feet, else a stand-in at their
-     * position so position-free bindings (call menu, call copy) still work.
+     * `player.pos` is one block above the feet (Pos3.calibration() subtracts that 1), which is
+     * why clicking air used to place things at head height. While flying there may be no block
+     * below, so fall back to what the player looks at, then to a stand-in at their position -
+     * bindings that never touch $pos/$block still work.
      */
-    public static onAirClick(caPlayer: CAPlayer, item: Item) {
-        const player = caPlayer?.$;
-        if (player == null) return;
+    private static feetBlock(player: any): any {
+        let x = 0, y = 64, z = 0, dimid = 0;
+        try {
+            const p = player.pos;
+            x = Math.floor(Number(p.x));
+            z = Math.floor(Number(p.z));
+            y = Math.floor(Number(p.y)) - 1;
+            dimid = Number(p.dimid ?? 0);
+        } catch {
+            // keep the defaults
+        }
+
         let block: any = null;
         try {
-            block = player.getBlockFromViewVector(false, false, 6, false);
+            block = mc.getBlock(x, y, z, dimid as 0 | 1 | 2);
         } catch {
             block = null;
         }
         if (block == null) {
             try {
-                block = mc.getBlock(player.pos);
+                block = mc.getBlock(x, y - 1, z, dimid as 0 | 1 | 2);
             } catch {
                 block = null;
             }
         }
         if (block == null) {
-            let pos: any = { x: 0, y: 64, z: 0, dimid: 0 };
             try {
-                pos = player.pos;
+                block = player.getBlockFromViewVector(false, false, 64, false);
             } catch {
-                // keep the default
+                block = null;
             }
-            block = {
-                pos: { x: Math.floor(pos.x), y: Math.floor(pos.y), z: Math.floor(pos.z), dimid: pos.dimid ?? 0 },
-                type: "minecraft:air",
-                states: {},
-            };
         }
-        ToolOperation.onClick(ToolType.RIGHT, caPlayer, item, block, block.pos);
+        if (block == null) {
+            block = { pos: { x, y, z, dimid }, type: "minecraft:air", states: {} };
+        }
+        return block;
     }
 
+    /**
+     * A click that did not land on a block (LSE has no event for one; see SwingWatcher).
+     *
+     * The target is the block at the player's feet, and the binding that runs is the one for
+     * that side - falling back to the other side for tools that only bind one of them (the
+     * gear, the copy and the paste wand are right-click only).
+     */
+    public static onAirClick(side: "left" | "right", caPlayer: CAPlayer, item?: Item) {
+        const player = caPlayer?.$;
+        if (player == null) return;
+
+        let hand: any = item;
+        if (hand == null) {
+            try {
+                hand = player.getHand();
+            } catch {
+                hand = null;
+            }
+        }
+        const tool = String(hand?.type ?? "");
+        if (!ToolOperation.AIR_TOOLS.has(tool)) return;
+
+        const block = ToolOperation.feetBlock(player);
+
+        if (tool === TOOL.adjust) {
+            // A click on air has no face; the wand moves along the view instead.
+            let pitch = 0;
+            let facing = 0;
+            try {
+                const dir: any = player.direction;
+                pitch = Number(dir?.pitch) || 0;
+                facing = Number(typeof dir?.toFacing === "function" ? dir.toFacing() : 0) || 0;
+            } catch {
+                pitch = 0;
+                facing = 0;
+            }
+            caPlayer.lastClickSide = faceFromView(pitch, facing);
+        }
+
+        let wanted = side === "left" ? ToolType.LEFT : ToolType.RIGHT;
+        try {
+            const bound = ToolOperation.getItems(caPlayer, wanted) as any;
+            if (bound == null || bound[tool] == null) {
+                wanted = wanted === ToolType.LEFT ? ToolType.RIGHT : ToolType.LEFT;
+            }
+        } catch {
+            // keep the requested side
+        }
+
+        ToolOperation.onClick(wanted, caPlayer, hand, block as any, block.pos as any);
+    }
     public static onClick(type: ToolType, caPlayer: CAPlayer, item: Item, block: Block, posFloat: FloatPos) {
         let items = ToolOperation.getItems(caPlayer, type);
         let name = "";

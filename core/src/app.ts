@@ -21,6 +21,9 @@ import Wireframe from "./holo/Wireframe";
 import Holo from "./holo/Holo";
 import ItemDisplay from "./holo/ItemDisplay";
 import { ToolItems } from "./user/ToolItems";
+import SwingWatcher from "./user/SwingWatcher";
+import * as HoloCompat from "./holo/HoloCompat";
+import { every as safeEvery } from "./util/Safe";
 
 import { MsgType, tell } from "./util/Msg";
 import { every, describeError, logFailure, safeCall, stopEverything } from "./util/Safe";
@@ -54,6 +57,13 @@ const UseItem = "onUseItem";
             Activity.onCreate(player.xuid);
             const caPlayer = Players.getCAPlayer(player.xuid);
             if (caPlayer == null) return;
+            // The swing counter survives a relog; take its current value as the baseline so
+            // yesterday's clicks do not fire the moment they walk in.
+            try {
+                SwingWatcher.track(caPlayer);
+            } catch {
+                // ignore
+            }
             Activity.onStart(caPlayer);
         });
     }
@@ -67,6 +77,11 @@ const UseItem = "onUseItem";
 
             Activity.onStop(caPlayer);
             Activity.onDestroy(caPlayer);
+            try {
+                SwingWatcher.forget(caPlayer.xuid);
+            } catch {
+                // ignore
+            }
         });
     }
 
@@ -112,6 +127,7 @@ const UseItem = "onUseItem";
 
         safeCall("onStartDestroyBlock", () => {
             try {
+                SwingWatcher.noteBlockLeft(caPlayer);
                 ToolOperation.onClick(
                     ToolType.LEFT,
                     caPlayer,
@@ -121,6 +137,46 @@ const UseItem = "onUseItem";
                 );
             } catch (e) {
                 reportToPlayer(player, e);
+            }
+        });
+    }
+
+    /**
+     * Poll the swing counters while anyone holds a tool.
+     *
+     * Only players with a CALL tool in hand are polled, the interval is configurable and the
+     * call is a native counter read - no packets, no per-tick work on an idle server.
+     */
+    function startSwingTicker() {
+        try {
+            HoloCompat.warnOnce();
+        } catch {
+            // ignore
+        }
+        const rawMs = Number(Config.get(Config.GLOBAL, "toolSwingPollMs", 200)) || 200;
+        const ms = Math.max(100, Math.min(1000, rawMs));
+
+        safeEvery("toolSwingPoll", ms, () => {
+            if (Config.get(Config.GLOBAL, "toolAirClick", true) === false) return;
+            if (!SwingWatcher.available()) return;
+            let players: Player[] = [];
+            try {
+                players = mc.getOnlinePlayers();
+            } catch {
+                return;
+            }
+            for (const player of players) {
+                try {
+                    const caPlayer = Players.getCAPlayer(player.xuid);
+                    if (caPlayer == null || !EnableOperation.isEnable(caPlayer)) continue;
+                    const hand = player.getHand();
+                    if (hand == null || !ToolItems.isTool(String(hand.type))) continue;
+                    SwingWatcher.poll(caPlayer, (cp) => {
+                        ToolOperation.onAirClick("left", cp);
+                    });
+                } catch {
+                    // one bad player must not stop the loop
+                }
             }
         });
     }
@@ -161,13 +217,28 @@ const UseItem = "onUseItem";
                 if (clickMap.get(player.xuid)) return;
                 clickMap.set(player.xuid, true);
                 setTimeout(() => clickMap.set(player.xuid, false), 200);
-                ToolOperation.onAirClick(caPlayer, item);
+                ToolOperation.onAirClick("right", caPlayer, item);
             });
         });
 
         mc.listen(StartDestroyBlock, (player: Player, block: Block) =>
             onStartDestroyBlockHandler(player, block)
         );
+
+        // Left-click detection (see SwingWatcher): HologramLib counts client swings, we turn a
+        // swing that was not followed by a block/entity click into "clicked air".
+        mc.listen("onAttackBlock", (player: Player) => {
+            safeCall("onAttackBlock.note", () => {
+                const caPlayer = player == null ? null : Players.getCAPlayer(player.xuid);
+                if (caPlayer != null) SwingWatcher.noteBlockLeft(caPlayer);
+            });
+        });
+        mc.listen("onAttackEntity", (player: Player) => {
+            safeCall("onAttackEntity.note", () => {
+                const caPlayer = player == null ? null : Players.getCAPlayer(player.xuid);
+                if (caPlayer != null) SwingWatcher.noteBlockLeft(caPlayer);
+            });
+        });
 
         mc.listen(Left, (player: Player) => {
             safeCall("onLeft.cleanup", () => {
@@ -191,6 +262,8 @@ const UseItem = "onUseItem";
             }
             return true;
         });
+        startSwingTicker();
+
         mc.listen("onPlaceBlock", (player: Player) => {
             try {
                 const hand = player.getHand();
