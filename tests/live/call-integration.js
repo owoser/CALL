@@ -1012,6 +1012,12 @@ async function runSuite() {
             direction: { pitch: 0, yaw: 0, toFacing: () => 0 },
             getHand: () => ({ type: "call:wand_select" }),
             getBlockFromViewVector: () => null,
+            // the floor block: a click on air must target THIS cell, not the one the body is in
+            getBlockStandingOn: () => ({
+                pos: { x: Math.floor(pos.x), y: Math.floor(pos.y) - 2, z: Math.floor(pos.z), dimid: DIM },
+                type: "minecraft:stone",
+                states: {},
+            }),
             getInventory: () => ({ getAllItems: () => [] }),
             runcmd: (cmd) => { sent.push(String(cmd)); return true; },
         };
@@ -1041,7 +1047,8 @@ async function runSuite() {
 
         assert(fired === 1, "the swing did not turn into a left click (" + fired + ")");
         assert(sent.length === 1, "expected one command, got " + JSON.stringify(sent));
-        const feet = { x: Math.floor(pos.x), y: Math.floor(pos.y) - 1, z: Math.floor(pos.z) };
+        // standing block = one below the cell the body occupies
+        const feet = { x: Math.floor(pos.x), y: Math.floor(pos.y) - 2, z: Math.floor(pos.z) };
         assert(sent[0] === `call area a ${feet.x} ${feet.y} ${feet.z}`,
             "wrong target: " + sent[0] + " vs " + JSON.stringify(feet));
         return sent[0];

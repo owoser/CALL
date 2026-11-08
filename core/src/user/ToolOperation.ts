@@ -174,14 +174,16 @@ export class ToolOperation {
     ]);
 
     /**
-     * The block at the player's feet.
+     * The block the player is standing ON (the one under their feet).
      *
-     * `player.pos` is one block above the feet (Pos3.calibration() subtracts that 1), which is
-     * why clicking air used to place things at head height. While flying there may be no block
-     * below, so fall back to what the player looks at, then to a stand-in at their position -
-     * bindings that never touch $pos/$block still work.
+     * `player.pos` is one block above the feet level (Pos3.calibration() subtracts that 1), so
+     * `floor(pos.y) - 1` is the cell the body occupies and one more down is the floor block the
+     * operator wants a click on air to target. `getBlockStandingOn()` answers that directly and
+     * is preferred; while flying there is no floor, so fall back to the cell below, then to what
+     * the player looks at, then to a stand-in (bindings that never touch $pos/$block still work).
      */
     private static feetBlock(player: any): any {
+        // The cell the player's body occupies (feet level), used for every fallback below.
         let x = 0, y = 64, z = 0, dimid = 0;
         try {
             const p = player.pos;
@@ -193,12 +195,15 @@ export class ToolOperation {
             // keep the defaults
         }
 
+        // 1) the exact floor block, when the engine can answer
         let block: any = null;
         try {
-            block = mc.getBlock(x, y, z, dimid as 0 | 1 | 2);
+            block = player.getBlockStandingOn();
         } catch {
             block = null;
         }
+
+        // 2) one below the feet cell (standing on a block, or hovering just above one)
         if (block == null) {
             try {
                 block = mc.getBlock(x, y - 1, z, dimid as 0 | 1 | 2);
@@ -206,6 +211,8 @@ export class ToolOperation {
                 block = null;
             }
         }
+
+        // 3) whatever the player is looking at (useful while flying over nothing)
         if (block == null) {
             try {
                 block = player.getBlockFromViewVector(false, false, 64, false);
@@ -213,12 +220,13 @@ export class ToolOperation {
                 block = null;
             }
         }
+
+        // 4) a stand-in at the feet cell
         if (block == null) {
             block = { pos: { x, y, z, dimid }, type: "minecraft:air", states: {} };
         }
         return block;
     }
-
     /**
      * A click that did not land on a block (LSE has no event for one; see SwingWatcher).
      *

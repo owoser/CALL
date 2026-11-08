@@ -13,6 +13,12 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 14)
+
+- **Clicking air targeted the cell the body occupies, one block above the floor.** The
+  selection/preview/paste point of an air click is now the block the player stands ON
+  (`player.getBlockStandingOn()`), falling back to one below the feet cell, then to the view
+  ray, then to a stand-in - so flying over nothing still works.
 ### Fixed (3.9.5-beta1, build 13)
 
 - **A cancelled preview left its box and label on screen.** Verified with `/ca tools debug`: after
