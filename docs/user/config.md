@@ -63,6 +63,7 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 | `toolAirClick` | `true` | true / false | 手持工具时点击**空气**是否也响应（右键 = 主行为，左键 = 次行为）。左键空气依赖 HologramLib 的挥动计数，需要 26.51.9 / 26.60.5 及以上；缺失或过旧会自动禁用左键并提示。设 `false` 则只有点到方块才触发 |
 | `toolSwingPollMs` | `200` | 100 – 1000 | 检测左键空气时读取挥动计数的间隔（毫秒）。越小越跟手，越大越省性能 |
 | `wireframeTtlSeconds` | `0` | 0 – 120 | 给线框加「客户端存活时间」（秒）。`0` = 关闭（默认、推荐）：顺序依赖库的 destroy 清理。实测给形状设了寿命后客户端反而不认移除包（鬼影变多），所以默认关闭；只有确认需要时才开启 |
+| `wireframeParkBeforeDestroy` | `true` | true / false | 删除线框前先把它挪到地表下 512 格并刷新，再删除。本版实测客户端不认 `shapeDestroy` 的移除包（服务端库内已归零、屏幕上仍在），但认更新；开启后取消预览/重建都不会留残留。库修好后可设 `false` |
 | `wireframeResetAll` | `false` | true / false | 线框清理兜底：`false` = 只销毁插件自己登记的形状；`true` = 清理时调用库的 `shapeDestroyAll()` 把**所有**形状一并清掉（会连带其它模组画的形状，仅在出现残留时临时开启） |
 | `previewTimeout` | `60` | 10 – 600 | 预览魔杖多久没操作就自动取消（秒） |
 | `previewCountdown` | `"always"` | `always` / `auto` / `off` | 预览倒计时显示：`always` = 全程（默认），`auto` = 最后 20 秒，`off` = 不显示 |

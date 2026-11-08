@@ -1166,6 +1166,70 @@ async function runSuite() {
             Config.set(Config.GLOBAL, "previewMode", previous);
         }
     });
+    // --- cancelling a preview parks the shapes before destroying them ------
+    await checkAsync("ca.cancelParks", async () => {
+        const Config = require(path.join(M.root, "core", "src", "common", "Config.js")).default;
+        const PreviewOperation = require(path.join(M.root, "core", "src", "structure", "PreviewOperation.js")).default;
+        const Wireframe = require(path.join(M.root, "core", "src", "holo", "Wireframe.js")).default;
+        const Holo = require(path.join(M.root, "core", "src", "holo", "Holo.js")).default;
+
+        const previousMode = Config.get(Config.GLOBAL, "previewMode", "ghost");
+        const previousTtl = Config.get(Config.GLOBAL, "wireframeTtlSeconds", 0);
+        const previousPark = Config.get(Config.GLOBAL, "wireframeParkBeforeDestroy", true);
+        Config.set(Config.GLOBAL, "previewMode", "wireframe");
+        Config.set(Config.GLOBAL, "wireframeTtlSeconds", 0);
+        Config.set(Config.GLOBAL, "wireframeParkBeforeDestroy", true);
+
+        const calls = [];
+        const realCall = Holo.call;
+        Holo.call = function (name, ...args) {
+            calls.push({ name, args });
+            return realCall.call(Holo, name, ...args);
+        };
+        try {
+            const cap = fakePlayer(sim);
+            const where = spot(56);
+            const out = { success() { }, error(m) { throw new Error(String(m)); } };
+            const data = M.StructureService.getData(cap.xuid);
+            data.copy = {
+                c: new M.Structure(
+                    new M.Area3(
+                        new M.Pos3(where.x, where.y, where.z, DIM),
+                        new M.Pos3(where.x + 1, where.y + 1, where.z + 1, DIM)
+                    ),
+                    "c",
+                    false
+                ),
+            };
+            M.StructureService.setData(cap.xuid, data);
+            PreviewOperation.set(out, cap, new M.Pos3(where.x, where.y, where.z, DIM));
+            const ids = Wireframe.idsOf("preview:" + cap.xuid);
+            assert(ids != null, "preview did not register a wireframe");
+
+            calls.length = 0;
+            PreviewOperation.cancelFor(cap.xuid);
+
+            const park = calls.filter((c) => c.name === "shapeSetLocation");
+            const destroy = calls.filter((c) => c.name === "shapeDestroy");
+            const parkedLow = park.some((c) => Number(c.args[2]) < -400);
+            assert(park.length >= 2, "expected the box and label to be parked, got " + park.length);
+            assert(parkedLow, "parked location was not moved far below: " + JSON.stringify(park));
+            assert(destroy.length >= 2, "expected both shapes to be destroyed, got " + destroy.length);
+            assert(Wireframe.count() === 0, "tracked wireframes after cancel: " + Wireframe.count());
+
+            const live = Holo.call("shapeGetAllShapeIds");
+            const stillThere = Array.isArray(live)
+                ? live.filter((id) => id === ids.boxId || id === ids.labelId)
+                : [];
+            assert(stillThere.length === 0, "preview shapes are still in the library: " + JSON.stringify(stillThere));
+            return "parked " + park.length + " + destroyed " + destroy.length + ", library clean";
+        } finally {
+            Holo.call = realCall;
+            Config.set(Config.GLOBAL, "previewMode", previousMode);
+            Config.set(Config.GLOBAL, "wireframeTtlSeconds", previousTtl);
+            Config.set(Config.GLOBAL, "wireframeParkBeforeDestroy", previousPark);
+        }
+    });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;
         const t = spot(19);

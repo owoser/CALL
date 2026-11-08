@@ -47,11 +47,19 @@ interface Entry {
 
 const entries = new Map<string, Entry>();
 
+/** How far below the world a shape is parked before being destroyed. */
+const PARK_DISTANCE = 512;
+
 /** 0 = off (default). Only useful if a library build ignores remove packets. */
 function ttlSeconds(): number {
     const raw = Number(Config.get(Config.GLOBAL, "wireframeTtlSeconds", 0));
     if (!Number.isFinite(raw) || raw <= 0) return 0;
     return Math.min(120, Math.max(1, raw));
+}
+
+/** Park shapes before destroying them (the only way to clear them on this client build). */
+function parkBeforeDestroy(): boolean {
+    return Config.get(Config.GLOBAL, "wireframeParkBeforeDestroy", true) !== false;
 }
 
 function maxRenderDistance(): number {
@@ -101,8 +109,27 @@ function resend(id: number): void {
     Holo.call("shapeUpdate", id);
 }
 
+/**
+ * Get a shape off the screen and out of the library.
+ *
+ * `shapeDestroy` erases the shape server-side but clients ignore the remove packet in this
+ * library build (verified: server reports 0 shapes while the box is still drawn). Updates ARE
+ * honoured, so the shape is first moved far below the world and re-sent - the client follows -
+ * and only then destroyed. The leftover is invisible and dies with the next relog.
+ */
 function drop(id: number): void {
     if (!(id > 0)) return;
+    if (parkBeforeDestroy()) {
+        try {
+            const loc: any = Holo.call("shapeGetLocation", id);
+            if (Array.isArray(loc) && loc.length >= 3) {
+                Holo.call("shapeSetLocation", id, Number(loc[0]), Number(loc[1]) - PARK_DISTANCE, Number(loc[2]));
+                Holo.call("shapeUpdate", id);
+            }
+        } catch {
+            // parking is best effort; destroy below still frees the server object
+        }
+    }
     Holo.call("shapeDestroy", id);
 }
 

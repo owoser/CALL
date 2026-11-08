@@ -135,6 +135,9 @@
             "min": 0,
             "max": 120
         },
+        "wireframeParkBeforeDestroy": {
+            "type": "boolean"
+        },
         "previewTimeout": {
             "type": "number",
             "min": 10,
@@ -278,5 +281,5 @@
             "type": "boolean"
         }
     },
-    "version": 5
+    "version": 6
 }

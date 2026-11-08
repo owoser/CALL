@@ -13,6 +13,14 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 13)
+
+- **A cancelled preview left its box and label on screen.** Verified with `/ca tools debug`: after
+  cancelling, the plugin tracked 0 keys and the library held 0 shapes, yet the client still drew
+  them - clients ignore the library's remove packet but DO honour updates. Shapes are now moved
+  512 blocks below the world and re-sent before `shapeDestroy`, so a cancel (or a rebuild after a
+  size change) clears the screen immediately. New option `wireframeParkBeforeDestroy` (default
+  true) documents the workaround and can be turned off once the library removes shapes properly.
 ### Fixed (3.9.5-beta1, build 12)
 
 - **Reverted the wireframe lifetime, which was my own regression.** Build 11 set
