@@ -192,8 +192,10 @@ const UseItem = "onUseItem";
      * selection and the preview on screen while everything else expires by itself.
      */
     function startWireTicker() {
-        const ttl = Math.max(5, Math.min(120, Number(Config.get(Config.GLOBAL, "wireframeTtlSeconds", 5)) || 5));
-        const ms = Math.max(1000, Math.floor(ttl * 500));
+        const ttl = Number(Config.get(Config.GLOBAL, "wireframeTtlSeconds", 0)) || 0;
+        // 0 = the destroy path is used (works); a lifetime only exists when the operator opts in.
+        if (ttl <= 0) return;
+        const ms = Math.max(1000, Math.floor(Math.min(120, ttl) * 500));
         safeEvery("wireRefresh", ms, () => {
             try {
                 Wireframe.refresh();

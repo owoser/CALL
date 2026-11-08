@@ -237,6 +237,13 @@ function migratePreviewDefaults(): void {
             current.previewCountdown = "always";
             changes.push("previewCountdown auto → always");
         }
+        // build 11 shipped wireframeTtlSeconds = 5; a client-side lifetime made the library's
+        // destroy stop removing the shape, which brought the ghosts back. Only the shipped
+        // default is rewritten - a value the operator picked is left alone.
+        if (Number(current.wireframeTtlSeconds) === 5) {
+            current.wireframeTtlSeconds = 0;
+            changes.push("wireframeTtlSeconds 5 → 0（关闭寿命，恢复 destroy 清理）");
+        }
         if (changes.length === 0) return;
         fs.writeFileSync(GLOBAL_PATH, JSON.stringify(current, null, 4) + "\n", "utf8");
         try {

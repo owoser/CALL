@@ -1111,10 +1111,57 @@ async function runSuite() {
             assert(after != null, "preview lost its wireframe");
             assert(after.labelId === first.labelId,
                 "the label was recreated (" + first.labelId + " -> " + after.labelId + "), which leaves a ghost");
-            assert(Wireframe.ttl() >= 5, "ttl too small: " + Wireframe.ttl());
+            assert(Wireframe.ttl() === 0, "the lifetime must stay off by default: " + Wireframe.ttl());
             PreviewOperation.cancelFor(cap.xuid);
             assert(Wireframe.count() === 0, "tracked wireframes after cancel: " + Wireframe.count());
-            return "label " + after.labelId + " kept over 4 rotations, ttl " + Wireframe.ttl() + "s";
+            return "label " + after.labelId + " kept over 4 rotations, lifetime off";
+        } finally {
+            Config.set(Config.GLOBAL, "previewMode", previous);
+        }
+    });
+    // --- nudging the preview moves the box instead of rebuilding it --------
+    await checkAsync("ca.nudgeNoRecreate", async () => {
+        const Config = require(path.join(M.root, "core", "src", "common", "Config.js")).default;
+        const PreviewOperation = require(path.join(M.root, "core", "src", "structure", "PreviewOperation.js")).default;
+        const Wireframe = require(path.join(M.root, "core", "src", "holo", "Wireframe.js")).default;
+        const previous = Config.get(Config.GLOBAL, "previewMode", "ghost");
+        const previousTtl = Config.get(Config.GLOBAL, "wireframeTtlSeconds", 0);
+        Config.set(Config.GLOBAL, "previewMode", "wireframe");
+        Config.set(Config.GLOBAL, "wireframeTtlSeconds", 0);
+        try {
+            const cap = fakePlayer(sim);
+            const where = spot(54);
+            const out = { success() { }, error(m) { throw new Error(String(m)); } };
+            const data = M.StructureService.getData(cap.xuid);
+            data.copy = {
+                c: new M.Structure(
+                    new M.Area3(
+                        new M.Pos3(where.x, where.y, where.z, DIM),
+                        new M.Pos3(where.x + 1, where.y + 1, where.z + 1, DIM)
+                    ),
+                    "c",
+                    false
+                ),
+            };
+            M.StructureService.setData(cap.xuid, data);
+            PreviewOperation.set(out, cap, new M.Pos3(where.x, where.y, where.z, DIM));
+
+            const first = Wireframe.idsOf("preview:" + cap.xuid);
+            assert(first != null, "preview did not register a wireframe");
+            assert(Wireframe.ttl() === 0, "the lifetime must be off by default (got " + Wireframe.ttl() + ")");
+
+            // four nudges: +X, -X, +Y, -Y. Same footprint, so the box must be moved, not rebuilt.
+            for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0]]) {
+                PreviewOperation.nudge(out, cap, dx, dy, dz);
+            }
+            const after = Wireframe.idsOf("preview:" + cap.xuid);
+            const stats = Wireframe.statsOf("preview:" + cap.xuid);
+            PreviewOperation.cancelFor(cap.xuid);
+            assert(after != null, "preview lost its wireframe");
+            assert(after.boxId === first.boxId,
+                "the box was recreated while nudging (" + first.boxId + " -> " + after.boxId + ")");
+            assert(stats.boxMoves >= 4, "expected >=4 in-place moves, got " + stats.boxMoves);
+            return "box " + after.boxId + " moved " + stats.boxMoves + " times, no recreate";
         } finally {
             Config.set(Config.GLOBAL, "previewMode", previous);
         }

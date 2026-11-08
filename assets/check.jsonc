@@ -132,7 +132,7 @@
         },
         "wireframeTtlSeconds": {
             "type": "number",
-            "min": 5,
+            "min": 0,
             "max": 120
         },
         "previewTimeout": {
@@ -278,5 +278,5 @@
             "type": "boolean"
         }
     },
-    "version": 4
+    "version": 5
 }

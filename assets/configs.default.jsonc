@@ -14,7 +14,7 @@
     *   the shipped template and merges the template in (your values win, missing keys and their
     *   comments are added).
     */
-    "version": 4,
+    "version": 5,
     /*
     *   ###是否开启CALL###
     *   [参数](如下)
@@ -536,18 +536,19 @@
 
     /*
     *   ###线框存活时间###   (3.9.5 新增)
-    *   [解析] 选区/预览的线框与标签在客户端显示多久（秒）。插件每「该值 ÷ 2」刷新一次，
-    *          所以正常线框会一直存在；而重建/取消时残留的旧线框会在该时间后自行消失。
-    *   [范围] 5--120
-    *   [建议] 5
-    *   [其他] 库的 shapeDestroy 移除包在客户端不生效，只能靠这个存活时间清理，别设为 0
+    *   [解析] 给线框加一个「客户端存活时间」（秒）。0 = 关闭（默认，推荐）。
+    *          非 0 时插件每「该值 ÷ 2」刷新一次续命，届时未被刷新的旧线框会自动消失。
+    *          【注意】实测给形状设了存活时间后，客户端反而不认 destroy 的移除包（鬼影变多），
+    *          所以默认关闭；只有在作者修好移除包、且你确认需要时才开。
+    *   [范围] 0--120
+    *   [建议] 0
     *
     * ###Wireframe lifetime###   (new in 3.9.5)
     *   Seconds a box/label stays on the client. Live shapes are refreshed every ttl/2; leftovers
     *   from a re-render or a cancel disappear on their own. The library's remove packet is not
     *   honoured by clients, so this is the only reliable cleanup - keep it >= 5.
     */
-    "wireframeTtlSeconds": 5,
+    "wireframeTtlSeconds": 0,
 
     /*
     *   ###预览倒计时显示###   (3.9.0 新增，3.9.1 起默认全程)

@@ -13,6 +13,19 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 12)
+
+- **Reverted the wireframe lifetime, which was my own regression.** Build 11 set
+  `shapeSetDuration` on every shape after concluding the library's remove packet was ignored.
+  That was wrong: with a lifetime attached, the client keeps the shape and stops honouring
+  `shapeDestroy`, so *every* rebuild left a ghost - the plain destroy path used by build 8 had
+  been working all along. `wireframeTtlSeconds` is back to `0` (off), an existing `5` from
+  build 11 is migrated back to `0`.
+- **Boxes are moved instead of rebuilt**: a preview nudge or an anchor move keeps the same
+  footprint, so the box is now moved with `shapeSetLocation` + `shapeUpdate` - no new shape is
+  created, therefore no ghost can appear. Verified: 4 nudges keep the same box id.
+- Labels are still rewritten in place (never recreated), which fixed the stacked text earlier.
+- `/ca tools debug` shows the lifetime state plus per-key in-place-move / text-reuse counters.
 ### Fixed (3.9.5-beta1, build 11)
 
 - **Wireframe ghosts are gone, and the cause was in the library, not in our drawing.**
