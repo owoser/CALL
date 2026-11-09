@@ -72,6 +72,8 @@ interface Scene extends GhostLedger {
     mirror: MirrorMode;
     pivot: PivotMode;
     playerName: string;
+    /** Dimension of the player when the preview started (needed to read the real block). */
+    dimid: number;
     cancelled: boolean;
     mode: SceneMode;
 
@@ -195,7 +197,7 @@ function tip(xuid: string, text: string, error = false): void {
 }
 
 // ---------------------------------------------------------------- deferred cleanup
-interface CleanupTask { playerName: string; cells: Array<[number, number, number]>; }
+interface CleanupTask { playerName: string; cells: Array<[number, number, number]>; dimid: number; }
 const cleanups: CleanupTask[] = [];
 let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -207,9 +209,9 @@ function scheduleCleanup(): void {
     }, 0);
 }
 
-function enqueueCleanup(playerName: string, cells: Array<[number, number, number]>): void {
+function enqueueCleanup(playerName: string, cells: Array<[number, number, number]>, dimid = 0): void {
     if (cells.length === 0) return;
-    cleanups.push({ playerName, cells });
+    cleanups.push({ playerName, cells, dimid });
     scheduleCleanup();
 }
 
@@ -360,6 +362,7 @@ export const PreviewScene = {
             mirror,
             pivot,
             playerName: realName,
+            dimid: Number((caPlayer.$ as any)?.dimid ?? 0),
             cancelled: false,
             mode: "full",
             blocks: [],
@@ -565,10 +568,20 @@ export const PreviewScene = {
         }
         scene.stale.clear();
 
-        scene.queue = ops;
-        if (ops.length > 0) scene.failed = 0;
-        scene.building = ops.length > 0;
-        if (ops.length > 0 || scene.stale.size > 0) PreviewScene.pump(xuid);
+        // ORDER: clears before sets. diffPlacement emits sets first, so a big move used to draw
+        // the new window (12 chunks of sets) before restoring the old one ("先清理再移动" - the
+        // library author's rule). Restores must reach the client before the cells they touch are
+        // re-drawn, otherwise the pending set wins and the old blocks stay on screen.
+        const clears: PlanOp[] = [];
+        const sets: PlanOp[] = [];
+        for (const op of ops) {
+            if (op.op === "clear") clears.push(op);
+            else sets.push(op);
+        }
+        scene.queue = clears.concat(sets);
+        if (scene.queue.length > 0) scene.failed = 0;
+        scene.building = scene.queue.length > 0;
+        if (scene.queue.length > 0 || scene.stale.size > 0) PreviewScene.pump(xuid);
     },
 
     /**
@@ -680,16 +693,43 @@ export const PreviewScene = {
 
     /** One batched clear (restores the real blocks); per-cell fallback on refusal. */
     submitClears(scene: Scene, ops: PlanOp[]): void {
+        // A clear is "send the block the world has here". The library's own clear paths report
+        // failure for reasons we cannot see (they validate each body and only count packets that
+        // went out), and a failed clear is a permanent ghost, so the restore goes through the set
+        // path - the one that demonstrably reaches the client.
         const positions: Array<[number, number, number]> = ops.map((op) => [op.x, op.y, op.z]);
-        if (FakeBlocks.clear(scene.playerName, positions)) {
+        const restored = FakeBlocks.restore(scene.playerName, positions, scene.dimid);
+        if (restored >= ops.length) {
             for (const op of ops) markCleared(scene, op.key);
             scene.batches++;
             scene.batchCells += ops.length;
             return;
         }
-        // Could not confirm: keep them as owed work instead of pretending they are gone.
-        scene.batchFallbacks++;
-        for (const op of ops) markOwed(scene, op.key, op.x, op.y, op.z);
+
+        // Cells whose chunk the server does not have cannot be restored yet: owe them.
+        const byKey = new Map<string, PlanOp>();
+        for (const op of ops) byKey.set(op.key, op);
+        let kept = 0;
+        for (const op of ops) {
+            const pos = byKey.get(op.key)!;
+            let alive = false;
+            try {
+                alive = mc.getBlock(pos.x, pos.y, pos.z, scene.dimid as 0 | 1 | 2) != null;
+            } catch {
+                alive = false;
+            }
+            if (alive && kept < restored) {
+                markCleared(scene, op.key);
+                kept++;
+            } else {
+                markOwed(scene, op.key, op.x, op.y, op.z);
+            }
+        }
+        if (kept > 0) {
+            scene.batches++;
+            scene.batchCells += kept;
+        }
+        if (kept < ops.length) scene.batchFallbacks++;
     },
 
     /** One INFO line per drained burst (never per tick), for evidence in the log. */
@@ -949,7 +989,7 @@ export const PreviewScene = {
         const cells = teardownCells(scene);
         resetLedger(scene);
 
-        if (cells.length > 0 && batchingAvailable() && FakeBlocks.clear(scene.playerName, cells)) {
+        if (cells.length > 0 && batchingAvailable() && FakeBlocks.restore(scene.playerName, cells, scene.dimid) >= cells.length) {
             scene.batches++;
             scene.batchCells += cells.length;
             return;
@@ -968,6 +1008,19 @@ export const PreviewScene = {
         while (cleanups.length > 0 && work > 0) {
             const task = cleanups[0];
             if (!playerOnline(task.playerName)) return;
+
+            // Fake blocks are restored with the SAME mechanism that drew them (a client-side
+            // block update), not with viewClearBlock - that only reverts viewBlock overrides.
+            if (batchingAvailable()) {
+                const restored = FakeBlocks.restore(task.playerName, task.cells, task.dimid);
+                if (restored >= task.cells.length) {
+                    cleanups.shift();
+                    continue;
+                }
+                task.cells = task.cells.slice(restored);
+                work--;
+                continue;
+            }
             while (task.cells.length > 0 && work > 0) {
                 const [x, y, z] = task.cells.pop() as [number, number, number];
                 BlockView.clear(task.playerName, x, y, z);

@@ -1383,6 +1383,28 @@ async function runSuite() {
         return "4096 cells -> " + (stats.packets + stats.queue) + " packets in " + submitMs + " ms"
             + " (clear=" + cleared + ")";
     });
+    // --- restoring a fake block goes through the path that works ------------
+    await checkAsync("ca.blockClearProbe", async () => {
+        const { FakeBlocks, packCells } = require(path.join(M.root, "core", "src", "holo", "FakeBlocks.js"));
+        assert(FakeBlocks.available(), "blockBatch* missing");
+        const name = String(sim.realName || "CALLTEST");
+        const base = spot(76);
+        fillBox(base.x, base.y, base.z, 8, 1, 1, "minecraft:stone");
+        const cells = [];
+        for (let i = 0; i < 8; i++) cells.push({ x: base.x + i, y: base.y, z: base.z, id: "minecraft:glass" });
+        const packed = packCells(cells);
+        const batchId = FakeBlocks.set(name, packed.segments[0], true);
+        assert(batchId >= 0, "the batch set was refused");
+        await new Promise((r) => setTimeout(r, 300));
+
+        const positions = cells.map((c) => [c.x, c.y, c.z]);
+        const restored = FakeBlocks.restore(name, positions, DIM);
+        // the library clear path is kept for the record: it is allowed to refuse.
+        const batchClear = FakeBlocks.clear(name, positions);
+        assert(restored === cells.length,
+            "restore only covered " + restored + "/" + cells.length + " cells (library clear=" + batchClear + ")");
+        return "restored " + restored + "/" + cells.length + " via the set path (blockBatchClear=" + batchClear + ")";
+    });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;
         const t = spot(19);

@@ -182,8 +182,8 @@ test('the preview sends through the batch API', () => {
     assert.ok(scene.includes('pumpLegacy('), 'the per-cell path must stay as the fallback');
     assert.ok(scene.includes('FakeBlocks.set(scene.playerName, segment, immediate)'),
         'a chunk must be one library call');
-    assert.ok(scene.includes('FakeBlocks.clear(scene.playerName, cells)'),
-        'teardown must be one batched clear');
+    assert.ok(scene.includes('FakeBlocks.restore(scene.playerName, cells, scene.dimid)'),
+        'teardown must restore the real blocks in one batch');
     assert.ok(scene.includes('maybeResend('), 'a client chunk reload must trigger a re-send');
 
     const cfg = read('assets/configs.default.jsonc');
@@ -213,4 +213,22 @@ test('the ledger owns applied / stale / everApplied', () => {
     const ledger = read('core/src/structure/GhostLedger.ts');
     assert.ok(ledger.includes('export function markOwed('));
     assert.ok(ledger.includes('export function teardownCells('));
+});
+
+test('clears go through the set path, not the library clear', () => {
+    const scene = read('core/src/structure/PreviewScene.ts');
+    assert.ok(scene.includes('FakeBlocks.restore('), 'clears must restore the real block');
+    assert.equal(scene.includes('FakeBlocks.clear(scene.playerName'), false,
+        'blockBatchClear reports failure on this build - it must not be the way we clear');
+    const blocks = read('core/src/holo/FakeBlocks.ts');
+    assert.ok(blocks.includes('restore(playerName: string'), 'FakeBlocks needs the restore path');
+    assert.ok(blocks.includes('BlockType.generateFromBlock'), 'the real block must come from the world');
+});
+
+test('clears are queued before sets (先清理再移动)', () => {
+    const scene = read('core/src/structure/PreviewScene.ts');
+    assert.ok(/const clears: PlanOp\[\] = \[\];/.test(scene), 'enqueue must split clears out');
+    assert.ok(scene.includes('scene.queue = clears.concat(sets)'), 'clears must be queued first');
+    assert.ok(scene.includes('Owed clears first') || scene.includes('stale.size > 0'),
+        'owed clears must be retried before new work');
 });

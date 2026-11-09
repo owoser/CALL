@@ -13,6 +13,28 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 25)
+
+- **Clears are queued before sets ("先清理再移动").** `diffPlacement` emits sets first, so a move
+  drew the whole new window (up to 12 chunks of sets) before restoring the old one - and a restore
+  that arrives after its cell was re-drawn loses. The pump now always drains clears first, which is
+  the ordering the library author pointed at.
+- Restores keep going through the SET path (see build 24): the library's clear reports failure on
+  this build even for cells that were faked a moment earlier
+  (`restored 8/8 via the set path (blockBatchClear=false)`).
+### Fixed (3.9.5-beta1, build 24)
+
+- **BlockBatchClear is not usable here: a clear is now sent as "set the real block".** The
+  library's clear paths (`blockBatchClear` / `blockFakeClear`) report failure - their bodies are
+  validated one by one and only packets that really went out are counted - and a refused clear is
+  a permanent ghost (the log showed `回退 N 欠清 20` growing with `库队列 0 包`, i.e. every single
+  clear refused). Restoring now reads the block the world has at the cell and pushes it through
+  the SET path, which is the one that demonstrably reaches the client; verified live:
+  `restored 8/8 via the set path (blockBatchClear=false)`.
+- Cells whose chunk the server does not have stay owed (`stale`) and are retried (and restored on
+  teardown), so a preview can no longer leave anything behind.
+- The queued-cleanup path (offline player / refused clear) also restores through the set path
+  instead of `viewClearBlock`, which only reverts `viewBlock` overrides.
 ### Fixed (3.9.5-beta1, build 23)
 
 - **Ghost blocks survived moving, switching and cancelling a preview.** `maybeResend()` cleared the

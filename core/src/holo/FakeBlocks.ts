@@ -1,4 +1,5 @@
 import Holo from "./Holo";
+import BlockType from "../common/BlockType";
 
 /**
  * Batched client-side blocks (`blockBatch*`).
@@ -98,10 +99,11 @@ let clearFn: AnyFn | null | undefined;
 let statsFn: AnyFn | null | undefined;
 let progressFn: AnyFn | null | undefined;
 let testFn: AnyFn | null | undefined;
+let oneFn: AnyFn | null | undefined;
 
-function bind(slot: "set" | "clear" | "stats" | "progress" | "test", name: string): AnyFn | null {
+function bind(slot: "set" | "clear" | "stats" | "progress" | "test" | "one", name: string): AnyFn | null {
     const cached = slot === "set" ? setFn : slot === "clear" ? clearFn : slot === "stats" ? statsFn
-        : slot === "progress" ? progressFn : testFn;
+        : slot === "progress" ? progressFn : slot === "one" ? oneFn : testFn;
     if (cached !== undefined) return cached;
     let fn: AnyFn | null = null;
     try {
@@ -113,6 +115,7 @@ function bind(slot: "set" | "clear" | "stats" | "progress" | "test", name: strin
     else if (slot === "clear") clearFn = fn;
     else if (slot === "stats") statsFn = fn;
     else if (slot === "progress") progressFn = fn;
+    else if (slot === "one") oneFn = fn;
     else testFn = fn;
     return fn;
 }
@@ -124,6 +127,7 @@ export function resetBindings(): void {
     statsFn = undefined;
     progressFn = undefined;
     testFn = undefined;
+    oneFn = undefined;
 }
 
 export const FakeBlocks = {
@@ -169,6 +173,63 @@ export const FakeBlocks = {
         return true;
     },
 
+    /**
+     * Restore cells by re-sending the block the WORLD has at those positions.
+     *
+     * `blockBatchClear` is the documented way to undo a fake block, but it reports failure
+     * (its bodies are validated one by one and it only counts packets that really went out),
+     * and a failed clear is a permanent ghost. The set path is the one that demonstrably works,
+     * so "clear" is implemented as "set the real block" - exactly what the library would send,
+     * with a descriptor we build from the live block.
+     *
+     * Returns how many cells were restored; cells whose chunk the server does not have are
+     * skipped so the caller can keep them owed.
+     */
+    restore(playerName: string, cells: Array<[number, number, number]>, dimid = 0): number {
+        const entries: FakeCell[] = [];
+        for (const [x, y, z] of cells) {
+            let id = "";
+            try {
+                const block = mc.getBlock(x, y, z, dimid as 0 | 1 | 2);
+                if (block != null) {
+                    const bt = BlockType.generateFromBlock(block);
+                    const states = String(bt.states ?? "");
+                    id = states === "" || states === "[]" ? String(bt.type) : String(bt.type) + states;
+                }
+            } catch {
+                id = "";
+            }
+            if (id !== "") entries.push({ x, y, z, id });
+        }
+        if (entries.length === 0) return 0;
+
+        const packed = packCells(entries);
+        if (packed.segments.length === 0) return 0;
+        for (const segment of packed.segments) {
+            if (FakeBlocks.set(playerName, segment, false) < 0) return 0;
+        }
+        return entries.length;
+    },
+
+    /**
+     * Single-cell restore (`blockFakeClear`).
+     *
+     * `blockBatchClear` builds its packets in bulk and reports failure when a body does not pass
+     * the library validation or no packet went out, so this older single-cell path is kept as the
+     * fallback: without it a refused clear leaves a permanent ghost on the client.
+     */
+    clearOne(playerName: string, x: number, y: number, z: number): boolean {
+        const fn = bind("one", "blockFakeClear");
+        if (fn == null) return false;
+        try {
+            const ok = fn(String(playerName), Number(x), Number(y), Number(z));
+            return ok === true || Number(ok) > 0;
+        } catch {
+            resetBindings();
+            return false;
+        }
+    },
+
     stats(): { batch: number; queue: number; packets: number; bytes: number } | null {
         const fn = bind("stats", "blockBatchStats");
         if (fn == null) return null;
@@ -206,13 +267,14 @@ export const FakeBlocks = {
     },
 
     /** Tests inject the backing functions. */
-    setSource(source: { set?: AnyFn | null; clear?: AnyFn | null; stats?: AnyFn | null; progress?: AnyFn | null } | null): void {
+    setSource(source: { set?: AnyFn | null; clear?: AnyFn | null; stats?: AnyFn | null; progress?: AnyFn | null; one?: AnyFn | null } | null): void {
         resetBindings();
         if (source == null) return;
         if (source.set !== undefined) setFn = source.set;
         if (source.clear !== undefined) clearFn = source.clear;
         if (source.stats !== undefined) statsFn = source.stats;
         if (source.progress !== undefined) progressFn = source.progress;
+        if (source.one !== undefined) oneFn = source.one;
     },
 };
 
