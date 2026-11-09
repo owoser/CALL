@@ -81,6 +81,11 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 | `previewOutlineStep` | `8` | 2 – 32 | 骨架抽样步长（越大越稀） |
 | `previewBatchSize` | `1000` | 50 – 5000 | 每轮最多发多少格覆盖（**每轮上限**；实际发多少由下面的时间预算决定） |
 | `previewTickBudgetMs` | `8` | 2 – 20 | 每轮发方块最多占用多少毫秒：快机器自动多发、慢机器自动少发，绝不卡主线程 |
+| `previewBatchMode` | `"auto"` | `auto` / `off` | 批量下发开关。`auto` = 库支持 `blockBatch*` 就用（26.51.10 / 26.60.6 起自带）；`off` = 逐格下发（排查用） |
+| `previewBatchCells` | `1024` | 128 – 4096 | 每次批量提交的格数。1024 正好是库的一个包；调大 = 调用更少、单次更重 |
+| `previewBatchImmediate` | `256` | 0 – 1024 | 差量不超过这个格数时用 `immediate=true` 绕开库的分帧预算，让旋转/微调立刻可见（0 = 关闭） |
+| `previewBatchPerTick` | `6` | 2 – 8 | 全局每 tick 最多提交几个批量调用；库的预算是全局 8 包/tick，这里留几个给别的功能 |
+| `previewResendSeconds` | `20` | 0 – 120 | 客户端重载区块会丢掉假方块，插件还会按这个间隔整窗重发一次（0 = 只靠区块变化触发） |
 | `previewViewDistance` | `64` | 16 – 256 | 预览方块的可见距离 |
 | `previewBlockScale` | `"1"` | 字符串 | 一个展示等于一个方块的缩放 |
 | `previewBlockOffsetY` | `"0"` | 模型单位 | 库的模型偏移参数，一般保持 0 |

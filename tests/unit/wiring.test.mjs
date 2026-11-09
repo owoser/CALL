@@ -172,3 +172,22 @@ test('block entities ride along with the paste', () => {
     assert.ok(/blockEntities\.set\(cellIndex\(rx, y, rz/.test(codec),
         'transformLayout must remap block entity indices');
 });
+
+test('the preview sends through the batch API', () => {
+    const scene = read('core/src/structure/PreviewScene.ts');
+    assert.ok(scene.includes('import { FakeBlocks, packCells }'), 'the scene must use the batch adapter');
+    assert.ok(scene.includes('import BatchSender'), 'submissions must be paced');
+    assert.ok(scene.includes('submitSets(') && scene.includes('submitClears('),
+        'set and clear must both have a batched path');
+    assert.ok(scene.includes('pumpLegacy('), 'the per-cell path must stay as the fallback');
+    assert.ok(scene.includes('FakeBlocks.set(scene.playerName, segment, immediate)'),
+        'a chunk must be one library call');
+    assert.ok(scene.includes('FakeBlocks.clear(scene.playerName, cells)'),
+        'teardown must be one batched clear');
+    assert.ok(scene.includes('maybeResend('), 'a client chunk reload must trigger a re-send');
+
+    const cfg = read('assets/configs.default.jsonc');
+    for (const key of ['previewBatchMode', 'previewBatchCells', 'previewBatchImmediate', 'previewBatchPerTick', 'previewResendSeconds']) {
+        assert.ok(cfg.includes('"' + key + '"'), key + ' must be documented in the template');
+    }
+});

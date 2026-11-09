@@ -1040,6 +1040,11 @@ export default class PreviewOperation {
                 : " · 总表面 " + scene.total + " · 窗口 " + scene.windowCount) +
             (scene.pending > 0 ? "（待发 " + scene.pending + "）" : "") +
             (scene.failed > 0 ? "（" + scene.failed + " 格客户端不认识）" : "") +
+            (scene.batches > 0
+                ? " · 批量 " + scene.batches + " 批/" + scene.batchCells + " 格"
+                    + (scene.batchFallbacks > 0 ? "（回退 " + scene.batchFallbacks + "）" : "")
+                    + (scene.libQueue > 0 ? "（库队列 " + scene.libQueue + "）" : "")
+                : "") +
             " · 上限 " + Config.get(Config.GLOBAL, "previewMaxBlocks", 12000) +
             " · 半径 " + scene.radius +
             (st2 != null ? " · 剩余 " + left + "s（倒计时 " + bar + "）" : "") +

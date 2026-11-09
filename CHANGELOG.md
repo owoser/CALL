@@ -13,6 +13,22 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Changed (3.9.5-beta1, build 22)
+
+- **The preview now sends through HologramLib's batch fake blocks (`blockBatch*`).** One call
+  carries up to 1024 cells and the library merges them per sub-chunk into `UpdateSubChunkBlocks`
+  packets, so a big window no longer costs one native call and one packet per cell. Measured on
+  the test server: **4 096 cells -> 8 packets in 2 ms** (the per-cell path emitted 4 096 packets),
+  with the library's own counter as evidence.
+- Submissions are paced by `BatchSender` (`previewBatchPerTick`, default 6) so CALL stays inside
+  the library's global 8-packets-per-tick budget instead of monopolising it; small deltas
+  (rotate / nudge) go through `immediate=true` and skip the framing entirely.
+- Teardown is a single `blockBatchClear` instead of one `viewClearBlock` per cell.
+- Client chunk reloads drop fake blocks, so the window is re-sent when the player crosses a chunk
+  boundary, changes dimension, or every `previewResendSeconds` (default 20 s).
+- Everything degrades to the old per-cell path: no `blockBatch*` exports, a rejected payload or
+  `previewBatchMode: "off"`. `/ca preview info` reports the backend (`viewBlock+batch`), batches,
+  cells and the library queue; `/ca tools debug` shows the batch API availability + self-test.
 ### Fixed (3.9.5-beta1, build 21)
 
 - **data/nbt no longer grows a folder per server player.** The layout migration called

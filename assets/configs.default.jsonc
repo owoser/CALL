@@ -14,7 +14,7 @@
     *   the shipped template and merges the template in (your values win, missing keys and their
     *   comments are added).
     */
-    "version": 7,
+    "version": 8,
     /*
     *   ###是否开启CALL###
     *   [参数](如下)
@@ -715,6 +715,40 @@
     * ###Preview send budget per round (milliseconds)###   (new in 3.8.0)
     */
     "previewTickBudgetMs": 8,
+
+    /**
+     * [解析] 批量下发开关（3.9.5，需要 HologramLib 的 blockBatch* 接口，26.51.10 / 26.60.6 起自带）。
+     *        auto [解析] 库支持就用批量（推荐）：一次调用下发上千格，库按子区块合并成
+     *                     UpdateSubChunkBlocks 包（每包 1024 条、全局每 tick 8 包）。
+     *                     12000 格的预览窗口从「12000 次调用 + 12000 个包」变成「12 次调用 + 12 个包」。
+     *        off  [解析] 强制逐格下发（排查用，行为与 3.9.4 及更早版本一致）
+     */
+    "previewBatchMode": "auto",
+
+    /**
+     * [解析] 每次批量提交的格数，默认 1024 —— 正好是库的一个包。
+     *        调大（最多 4096）= 一次调用覆盖多个包，帧更少但单次更重；
+     *        调小 = 更平滑，但调用次数变多。
+     */
+    "previewBatchCells": 1024,
+
+    /**
+     * [解析] 差量不超过这个格数时用 immediate=true 下发（绕开库的分帧预算），
+     *        让「原地旋转 / 微调 1 格」这类小改动立刻可见。0 = 永不使用。
+     */
+    "previewBatchImmediate": 256,
+
+    /**
+     * [解析] 全局每 tick 最多提交几个批量调用（2~8）。
+     *        库的预算是全局 8 包/tick，这里留几个给全息字和其他插件，避免预览独占。
+     */
+    "previewBatchPerTick": 6,
+
+    /**
+     * [解析] 客户端重载区块会丢掉假方块（走远再回来 / 传送 / 换维度），
+     *        插件会在这些时候整窗重发。这个心跳（秒）是额外保底，0 = 关闭。
+     */
+    "previewResendSeconds": 20,
 
     /*
     *   ###预览每 tick 生成数量###   (3.3.0 新增，3.6.0 起默认值上调，3.8.0 起为每轮上限)

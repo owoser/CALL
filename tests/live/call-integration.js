@@ -1332,6 +1332,57 @@ async function runSuite() {
         assert(ran > 0, "a renamed tool no longer ran anything (binding fallback missing)");
         return "renamed wand still ran " + ran + " command(s)";
     });
+    // --- blockBatch*: the library really merges cells into few packets -------
+    await checkAsync("ca.blockBatchLib", async () => {
+        const { FakeBlocks, packCells } = require(path.join(M.root, "core", "src", "holo", "FakeBlocks.js"));
+        assert(FakeBlocks.available(), "blockBatch* is not exported by this library build");
+
+        const name = String(sim.realName || "CALLTEST");
+        // keep the cells inside the chunks that are loaded around the test player
+        const px = Math.floor(sim.pos.x) + 8;
+        const py = Math.floor(sim.pos.y) + 24;
+        const pz = Math.floor(sim.pos.z) + 8;
+        const cells = [];
+        for (let i = 0; i < 4096; i++) {
+            cells.push({
+                x: px + (i % 16),
+                y: py + Math.floor(i / 256),
+                z: pz + Math.floor((i / 16) % 16),
+                id: "minecraft:glass",
+            });
+        }
+        const packed = packCells(cells);
+        assert(packed.skipped === 0, "cells were skipped while packing");
+        assert(packed.segments.length >= 1, "packing produced no segment");
+
+        const started = Date.now();
+        let accepted = 0;
+        const ids = [];
+        for (const segment of packed.segments) {
+            const id = FakeBlocks.set(name, segment, false);
+            if (id >= 0) { accepted++; ids.push(id); }
+        }
+        const submitMs = Date.now() - started;
+        assert(accepted === packed.segments.length, "the library rejected a segment");
+
+        // the library frames the packets on tick boundaries, so give it a moment
+        await new Promise((r) => setTimeout(r, 600));
+        const stats = FakeBlocks.stats();
+        assert(stats != null, "blockBatchStats is not available");
+        const wire = stats.packets + stats.queue;
+        assert(stats.batch >= 1, "expected a batch, got " + JSON.stringify(stats));
+        assert(wire >= 4, "4096 cells must need at least 4 packets, got " + JSON.stringify(stats));
+        assert(wire <= 256, "packets must be far fewer than cells: " + JSON.stringify(stats));
+        assert(ids.every((id) => FakeBlocks.progress(id) >= -1), "progress probe failed");
+
+        const positions = cells.map((c) => [c.x, c.y, c.z]);
+        // blockBatchClear reports whether packets actually went out, and a script-driven test
+        // player is not a client - so only its TYPE is asserted here.
+        const cleared = FakeBlocks.clear(name, positions);
+        assert(typeof cleared === "boolean", "blockBatchClear must return a boolean");
+        return "4096 cells -> " + (stats.packets + stats.queue) + " packets in " + submitMs + " ms"
+            + " (clear=" + cleared + ")";
+    });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;
         const t = spot(19);

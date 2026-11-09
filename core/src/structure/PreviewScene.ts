@@ -32,6 +32,8 @@ import { clipboardBox } from "./Clipboard";
 import Area3 from "../common/Area3";
 import { Structure } from "../common/Structure";
 import BlockView from "../holo/BlockView";
+import { FakeBlocks, packCells } from "../holo/FakeBlocks";
+import BatchSender from "./BatchSender";
 import { MsgType, online, tell } from "../util/Msg";
 import StrFactory from "../util/StrFactory";
 import { describeError } from "../util/Safe";
@@ -92,6 +94,18 @@ interface Scene {
     failed: number;
     building: boolean;
 
+    /** Batched submissions (blockBatchSet / blockBatchClear) and the cells they carried. */
+    batches: number;
+    batchCells: number;
+    /** Chunks that had to fall back to per-cell viewBlock / viewClearBlock. */
+    batchFallbacks: number;
+    /** Last chunk boundary log (one INFO line per burst, not per tick). */
+    batchLogAt: number;
+    /** Chunk the player stood in at the last refresh, for the client-reload re-send. */
+    lastChunk: string | null;
+    /** When the window was last re-sent from scratch (heartbeat / chunk change). */
+    lastResendAt: number;
+
     radius: number;
     lastCenter: { x: number; y: number; z: number } | null;
     timer: ReturnType<typeof setInterval> | null;
@@ -111,6 +125,23 @@ function num(key: string, fallback: number, min: number, max: number): number {
 
 const budget = () => Math.floor(num("previewMaxBlocks", 12000, 200, 200000));
 const batchSize = () => Math.floor(num("previewBatchSize", 1000, 50, 5000));
+
+/** `previewBatchMode`: "auto" uses blockBatch* when the library has it, "off" forces per-cell. */
+const batchMode = () => String(Config.get(Config.GLOBAL, "previewBatchMode", "auto") ?? "auto").toLowerCase();
+const batchCells = () => Math.floor(num("previewBatchCells", 1024, 128, 4096));
+const batchImmediate = () => Math.floor(num("previewBatchImmediate", 256, 0, 1024));
+const batchTimeout = () => Math.floor(num("previewBatchTimeoutMs", 5000, 1000, 15000));
+const batchPerTick = () => Math.floor(num("previewBatchPerTick", 6, 2, 8));
+const resendSeconds = () => Math.floor(num("previewResendSeconds", 20, 0, 120));
+
+/** Should this send go through the batch API? */
+export function batchingAvailable(): boolean {
+    try {
+        return batchMode() !== "off" && FakeBlocks.available();
+    } catch {
+        return false;
+    }
+}
 const radiusDefault = () => Math.floor(num("previewRadius", 48, 16, 192));
 const updateDistance = () => Math.floor(num("previewUpdateDistance", 8, 2, 32));
 const maxCells = () => Math.floor(num("previewMaxCells", 800000, 40000, 4000000));
@@ -318,6 +349,12 @@ export const PreviewScene = {
             pending: [],
             windowBox: null,
             applied: new Map(),
+            batches: 0,
+            batchCells: 0,
+            batchFallbacks: 0,
+            batchLogAt: 0,
+            lastChunk: null,
+            lastResendAt: 0,
             queue: [],
             failed: 0,
             building: true,
@@ -400,6 +437,12 @@ export const PreviewScene = {
         }
         scene.lastCenter = center;
 
+        // Fake blocks live on the CLIENT: a chunk reload (walking away and back, a teleport,
+        // a dimension change) restores the real blocks while our map still says "applied".
+        // A full re-send is cheap now (one call per 1024 cells), so do it when the player
+        // crosses a chunk boundary or the heartbeat comes due.
+        PreviewScene.maybeResend(scene, center, player);
+
         const forward = forwardAxis(player);
         const amount = prefetchAmount();
         const prefetch = amount > 0 ? { dx: forward.dx, dz: forward.dz, amount } : undefined;
@@ -436,6 +479,27 @@ export const PreviewScene = {
     },
 
     /**
+     * Force a full re-send of the window when the client may have dropped our cells.
+     *
+     * Two triggers: the player entered a different chunk (its chunk data gets re-sent, which
+     * resets every client-side block change), and the `previewResendSeconds` heartbeat. Huge
+     * windows are skipped so a 200k-cell scene cannot flush itself every few seconds.
+     */
+    maybeResend(scene: Scene, center: { x: number; y: number; z: number }, player: any): void {
+        const chunk = Math.floor(center.x / 16) + "," + Math.floor(center.z / 16) + "," + String(player?.dimid ?? 0);
+        const changed = scene.lastChunk != null && scene.lastChunk !== chunk;
+        scene.lastChunk = chunk;
+        const seconds = resendSeconds();
+        const due = seconds > 0
+            && Date.now() - scene.lastResendAt > seconds * 1000
+            && scene.applied.size > 0
+            && scene.applied.size <= 30000;
+        if (!changed && !due) return;
+        scene.lastResendAt = Date.now();
+        scene.applied.clear();
+    },
+
+    /**
      * Diff + REPLACE the queue + pump.
      *
      * Replacing (not appending) is what keeps rapid rotations cheap: the queue is only ever a
@@ -452,8 +516,116 @@ export const PreviewScene = {
         if (ops.length > 0) PreviewScene.pump(xuid);
     },
 
-    /** Send the next batch, then yield to the server for a tick. */
+    /**
+     * Send the next chunk of the queue.
+     *
+     * With the batch API a chunk is ONE call carrying up to `previewBatchCells` cells, which the
+     * library merges into sub-chunk packets - 12,000 cells used to be 12,000 native calls and
+     * 12,000 packets, now it is 12 calls and 12 packets. The first chunk of a burst is submitted
+     * synchronously (instant feedback), the rest are paced by BatchSender so the library's global
+     * 8-packets-per-tick budget is shared instead of monopolised.
+     */
     pump(xuid: string): void {
+        const scene = scenes.get(xuid);
+        if (scene == null || scene.cancelled) return;
+        if (!batchingAvailable()) {
+            PreviewScene.pumpLegacy(xuid);
+            return;
+        }
+
+        if (scene.queue.length === 0) {
+            scene.building = false;
+            return;
+        }
+
+        const chunk = scene.queue.splice(0, batchCells());
+        const clears: PlanOp[] = [];
+        const sets: PlanOp[] = [];
+        for (const op of chunk) {
+            if (op.op === "set") sets.push(op);
+            else clears.push(op);
+        }
+
+        // Clears first: they only touch cells the new plan no longer wants.
+        if (clears.length > 0) PreviewScene.submitClears(scene, clears);
+        if (sets.length > 0) {
+            const immediate = scene.queue.length === 0 && sets.length <= batchImmediate();
+            PreviewScene.submitSets(scene, sets, immediate);
+        }
+
+        if (scene.queue.length > 0) {
+            BatchSender.configure(batchPerTick());
+            BatchSender.request(() => PreviewScene.pump(xuid));
+            return;
+        }
+        scene.building = false;
+        PreviewScene.logBurst(scene);
+    },
+
+    /** One batched set; falls back to per-cell viewBlock when the library refuses the payload. */
+    submitSets(scene: Scene, ops: PlanOp[], immediate: boolean): void {
+        const cells = ops.map((op) => ({ x: op.x, y: op.y, z: op.z, id: String((op as any).id ?? "") }));
+        const packed = packCells(cells);
+        let accepted = packed.segments.length > 0;
+        for (const segment of packed.segments) {
+            if (FakeBlocks.set(scene.playerName, segment, immediate) < 0) {
+                accepted = false;
+                break;
+            }
+        }
+
+        if (accepted) {
+            for (const op of ops) scene.applied.set(op.key, String((op as any).id ?? ""));
+            scene.batches++;
+            scene.batchCells += ops.length;
+            return;
+        }
+
+        // Per-cell fallback: correctness beats speed.
+        scene.batchFallbacks++;
+        for (const op of ops) {
+            if (BlockView.set(scene.playerName, op.x, op.y, op.z, String((op as any).id ?? ""))) {
+                scene.applied.set(op.key, String((op as any).id ?? ""));
+            } else {
+                scene.failed++;
+            }
+        }
+    },
+
+    /** One batched clear (restores the real blocks); per-cell fallback on refusal. */
+    submitClears(scene: Scene, ops: PlanOp[]): void {
+        const positions: Array<[number, number, number]> = ops.map((op) => [op.x, op.y, op.z]);
+        if (FakeBlocks.clear(scene.playerName, positions)) {
+            for (const op of ops) scene.applied.delete(op.key);
+            scene.batches++;
+            scene.batchCells += ops.length;
+            return;
+        }
+        scene.batchFallbacks++;
+        for (const op of ops) {
+            BlockView.clear(scene.playerName, op.x, op.y, op.z);
+            scene.applied.delete(op.key);
+        }
+    },
+
+    /** One INFO line per drained burst (never per tick), for evidence in the log. */
+    logBurst(scene: Scene): void {
+        const now = Date.now();
+        if (scene.batches === 0 || now - scene.batchLogAt < 1000) return;
+        scene.batchLogAt = now;
+        try {
+            const stats = FakeBlocks.stats();
+            logger.info("[CALL][preview] 批量下发 " + scene.batches + " 批 / " + scene.batchCells
+                + " 格"
+                + (scene.batchFallbacks > 0 ? "（回退逐格 " + scene.batchFallbacks + " 批）" : "")
+                + (stats != null ? "，库内 packets=" + stats.packets + " bytes=" + stats.bytes : ""));
+        } catch {
+            // logging must never break a preview
+        }
+    },
+
+    /** The pre-batch path: one native call (and one packet) per cell, time-boxed. */
+    pumpLegacy(xuid: string): void {
         const scene = scenes.get(xuid);
         if (scene == null || scene.cancelled) return;
 
@@ -478,7 +650,7 @@ export const PreviewScene = {
         }
 
         if (scene.queue.length > 0) {
-            setTimeout(() => PreviewScene.pump(xuid), 0);
+            setTimeout(() => PreviewScene.pumpLegacy(xuid), 0);
             return;
         }
         scene.building = false;
@@ -680,8 +852,16 @@ export const PreviewScene = {
             scene.loadTimer = null;
         }
         scenes.delete(xuid);
-        enqueueCleanup(scene.playerName, appliedCells(scene.applied));
+        const cells = appliedCells(scene.applied);
         scene.applied.clear();
+        // One call restores every cell (the library splits the packets); per-cell only as a
+        // fallback, which used to be the only way and cost one call per cell.
+        if (cells.length > 0 && batchingAvailable() && FakeBlocks.clear(scene.playerName, cells)) {
+            scene.batches++;
+            scene.batchCells += cells.length;
+            return;
+        }
+        enqueueCleanup(scene.playerName, cells);
     },
 
     /**
@@ -731,6 +911,11 @@ export const PreviewScene = {
         radius: number;
         loading: number;
         backend: string;
+        batches: number;
+        batchCells: number;
+        batchFallbacks: number;
+        immediate: boolean;
+        libQueue: number;
     } {
         const scene = scenes.get(xuid);
         if (scene == null) {
@@ -738,8 +923,10 @@ export const PreviewScene = {
                 active: false, mode: "-", total: 0, windowCount: 0, applied: 0,
                 failed: 0, pending: cleanups.length, radius: radiusDefault(), loading: 0,
                 backend: PreviewScene.backend(),
+                batches: 0, batchCells: 0, batchFallbacks: 0, immediate: false, libQueue: 0,
             };
         }
+        const stats = FakeBlocks.stats();
         return {
             active: true,
             mode: scene.mode,
@@ -751,12 +938,18 @@ export const PreviewScene = {
             radius: scene.radius,
             loading: scene.pending.length,
             backend: PreviewScene.backend(),
+            batches: scene.batches,
+            batchCells: scene.batchCells,
+            batchFallbacks: scene.batchFallbacks,
+            immediate: batchingAvailable(),
+            libQueue: stats != null ? stats.queue : 0,
         };
     },
 
     /** Which renderer the preview uses (no entity fallback any more). */
     backend(): string {
-        return BlockView.available() ? "viewBlock" : "不可用（缺少 HologramLib viewBlock）";
+        if (!BlockView.available()) return "不可用（缺少 HologramLib viewBlock）";
+        return batchingAvailable() ? "viewBlock+batch" : "viewBlock";
     },
 };
 

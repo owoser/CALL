@@ -258,6 +258,30 @@
             "min": 2,
             "max": 20
         },
+        "previewBatchMode": {
+            "type": "enum",
+            "values": ["auto", "off"]
+        },
+        "previewBatchCells": {
+            "type": "number",
+            "min": 128,
+            "max": 4096
+        },
+        "previewBatchImmediate": {
+            "type": "number",
+            "min": 0,
+            "max": 1024
+        },
+        "previewBatchPerTick": {
+            "type": "number",
+            "min": 2,
+            "max": 8
+        },
+        "previewResendSeconds": {
+            "type": "number",
+            "min": 0,
+            "max": 120
+        },
         "previewCountdown": {
             "type": "enum",
             "values": [
@@ -281,5 +305,5 @@
             "type": "boolean"
         }
     },
-    "version": 7
+    "version": 8
 }

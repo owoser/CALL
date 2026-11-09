@@ -1,5 +1,6 @@
 import Config from "../common/Config";
 import SwingWatcher from "./SwingWatcher";
+import { FakeBlocks } from "../holo/FakeBlocks";
 import * as HoloCompat from "../holo/HoloCompat";
 import Wireframe from "../holo/Wireframe";
 import CAPlayer from "../user/CAPlayer";
@@ -350,6 +351,14 @@ export class ToolItems {
             lines.push(HoloCompat.describe());
         } catch {
             // version probe must never break the report
+        }
+        try {
+            const ok = FakeBlocks.available();
+            const probe = ok ? FakeBlocks.selfTest("0 0 0 minecraft:stone") : null;
+            lines.push("假方块批量: " + (ok ? "可用" : "不可用（库版本过旧）")
+                + (probe != null ? " · selfTest: " + probe.slice(0, 60) : ""));
+        } catch {
+            // diagnostics only
         }
         try {
             const s = SwingWatcher.statsOf();
