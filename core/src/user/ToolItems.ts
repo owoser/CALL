@@ -1,4 +1,5 @@
 import Config from "../common/Config";
+import SwingWatcher from "./SwingWatcher";
 import * as HoloCompat from "../holo/HoloCompat";
 import Wireframe from "../holo/Wireframe";
 import CAPlayer from "../user/CAPlayer";
@@ -349,6 +350,14 @@ export class ToolItems {
             lines.push(HoloCompat.describe());
         } catch {
             // version probe must never break the report
+        }
+        try {
+            const s = SwingWatcher.statsOf();
+            lines.push("左键空气: 已触发 " + s.dispatched
+                + " / 吞掉(右键或放置) " + s.swallowedHandled
+                + " / 吞掉(切换物品) " + s.swallowedHand);
+        } catch {
+            // counters are diagnostic only
         }
         // Informational only: the pack is delivered whether or not the flag is set.
         const required = ToolItems.resourcePackRequired();

@@ -110,6 +110,7 @@ const UseItem = "onUseItem";
 
         safeCall("onUseItemOn", () => {
             try {
+                SwingWatcher.noteHandled(caPlayer);
                 // The bound commands only get coordinates, so the clicked face has to ride on
                 // the player (the adjust wand nudges along it).
                 caPlayer.lastClickSide = Number(side);
@@ -236,6 +237,7 @@ const UseItem = "onUseItem";
                 if (!ToolItems.isTool(String(item.type))) return;
                 const caPlayer = Players.fetchCAPlayer(player.xuid);
                 if (caPlayer == null || !EnableOperation.isEnable(caPlayer)) return;
+                SwingWatcher.noteHandled(caPlayer);
                 const last = lastBlockClick.get(player.xuid) ?? 0;
                 if (Date.now() - last < 250) return;   // already handled as a block click
                 if (clickMap.get(player.xuid)) return;

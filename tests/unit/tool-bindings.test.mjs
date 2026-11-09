@@ -34,7 +34,9 @@ test('a named item prefers its own entry, then falls back to the unnamed one', (
     const withBoth = { '': binding('default'), '我的魔杖': binding('mine') };
     assert.equal(matchBinding(withBoth, '我的魔杖').cmds[0], 'mine');
     assert.equal(matchBinding(withBoth, '别的名字').cmds[0], 'default');
-    assert.equal(matchBinding({ '我的魔杖': binding('mine') }, '别的名字'), null);
+    // A renamed tool (anvil / drifted config key) still has to work: the type's only entry wins
+    // over showing "这个工具还没有绑定" at random. See tests/unit/binding-fallback.test.mjs.
+    assert.equal(matchBinding({ '我的魔杖': binding('mine') }, '别的名字').cmds[0], 'mine');
 });
 
 test('a missing type has no binding', () => {

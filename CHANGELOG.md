@@ -13,6 +13,20 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 20)
+
+- **"这个工具还没有绑定" appeared at random.** Bindings are keyed by the item's display name, and
+  `matchBinding` only accepted an exact name or the unnamed entry - so a renamed tool (anvil), a
+  name that drifted across a config migration, or a stray line break from the item NBT made the
+  wand a dead item. Resolution is now: exact name -> unnamed entry -> first entry of that type,
+  the name is trimmed, and the warning (which now names the type) only appears when the type has
+  no bindings at all.
+- **Switching tools could start a preview with nobody clicking.** Left clicks are inferred from
+  HologramLib's swing counter, and a right click / block place also swings the arm; the leftover
+  delta was later dispatched against whatever item was in hand by then (the preview wand).
+  `SwingWatcher.noteHandled()` now marks every use/place as explaining the swing, and a change of
+  the held item between two polls re-baselines instead of firing. Counters show up in
+  `/ca tools debug` (已触发 / 吞掉右键 / 吞掉切换).
 ### Fixed (3.9.5-beta1, build 19)
 
 - **Block entity data was never READ, so banner patterns could never survive a paste.** Parsing a

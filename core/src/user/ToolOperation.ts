@@ -158,7 +158,7 @@ export class ToolOperation {
         if (player == null) return;
         tell(
             player,
-            StrFactory.cmdErr("这个工具还没有绑定：/ca tools give 重新领取，或重进一次服务器"),
+            StrFactory.cmdErr("这个工具还没有绑定（" + type + "）：/ca tools give 重新领取，或重进一次服务器"),
             MsgType.RAW
         );
     }
@@ -285,7 +285,8 @@ export class ToolOperation {
             //@ts-ignore
             name = item.getNbt().getTag("tag").getTag("display").getTag("Name")
                 .toString()
-                .split("\n")[0];
+                .split("\n")[0]
+                .trim();
         }
         catch (e) { }
         // Bindings are keyed by the item's custom display name, and "no custom name" is the

@@ -26,6 +26,19 @@ function fakePlayer(xuid = 'x1', name = 'Alice') {
     return { xuid, $: { realName: name } };
 }
 
+/** A player whose held item the watcher can read (getHand is what app.ts uses). */
+function makePlayerWithHand(type, xuid = 'x2', name = 'Bob') {
+    const p = {
+        xuid,
+        hand: type,
+        $: {
+            realName: name,
+            getHand() { return { type: p.hand }; },
+        },
+    };
+    return p;
+}
+
 test('the first poll only establishes a baseline', async () => {
     const W = load();
     W.reset();
@@ -154,5 +167,57 @@ test('forget() drops the baseline so the next poll re-baselines', async () => {
     W.poll(p, () => fired++);
     await sleep(W.DEDUPE_MS + 60);
     assert.equal(fired, 0);
+    W.setCounterSource(null);
+});
+
+test('a right click that already ran swallows the swing', async () => {
+    const W = load();
+    W.reset();
+    let n = 0;
+    W.setCounterSource(() => n);
+    let fired = 0;
+    const p = makePlayerWithHand('call:wand_preview');
+    W.track(p);
+    n = 1;                        // the arm swing that comes with a right click
+    W.noteHandled(p);             // ...which the use handler already dealt with
+    W.poll(p, () => fired++);
+    await sleep(W.DEDUPE_MS + 80);
+    assert.equal(fired, 0, 'a handled right click must not fire a left click');
+    assert.ok(W.statsOf().swallowedHandled >= 1);
+    W.setCounterSource(null);
+});
+
+test('switching the held item drops the pending swing', async () => {
+    const W = load();
+    W.reset();
+    let n = 0;
+    W.setCounterSource(() => n);
+    let fired = 0;
+    const p = makePlayerWithHand('call:wand_copy');
+    W.track(p);
+    W.poll(p, () => fired++);      // establishes the hand baseline
+    p.hand = 'call:wand_preview';  // hotbar switch, no click
+    n = 1;                         // a swing that belonged to the previous item
+    W.poll(p, () => fired++);
+    await sleep(W.DEDUPE_MS + 80);
+    assert.equal(fired, 0, 'a swing collected across a hand change must not fire');
+    assert.ok(W.statsOf().swallowedHand >= 1);
+    W.setCounterSource(null);
+});
+
+test('a real swing on the same item still fires', async () => {
+    const W = load();
+    W.reset();
+    let n = 0;
+    W.setCounterSource(() => n);
+    let fired = 0;
+    const p = makePlayerWithHand('call:wand_select');
+    W.track(p);
+    W.poll(p, () => fired++);
+    await sleep(5);
+    n = 1;
+    W.poll(p, () => fired++);
+    await sleep(W.DEDUPE_MS + 80);
+    assert.equal(fired, 1);
     W.setCounterSource(null);
 });

@@ -1299,6 +1299,39 @@ async function runSuite() {
         assert(fallback, "viewBlock did not fall back to the bare block name");
         return "stateful id accepted, bogus state falls back";
     });
+    // --- a renamed tool keeps working (no "工具未绑定") ----------------------
+    await checkAsync("ca.toolBindingFallback", async () => {
+        const cap = fakePlayer(sim);
+        const ToolItems = require(path.join(M.root, "core", "src", "user", "ToolItems.js")).default;
+        ToolItems.migrateBindings(cap.settings);
+        const items = cap.settings && cap.settings.items;
+        assert(items != null, "the test player has no item bindings");
+
+        const renamed = "§7被改名的魔杖";
+        const item = {
+            type: "call:wand_copy",
+            isBlock: false,
+            getNbt: () => ({
+                getTag: () => ({
+                    getTag: () => ({
+                        getTag: () => ({ toString: () => renamed }),
+                    }),
+                }),
+            }),
+        };
+        let ran = 0;
+        const Players = require(path.join(M.root, "core", "src", "user", "Players.js")).default;
+        const ToolOperation = require(path.join(M.root, "core", "src", "user", "ToolOperation.js")).ToolOperation;
+        const realSilence = Players.silenceCmd;
+        Players.silenceCmd = () => { ran++; };
+        try {
+            ToolOperation.onClick("right", cap, item, { pos: { x: 0, y: 64, z: 0 } }, { x: 0, y: 64, z: 0 });
+        } finally {
+            Players.silenceCmd = realSilence;
+        }
+        assert(ran > 0, "a renamed tool no longer ran anything (binding fallback missing)");
+        return "renamed wand still ran " + ran + " command(s)";
+    });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;
         const t = spot(19);

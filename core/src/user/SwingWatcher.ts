@@ -34,7 +34,14 @@ const lastBlockLeft = new Map<string, number>();
 const timers = new Map<string, any>();
 /** When this player was last polled (bounds the window a swing belongs to). */
 const lastPollAt = new Map<string, number>();
+/** When this player last did something that legitimately swings the arm (use / place / attack). */
+const lastHandled = new Map<string, number>();
+/** Held item type at the previous poll - a change means the swing belonged to the old item. */
+const lastHand = new Map<string, string>();
 let pollMs = 200;
+
+/** Why swings were dropped, for /ca tools debug. */
+const stats = { dispatched: 0, swallowedHandled: 0, swallowedHand: 0 };
 
 function count(realName: string): number | null {
     if (counterSource != null) {
@@ -82,6 +89,23 @@ export const SwingWatcher = {
         lastBlockLeft.set(caPlayer.xuid, Date.now());
     },
 
+    /**
+     * A right click (use item / place block) also swings the arm.
+     *
+     * Without this the leftover delta was later dispatched as a LEFT click on whatever item the
+     * player had switched to - which is how "switching to the preview wand" started a preview
+     * with nobody clicking.
+     */
+    noteHandled(caPlayer: CAPlayer | null | undefined): void {
+        if (caPlayer == null) return;
+        lastHandled.set(caPlayer.xuid, Date.now());
+    },
+
+    /** Counters for /ca tools debug. */
+    statsOf(): { dispatched: number; swallowedHandled: number; swallowedHand: number } {
+        return { ...stats };
+    },
+
     /** The ticker interval, needed to size the "did it hit something?" window. */
     setPollInterval(ms: number): void {
         const n = Number(ms);
@@ -116,6 +140,12 @@ export const SwingWatcher = {
         const windowFrom = lastPollAt.get(xuid) ?? polledAt - pollMs;
         lastPollAt.set(xuid, polledAt);
 
+        // Switching the held item makes the poll compare a delta that belongs to the PREVIOUS
+        // item: re-baseline and forget it instead of firing the new item's left binding.
+        const hand = SwingWatcher.heldType(caPlayer);
+        const previousHand = lastHand.get(xuid);
+        lastHand.set(xuid, hand);
+
         const prev = baseline.get(xuid);
         if (prev == null) {
             // First sighting: never treat history as a click.
@@ -126,6 +156,23 @@ export const SwingWatcher = {
 
         baseline.set(xuid, now);   // consume the delta either way
         if (now < prev) return;     // swingReset was called
+
+        if (previousHand != null && previousHand !== hand) {
+            // The click belonged to the item that was held when it happened.
+            stats.swallowedHand++;
+            return;
+        }
+
+        const handledAt = lastHandled.get(xuid) ?? 0;
+        if (handledAt >= windowFrom - WINDOW_SLACK_MS) {
+            // A right click / place that already ran: the swing is accounted for.
+            stats.swallowedHandled++;
+            return;
+        }
+        if (polledAt - handledAt < pollMs + DEDUPE_MS + WINDOW_SLACK_MS) {
+            stats.swallowedHandled++;
+            return;
+        }
 
         // A block/entity click this recently explains the swing outright.
         const blockAt = lastBlockLeft.get(xuid) ?? 0;
@@ -140,6 +187,7 @@ export const SwingWatcher = {
                 // Re-check at fire time: a block click may have arrived while waiting.
                 if (last >= windowFrom - WINDOW_SLACK_MS && at - last <= pollMs + DEDUPE_MS + WINDOW_SLACK_MS) return;
                 try {
+                    stats.dispatched++;
                     onAirLeft(caPlayer);
                 } catch (e) {
                     try {
@@ -151,11 +199,23 @@ export const SwingWatcher = {
             }, DEDUPE_MS + i * 30);
         }
     },
+    /** Type of the item in the player's hand right now ("" when unknown). */
+    heldType(caPlayer: CAPlayer): string {
+        try {
+            const item = caPlayer.$?.getHand?.();
+            return item == null ? "" : String(item.type ?? "");
+        } catch {
+            return "";
+        }
+    },
+
     /** Drop per-player state (leave). */
     forget(xuid: string): void {
         baseline.delete(xuid);
         lastBlockLeft.delete(xuid);
         lastPollAt.delete(xuid);
+        lastHandled.delete(xuid);
+        lastHand.delete(xuid);
         const t = timers.get(xuid);
         if (t != null) {
             try {
@@ -172,6 +232,11 @@ export const SwingWatcher = {
         baseline.clear();
         lastBlockLeft.clear();
         lastPollAt.clear();
+        lastHandled.clear();
+        lastHand.clear();
+        stats.dispatched = 0;
+        stats.swallowedHandled = 0;
+        stats.swallowedHand = 0;
         for (const t of timers.values()) {
             try {
                 clearTimeout(t);

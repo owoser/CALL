@@ -12,12 +12,25 @@ export type CmdBinding = { cmds: string[]; describe?: string } | undefined;
 /**
  * Resolve the binding for one item type.
  *
- * Order: exact display name first (so a per-name binding wins), then the unnamed entry.
+ * Order:
+ *   1. the exact display name (a per-name binding always wins),
+ *   2. the unnamed entry,
+ *   3. the first entry of that type.
+ *
+ * Step 3 exists because the display name is NOT a stable identity: a player can rename a tool
+ * at an anvil, an old config can carry a slightly different name, and the name is read from the
+ * item's NBT (which also drops trailing lines). Without the fallback the item became dead and
+ * reported "这个工具还没有绑定", at random, on exactly the tools whose name had drifted.
  */
 export function matchBinding<T>(byType: Record<string, T> | null | undefined, name: string): T | null {
     if (byType == null) return null;
-    if (byType[name] != null) return byType[name];
-    if (name !== "" && byType[""] != null) return byType[""];
+    const key = String(name ?? "").trim();
+    if (byType[key] != null) return byType[key];
+    if (key !== "" && byType[""] != null) return byType[""];
+    // Last resort: the type has bindings, so the tool must keep working.
+    for (const candidate of Object.keys(byType)) {
+        if (byType[candidate] != null) return byType[candidate];
+    }
     return null;
 }
 
