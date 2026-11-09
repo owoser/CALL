@@ -160,6 +160,13 @@ function enqueueCleanup(playerName: string, cells: Array<[number, number, number
     scheduleCleanup();
 }
 
+/** Drop pending cleanup tasks for one player (their scene is being rebuilt right now). */
+function discardCleanup(playerName: string): void {
+    for (let i = cleanups.length - 1; i >= 0; i--) {
+        if (cleanups[i].playerName === playerName) cleanups.splice(i, 1);
+    }
+}
+
 function playerOnline(name: string): boolean {
     try {
         return mc.getPlayer(name) != null;
@@ -271,6 +278,10 @@ export const PreviewScene = {
         pivot: PivotMode = "inplace"
     ): BuildResult {
         const xuid = caPlayer.xuid;
+        const realName = String(caPlayer.$?.realName ?? "");
+        // A rebuild must not race the previous scene's teardown: those cleanup tasks restore
+        // the real blocks and would punch holes into the cells we are about to draw.
+        if (realName !== "") discardCleanup(realName);
         PreviewScene.clear(xuid);
 
         if (!BlockView.available()) {
@@ -280,7 +291,6 @@ export const PreviewScene = {
             };
         }
 
-        const realName = String(caPlayer.$?.realName ?? "");
         if (realName === "") {
             return { ok: false, blocks: 0, visible: 0, truncated: false, reason: "无法解析玩家名" };
         }
@@ -589,6 +599,23 @@ export const PreviewScene = {
                 outlineStep(), OUTLINE_CAP
             )
             : [];
+    },
+
+    /**
+     * Can the existing scene simply be moved to a new anchor?
+     *
+     * Rebuilding tears the old scene down and its cleanup runs asynchronously, which is what
+     * used to punch holes into a freshly moved preview. Moving diffs against the applied cells
+     * instead - but only when the clipboard behind the scene is still the same one.
+     */
+    canMove(xuid: string): boolean {
+        const scene = scenes.get(xuid);
+        if (scene == null) return false;
+        const info = PreviewScene.gatherInfo(xuid);
+        if (info.error != null) return false;
+        const before = scene.slices.map((s) => s.sid).join("|");
+        const now = info.slices.map((s) => s.sid).join("|");
+        return before === now;
     },
 
     /** Rotate / mirror / switch pivot in place. */

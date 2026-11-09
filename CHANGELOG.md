@@ -13,6 +13,15 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 16)
+
+- **A left click on the preview wand left the ghost full of holes.** A left click re-sets the
+  anchor, and `set()` always rebuilt the scene; `PreviewScene.build()` tears the old scene down
+  by pushing its cells onto an asynchronous cleanup queue, and that queue kept restoring the
+  real blocks *after* the new scene had drawn the same cells - holes in whole bands. Moving a
+  preview now takes the diff path (`PreviewScene.canMove()` + `move()`) instead of rebuilding,
+  and `build()` discards that player's stale cleanup tasks before clearing.
+- Rotation / mirroring keep their incremental path, so they were never affected.
 ### Fixed (3.9.5-beta1, build 15)
 
 - **HologramLib shape-fix release adopted.** 26.60.6 / 26.51.10 make the remove packet a bare

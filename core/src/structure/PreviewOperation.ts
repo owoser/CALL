@@ -419,7 +419,13 @@ export default class PreviewOperation {
             return;
         }
 
-        const scene = PreviewOperation.syncScene(caPlayer, st, true);
+        // Moving an existing preview keeps its cells: rebuilding would tear the old scene down,
+        // and that cleanup runs asynchronously and erased the cells the new scene had just
+        // drawn (the "left click leaves holes" report).
+        const canMove = PreviewScene.canMove(caPlayer.xuid);
+        const scene = canMove
+            ? (PreviewScene.move(caPlayer, pos, st.degrees, st.mirror, st.pivot) ? null : PreviewOperation.syncScene(caPlayer, st, true))
+            : PreviewOperation.syncScene(caPlayer, st, true);
         PreviewOperation.arm(caPlayer, st);
         if (scene != null && !scene.ok) {
             output.success("预览落点: " + pos.floor().toString() + "（方块预览不可用：" + scene.reason + "，仅显示线框）");

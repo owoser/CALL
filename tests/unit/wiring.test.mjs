@@ -140,3 +140,18 @@ test('left click on air goes through the library gate', () => {
     assert.ok(op.includes('Math.floor(Number(p.y)) - 1'), 'the air target is the block at the feet');
     assert.ok(op.includes('faceFromView('), 'the adjust wand uses the view direction on air');
 });
+
+test('moving a preview keeps its cells (no rebuild, no stale cleanup)', () => {
+    const op = read('core/src/structure/PreviewOperation.ts');
+    assert.ok(op.includes('PreviewScene.canMove('),
+        'set() must ask whether the existing scene can simply be moved');
+    assert.ok(op.includes('PreviewScene.move('),
+        'set() must move the scene instead of rebuilding it');
+
+    const scene = read('core/src/structure/PreviewScene.ts');
+    assert.ok(scene.includes('function discardCleanup('),
+        'a rebuild must drop that player stale cleanup tasks');
+    assert.ok(/if \(realName !== ""\) discardCleanup\(realName\);/.test(scene),
+        'build() must discard stale cleanup before clearing');
+    assert.ok(scene.includes('canMove(xuid: string): boolean'), 'PreviewScene needs canMove()');
+});
