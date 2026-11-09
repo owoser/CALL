@@ -85,7 +85,8 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 | `previewBatchCells` | `1024` | 128 – 4096 | 每次批量提交的格数。1024 正好是库的一个包；调大 = 调用更少、单次更重 |
 | `previewBatchImmediate` | `256` | 0 – 1024 | 差量不超过这个格数时用 `immediate=true` 绕开库的分帧预算，让旋转/微调立刻可见（0 = 关闭） |
 | `previewBatchPerTick` | `6` | 2 – 8 | 全局每 tick 最多提交几个批量调用；库的预算是全局 8 包/tick，这里留几个给别的功能 |
-| `previewResendSeconds` | `20` | 0 – 120 | 客户端重载区块会丢掉假方块，插件还会按这个间隔整窗重发一次（0 = 只靠区块变化触发） |
+| `previewResendSeconds` | `45` | 0 – 120 | 客户端重载区块会丢掉假方块，插件还会按这个间隔重发一次（0 = 只靠区块变化触发；跨区块触发有 1.5 秒限流） |
+| `previewBatchQueueMax` | `24` | 0 – 128 | 库内待发包数超过这个值就暂缓投喂（0 = 不限）：宁可慢一点，也不要灌爆客户端导致丢包残留 |
 | `previewViewDistance` | `64` | 16 – 256 | 预览方块的可见距离 |
 | `previewBlockScale` | `"1"` | 字符串 | 一个展示等于一个方块的缩放 |
 | `previewBlockOffsetY` | `"0"` | 模型单位 | 库的模型偏移参数，一般保持 0 |

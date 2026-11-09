@@ -34,6 +34,7 @@ import { Structure } from "../common/Structure";
 import BlockView from "../holo/BlockView";
 import { FakeBlocks, packCells } from "../holo/FakeBlocks";
 import BatchSender from "./BatchSender";
+import { GhostLedger, markCleared, markOwed, markSet, resetLedger, takeOwed, teardownCells } from "./GhostLedger";
 import { MsgType, online, tell } from "../util/Msg";
 import StrFactory from "../util/StrFactory";
 import { describeError } from "../util/Safe";
@@ -64,7 +65,7 @@ interface SliceRef {
     d: number;
 }
 
-interface Scene {
+interface Scene extends GhostLedger {
     anchor: Pos3;
     size: [number, number, number];
     degrees: Degrees;
@@ -90,6 +91,20 @@ interface Scene {
     windowBox: { minX: number; maxX: number; minZ: number; maxZ: number } | null;
 
     applied: Map<string, string>;
+    /**
+     * Cells removed from `applied` whose clear we could NOT confirm - retried on later pumps.
+     *
+     * Without this a failed clear silently became a permanent ghost on the client (fake blocks
+     * only disappear when the client reloads the chunk or receives the restore packet).
+     */
+    stale: Map<string, [number, number, number]>;
+    /** Everything this scene ever put on the client - the belt-and-braces set for teardown. */
+    everApplied: Map<string, [number, number, number]>;
+    /** A client chunk reload wiped our cells: re-send the window WITHOUT forgetting the map. */
+    resendRequested: boolean;
+    /** Last additive re-send (rate limit). */
+    resendAt: number;
+    resends: number;
     queue: PlanOp[];
     failed: number;
     building: boolean;
@@ -99,8 +114,14 @@ interface Scene {
     batchCells: number;
     /** Chunks that had to fall back to per-cell viewBlock / viewClearBlock. */
     batchFallbacks: number;
+    /** Batched sets the library refused (-1) and cells the encoder had to drop. */
+    batchRejected: number;
+    batchSkipped: number;
     /** Last chunk boundary log (one INFO line per burst, not per tick). */
     batchLogAt: number;
+    /** Counters as of the last log line, so the log shows this burst's delta. */
+    logBatches: number;
+    logCells: number;
     /** Chunk the player stood in at the last refresh, for the client-reload re-send. */
     lastChunk: string | null;
     /** When the window was last re-sent from scratch (heartbeat / chunk change). */
@@ -132,7 +153,8 @@ const batchCells = () => Math.floor(num("previewBatchCells", 1024, 128, 4096));
 const batchImmediate = () => Math.floor(num("previewBatchImmediate", 256, 0, 1024));
 const batchTimeout = () => Math.floor(num("previewBatchTimeoutMs", 5000, 1000, 15000));
 const batchPerTick = () => Math.floor(num("previewBatchPerTick", 6, 2, 8));
-const resendSeconds = () => Math.floor(num("previewResendSeconds", 20, 0, 120));
+const resendSeconds = () => Math.floor(num("previewResendSeconds", 45, 0, 120));
+const queueMax = () => Math.floor(num("previewBatchQueueMax", 24, 0, 128));
 
 /** Should this send go through the batch API? */
 export function batchingAvailable(): boolean {
@@ -349,10 +371,19 @@ export const PreviewScene = {
             pending: [],
             windowBox: null,
             applied: new Map(),
+            stale: new Map(),
+            everApplied: new Map(),
+            resendRequested: false,
+            resendAt: 0,
+            resends: 0,
             batches: 0,
             batchCells: 0,
             batchFallbacks: 0,
+            batchRejected: 0,
+            batchSkipped: 0,
             batchLogAt: 0,
+            logBatches: 0,
+            logCells: 0,
             lastChunk: null,
             lastResendAt: 0,
             queue: [],
@@ -489,16 +520,23 @@ export const PreviewScene = {
         const chunk = Math.floor(center.x / 16) + "," + Math.floor(center.z / 16) + "," + String(player?.dimid ?? 0);
         const changed = scene.lastChunk != null && scene.lastChunk !== chunk;
         scene.lastChunk = chunk;
-        const seconds = resendSeconds();
-        const due = seconds > 0
-            && Date.now() - scene.lastResendAt > seconds * 1000
-            && scene.applied.size > 0
-            && scene.applied.size <= 30000;
-        if (!changed && !due) return;
-        scene.lastResendAt = Date.now();
-        scene.applied.clear();
-    },
 
+        const now = Date.now();
+        const seconds = resendSeconds();
+        const due = seconds > 0 && now - scene.lastResendAt > seconds * 1000;
+        if (!changed && !due) return;
+
+        // A chunk reload wipes fake blocks, so we re-send - ADDITIVELY. `applied` must stay
+        // truthful: clearing it (what this did before) forgot every cell that left the window,
+        // so those cells were never cleared again and stayed on the client until a relog, while
+        // the whole window was re-sent on every chunk crossing (the "1,000,000 cells" log).
+        if (scene.applied.size > 30000) return;      // huge windows rely on the client's own reload
+        if (now - scene.resendAt < 1500) return;     // at most one additive re-send per 1.5 s
+        scene.resendAt = now;
+        scene.lastResendAt = now;
+        scene.resendRequested = true;
+        scene.resends++;
+    },
     /**
      * Diff + REPLACE the queue + pump.
      *
@@ -510,10 +548,27 @@ export const PreviewScene = {
         const scene = scenes.get(xuid);
         if (scene == null) return;
         const ops = diffPlacement(scene.applied, desired);
+
+        // Additive re-send: the same cells again (idempotent), leaving `applied` correct.
+        if (scene.resendRequested) {
+            scene.resendRequested = false;
+            for (const [key, cell] of desired) {
+                const id = String(cell.id ?? "");
+                if (id === "") continue;
+                ops.push({ op: "set", key, x: cell.x, y: cell.y, z: cell.z, id });
+            }
+        }
+
+        // Old clears that never got confirmed go first, so a ghost cannot outlive an update.
+        for (const [key, pos] of scene.stale) {
+            ops.unshift({ op: "clear", key, x: pos[0], y: pos[1], z: pos[2] });
+        }
+        scene.stale.clear();
+
         scene.queue = ops;
         if (ops.length > 0) scene.failed = 0;
         scene.building = ops.length > 0;
-        if (ops.length > 0) PreviewScene.pump(xuid);
+        if (ops.length > 0 || scene.stale.size > 0) PreviewScene.pump(xuid);
     },
 
     /**
@@ -533,8 +588,33 @@ export const PreviewScene = {
             return;
         }
 
+        // Owed clears first: a cell whose restore never went out must not be forgotten.
+        if (scene.stale.size > 0) {
+            const owed: PlanOp[] = takeOwed(scene, batchCells()).map((entry) => ({
+                op: "clear" as const,
+                key: entry.key,
+                x: entry.pos[0],
+                y: entry.pos[1],
+                z: entry.pos[2],
+            }));
+            PreviewScene.submitClears(scene, owed);
+            BatchSender.configure(batchPerTick());
+            BatchSender.request(() => PreviewScene.pump(xuid));
+            return;
+        }
+
         if (scene.queue.length === 0) {
             scene.building = false;
+            return;
+        }
+
+        // Do not pile batches onto a library queue that is already deep: the client would be
+        // flooded and individual packets could be dropped, which is how ghosts survive.
+        const stats = FakeBlocks.stats();
+        const maxQueue = queueMax();
+        if (stats != null && maxQueue > 0 && stats.queue > maxQueue) {
+            BatchSender.configure(batchPerTick());
+            BatchSender.request(() => PreviewScene.pump(xuid));
             return;
         }
 
@@ -566,6 +646,8 @@ export const PreviewScene = {
     submitSets(scene: Scene, ops: PlanOp[], immediate: boolean): void {
         const cells = ops.map((op) => ({ x: op.x, y: op.y, z: op.z, id: String((op as any).id ?? "") }));
         const packed = packCells(cells);
+        if (packed.skipped > 0) scene.batchSkipped += packed.skipped;
+
         let accepted = packed.segments.length > 0;
         for (const segment of packed.segments) {
             if (FakeBlocks.set(scene.playerName, segment, immediate) < 0) {
@@ -575,17 +657,21 @@ export const PreviewScene = {
         }
 
         if (accepted) {
-            for (const op of ops) scene.applied.set(op.key, String((op as any).id ?? ""));
+            for (const op of ops) markSet(scene, op.key, op.x, op.y, op.z, String((op as any).id ?? ""));
             scene.batches++;
             scene.batchCells += ops.length;
             return;
         }
 
-        // Per-cell fallback: correctness beats speed.
+        // Rejected (all states unparsable / player gone) or everything was skipped: fall back
+        // per cell so the window still appears, and say which case it was in the counters.
+        if (packed.segments.length === 0) scene.batchSkipped += 0;
+        else scene.batchRejected++;
         scene.batchFallbacks++;
         for (const op of ops) {
-            if (BlockView.set(scene.playerName, op.x, op.y, op.z, String((op as any).id ?? ""))) {
-                scene.applied.set(op.key, String((op as any).id ?? ""));
+            const id = String((op as any).id ?? "");
+            if (BlockView.set(scene.playerName, op.x, op.y, op.z, id)) {
+                markSet(scene, op.key, op.x, op.y, op.z, id);
             } else {
                 scene.failed++;
             }
@@ -596,16 +682,14 @@ export const PreviewScene = {
     submitClears(scene: Scene, ops: PlanOp[]): void {
         const positions: Array<[number, number, number]> = ops.map((op) => [op.x, op.y, op.z]);
         if (FakeBlocks.clear(scene.playerName, positions)) {
-            for (const op of ops) scene.applied.delete(op.key);
+            for (const op of ops) markCleared(scene, op.key);
             scene.batches++;
             scene.batchCells += ops.length;
             return;
         }
+        // Could not confirm: keep them as owed work instead of pretending they are gone.
         scene.batchFallbacks++;
-        for (const op of ops) {
-            BlockView.clear(scene.playerName, op.x, op.y, op.z);
-            scene.applied.delete(op.key);
-        }
+        for (const op of ops) markOwed(scene, op.key, op.x, op.y, op.z);
     },
 
     /** One INFO line per drained burst (never per tick), for evidence in the log. */
@@ -613,17 +697,23 @@ export const PreviewScene = {
         const now = Date.now();
         if (scene.batches === 0 || now - scene.batchLogAt < 1000) return;
         scene.batchLogAt = now;
+        const batches = scene.batches - scene.logBatches;
+        const cells = scene.batchCells - scene.logCells;
+        scene.logBatches = scene.batches;
+        scene.logCells = scene.batchCells;
         try {
             const stats = FakeBlocks.stats();
-            logger.info("[CALL][preview] 批量下发 " + scene.batches + " 批 / " + scene.batchCells
-                + " 格"
-                + (scene.batchFallbacks > 0 ? "（回退逐格 " + scene.batchFallbacks + " 批）" : "")
-                + (stats != null ? "，库内 packets=" + stats.packets + " bytes=" + stats.bytes : ""));
+            logger.info("[CALL][preview] +" + batches + " 批 / +" + cells + " 格"
+                + (stats != null ? "（库队列 " + stats.queue + " 包）" : "")
+                + (scene.resends > 0 ? " 重发 " + scene.resends : "")
+                + (scene.batchFallbacks > 0 ? " 回退 " + scene.batchFallbacks : "")
+                + (scene.batchRejected > 0 ? " 被拒 " + scene.batchRejected : "")
+                + (scene.batchSkipped > 0 ? " 跳过 " + scene.batchSkipped : "")
+                + (scene.stale.size > 0 ? " 欠清 " + scene.stale.size : ""));
         } catch {
             // logging must never break a preview
         }
     },
-
     /** The pre-batch path: one native call (and one packet) per cell, time-boxed. */
     pumpLegacy(xuid: string): void {
         const scene = scenes.get(xuid);
@@ -852,10 +942,13 @@ export const PreviewScene = {
             scene.loadTimer = null;
         }
         scenes.delete(xuid);
-        const cells = appliedCells(scene.applied);
-        scene.applied.clear();
-        // One call restores every cell (the library splits the packets); per-cell only as a
-        // fallback, which used to be the only way and cost one call per cell.
+
+        // The union of everything this scene ever drew: `applied` alone is not enough, because a
+        // clear that could not be confirmed moved its cell to `stale`, and an older drift could
+        // have left cells that only `everApplied` still remembers.
+        const cells = teardownCells(scene);
+        resetLedger(scene);
+
         if (cells.length > 0 && batchingAvailable() && FakeBlocks.clear(scene.playerName, cells)) {
             scene.batches++;
             scene.batchCells += cells.length;
@@ -914,6 +1007,8 @@ export const PreviewScene = {
         batches: number;
         batchCells: number;
         batchFallbacks: number;
+        stale: number;
+        resends: number;
         immediate: boolean;
         libQueue: number;
     } {
@@ -923,7 +1018,8 @@ export const PreviewScene = {
                 active: false, mode: "-", total: 0, windowCount: 0, applied: 0,
                 failed: 0, pending: cleanups.length, radius: radiusDefault(), loading: 0,
                 backend: PreviewScene.backend(),
-                batches: 0, batchCells: 0, batchFallbacks: 0, immediate: false, libQueue: 0,
+                batches: 0, batchCells: 0, batchFallbacks: 0, stale: 0, resends: 0,
+                immediate: false, libQueue: 0,
             };
         }
         const stats = FakeBlocks.stats();
@@ -941,6 +1037,8 @@ export const PreviewScene = {
             batches: scene.batches,
             batchCells: scene.batchCells,
             batchFallbacks: scene.batchFallbacks,
+            stale: scene.stale.size,
+            resends: scene.resends,
             immediate: batchingAvailable(),
             libQueue: stats != null ? stats.queue : 0,
         };

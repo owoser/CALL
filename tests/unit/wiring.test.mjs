@@ -191,3 +191,26 @@ test('the preview sends through the batch API', () => {
         assert.ok(cfg.includes('"' + key + '"'), key + ' must be documented in the template');
     }
 });
+
+test('the reset is gone from maybeResend (this is what left ghosts on the client)', () => {
+    const scene = read('core/src/structure/PreviewScene.ts');
+    const resend = scene.slice(scene.indexOf('maybeResend(scene: Scene'), scene.indexOf('Diff + REPLACE the queue'));
+    assert.ok(resend.length > 200, 'maybeResend must be found');
+    assert.equal(/applied\.clear\(\)/.test(resend), false,
+        'maybeResend must never clear the applied map - that forgets cells that left the window');
+    assert.ok(resend.includes('resendRequested = true'), 'it must flag an additive re-send instead');
+    assert.ok(resend.includes('applied.size > 30000'), 'huge windows must not re-send wholesale');
+});
+
+test('the ledger owns applied / stale / everApplied', () => {
+    const scene = read('core/src/structure/PreviewScene.ts');
+    assert.ok(scene.includes('teardownCells(scene)'), 'teardown must clear the union');
+    assert.ok(scene.includes('markOwed('), 'an unconfirmed clear must be owed, not dropped');
+    assert.ok(scene.includes('takeOwed(scene'), 'owed clears must be retried');
+    assert.ok(scene.includes('scene.stale.size > 0'), 'the pump must service owed clears first');
+    assert.ok(scene.includes('previewBatchQueueMax'), 'the pump must respect the library queue');
+
+    const ledger = read('core/src/structure/GhostLedger.ts');
+    assert.ok(ledger.includes('export function markOwed('));
+    assert.ok(ledger.includes('export function teardownCells('));
+});

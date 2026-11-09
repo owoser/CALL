@@ -14,7 +14,7 @@
     *   the shipped template and merges the template in (your values win, missing keys and their
     *   comments are added).
     */
-    "version": 8,
+    "version": 9,
     /*
     *   ###是否开启CALL###
     *   [参数](如下)
@@ -748,7 +748,14 @@
      * [解析] 客户端重载区块会丢掉假方块（走远再回来 / 传送 / 换维度），
      *        插件会在这些时候整窗重发。这个心跳（秒）是额外保底，0 = 关闭。
      */
-    "previewResendSeconds": 20,
+    "previewResendSeconds": 45,
+
+    /**
+     * [解析] 库内待发包数超过这个值就暂缓投喂（0 = 不限）。
+     *        批量通道把上万格压成几十个包，但如果不管队列深度一直灌，客户端会卡、
+     *        个别包可能丢——那种丢失只能靠重进游戏恢复，所以这里宁可慢一点。
+     */
+    "previewBatchQueueMax": 24,
 
     /*
     *   ###预览每 tick 生成数量###   (3.3.0 新增，3.6.0 起默认值上调，3.8.0 起为每轮上限)

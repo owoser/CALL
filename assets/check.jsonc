@@ -282,6 +282,11 @@
             "min": 0,
             "max": 120
         },
+        "previewBatchQueueMax": {
+            "type": "number",
+            "min": 0,
+            "max": 128
+        },
         "previewCountdown": {
             "type": "enum",
             "values": [
@@ -305,5 +310,5 @@
             "type": "boolean"
         }
     },
-    "version": 8
+    "version": 9
 }

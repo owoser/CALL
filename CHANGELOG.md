@@ -13,6 +13,24 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 23)
+
+- **Ghost blocks survived moving, switching and cancelling a preview.** `maybeResend()` cleared the
+  whole `applied` map whenever the player crossed a chunk boundary (or the heartbeat came due).
+  That map is the only memory of what the client is showing, so every cell that left the window
+  afterwards was never cleared again - it stayed until the player relogged - while the entire
+  window was re-sent on every crossing (the log showed ~1,000,000 cells for a 12,000 cell window).
+  Re-sends are now ADDITIVE (`resendRequested`, rate limited to one per 1.5 s, skipped above 30k
+  cells) and never touch the ledger.
+- **A clear we cannot confirm is now owed, not forgotten.** Failed clears move to a `stale` set
+  that the pump services before anything else, and teardown clears the union of
+  `applied + stale + everApplied`, so cancelling cannot leave anything behind even after a
+  dropped packet. The rules live in the new `structure/GhostLedger.ts` and are unit-tested.
+- Submissions pause while the library queue is deeper than `previewBatchQueueMax` (default 24
+  packets) instead of flooding a client - a dropped packet is exactly what produced permanent
+  ghosts before.
+- The burst log now reports THIS burst (`+N 批 / +M 格`) plus `重发 / 回退 / 被拒 / 跳过 / 欠清`,
+  so the re-send loop is visible immediately instead of being hidden inside a cumulative counter.
 ### Changed (3.9.5-beta1, build 22)
 
 - **The preview now sends through HologramLib's batch fake blocks (`blockBatch*`).** One call
