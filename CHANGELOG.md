@@ -13,6 +13,19 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 19)
+
+- **Block entity data was never READ, so banner patterns could never survive a paste.** Parsing a
+  real captured structure showed the compound walk inside `structure` stopping right after
+  `palette` - the parsed tree had only block_indices/entities/palette while the bytes clearly
+  contained `block_position_data` (33 payloads in a 64 KB banner structure). The codec now anchors
+  on the name and parses that compound directly, then `transformLayout` moves every payload with
+  its block and placement applies it through `Block.getBlockEntity()` across batch ticks (a fresh
+  block entity is not reachable in the same tick; `Block.setNbt` drops the extra keys).
+- `BlockView` no longer sends stateful ids without checking: the string IS accepted by the library
+  (`viewBlock` returns true) but the client still draws the default variant, i.e.
+  `Block::tryGetFromRegistry` ignores the descriptor. Preview stair orientation therefore stays a
+  library limitation until `viewBlock` accepts a network id or a states payload.
 ### Fixed (3.9.5-beta1, build 18)
 
 - **The preview now sends block states.** `SurfaceExtract` only stored the palette NAME, so every

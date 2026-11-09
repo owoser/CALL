@@ -524,6 +524,39 @@ export function toLseTag(tag: NbtTag): any {
     }
 }
 
+/**
+ * Find `block_position_data` in the raw bytes and parse that compound on its own.
+ *
+ * WHY: in a real .mcstructure the compound walk inside `structure` stops right after `palette`
+ * (verified on a 64 KB banner structure: the parsed tree had only block_indices/entities/palette),
+ * so the tag never showed up even though the bytes are there. Anchoring on the name and reading
+ * the compound directly recovers the payload without depending on the parent walk.
+ */
+function scanBlockEntities(buf: Buffer): Map<number, NbtTag> | undefined {
+    const marker = Buffer.from("block_position_data", "utf8");
+    const at = buf.indexOf(marker);
+    if (at < 8) return undefined;
+    const little = detectEndian(buf) === "le";
+    const nameLen = little ? buf.readUInt16LE(at - 2) : buf.readUInt16BE(at - 2);
+    if (nameLen !== marker.length) return undefined;
+    // the tag byte sits right before the length
+    if (buf[at - 3] !== 10) return undefined;
+
+    const reader = new Reader(buf.subarray(at + marker.length), little);
+    const tag = readPayload(reader, 10);
+    if (tag.type !== 10) return undefined;
+    const out = new Map<number, NbtTag>();
+    for (const entry of tag.entries) {
+        const index = Number(entry.name);
+        if (!Number.isInteger(index) || index < 0) continue;
+        if (entry.tag.type !== 10) continue;
+        const data = child(entry.tag, "block_entity_data");
+        if (data == null || data.type !== 10) continue;
+        out.set(index, data);
+    }
+    return out.size > 0 ? out : undefined;
+}
+
 export function parseStructureLayout(buf: Buffer): StructureLayout {
     const root = parseRoot(buf);
 
@@ -563,7 +596,7 @@ export function parseStructureLayout(buf: Buffer): StructureLayout {
         }
     }
 
-    const blockEntities = parseBlockEntities(structureTag);
+    const blockEntities = parseBlockEntities(structureTag) ?? scanBlockEntities(buf);
     return { size: [size[0], size[1], size[2]], indices, palette, blockEntities };
 }
 // --------------------------------------------------- mirror / rotate support

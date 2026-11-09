@@ -182,23 +182,38 @@ function blockNbtOf(entry: StructureLayout["palette"][number]): NbtCompound {
 }
 
 /**
- * Write a structure's block entity payload onto the block that was just placed.
+ * Apply queued block entity payloads, one `setNbt` per cell.
  *
- * `Block.setNbt` only accepts `name`/`states` (verified: extra keys are dropped), so banner
- * patterns, chest contents and sign text have to go through `Block.getBlockEntity()`, which owns
- * the block's additional data.
+ * `Block.setNbt` only accepts `name`/`states` (extra keys are dropped), so banner patterns,
+ * chest contents and sign text have to go through `Block.getBlockEntity()`. The block entity of
+ * a block that was just created is not reachable in the same tick, which is why this runs from
+ * the batch yield instead of inline.
  */
-function writeBlockEntity(block: any, entityTag: any): boolean {
-    try {
-        if (typeof block.getBlockEntity !== "function") return false;
-        const entity = block.getBlockEntity();
-        if (entity == null || typeof entity.setNbt !== "function") return false;
-        const payload = toLseTag(entityTag);
-        if (payload == null) return false;
-        return entity.setNbt(payload) === true;
-    } catch {
-        return false;
+function flushBlockEntities(
+    pending: Array<[number, number, number, any]>,
+    dimid: number
+): number {
+    if (pending.length === 0) return 0;
+    const queue = pending.splice(0, pending.length);
+    let failed = 0;
+    for (const [x, y, z, entityTag] of queue) {
+        try {
+            const block = mc.getBlock(x, y, z, dimid as 0 | 1 | 2);
+            const entity = block != null && typeof (block as any).getBlockEntity === "function"
+                ? (block as any).getBlockEntity()
+                : null;
+            const payload = entity != null && typeof entity.setNbt === "function"
+                ? toLseTag(entityTag)
+                : null;
+            if (payload == null || entity.setNbt(payload) !== true) {
+                pending.push([x, y, z, entityTag]);
+                failed++;
+            }
+        } catch {
+            failed++;
+        }
     }
+    return failed;
 }
 /** Log once per key so a broken palette cannot flood the console. */
 const logged = new Set<string>();
@@ -259,6 +274,8 @@ export async function placeLayoutAsync(
     }
 
     const cache = new Map<number, NbtCompound | null>();
+    /** block entity payloads waiting for the blocks to exist */
+    const pendingEntities: Array<[number, number, number, any]> = [];
     const baseX = Math.floor(pos.x);
     const baseY = Math.floor(pos.y);
     const baseZ = Math.floor(pos.z);
@@ -321,7 +338,11 @@ export async function placeLayoutAsync(
                                 }
                             }
                         }
-                        if (entityTag != null) writeBlockEntity(target, entityTag);
+                        if (entityTag != null) {
+                            // A block entity created by `setNbt` is not reachable until the world
+                            // ticks, so the payload is applied after the batch instead.
+                            pendingEntities.push([targetX, targetY, targetZ, entityTag]);
+                        }
                         written++;
                     } catch {
                         // the game rejected this block (e.g. an invalid state)
@@ -334,6 +355,7 @@ export async function placeLayoutAsync(
 
         if (++sinceYield >= batch) {
             sinceYield = 0;
+            flushBlockEntities(pendingEntities, pos.dimid);
             if (options.onProgress != null) {
                 try {
                     options.onProgress(i + 1, total, written);
@@ -343,6 +365,14 @@ export async function placeLayoutAsync(
             }
             await new Promise((r) => setTimeout(r, 0));
         }
+    }
+
+    // A block entity created by `setNbt` only becomes reachable once the world ticks, so the
+    // queue is drained across a couple of ticks before the leftovers are dropped.
+    for (let pass = 0; pass < 3 && pendingEntities.length > 0; pass++) {
+        const failed = flushBlockEntities(pendingEntities, pos.dimid);
+        if (failed === 0) break;
+        await new Promise((r) => setTimeout(r, 0));
     }
     return written;
 }
