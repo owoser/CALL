@@ -112,9 +112,16 @@ export class ToolOperation {
             block["states"] = {};
         }
 
-        const data: ToolVariable = {
+        // `${posf}` is the raw click point, which lies on the FACE plane: clicking the +Z face of
+        // the block at z=-43 gives z=-42, so a binding that used `${posf.z}` selected the
+        // neighbouring block (the reported "one block off"). Such bindings are migrated to
+        // `${pos.…}` by ToolItems.migratePosfBindings(); `${hit}`/`${hitf}` are the same raw point
+        // under names that cannot be confused with the clicked block.
+        const data: any = {
             pos: Pos3.fromPos(block.pos).floor(),
             posf: Pos3.fromPos(posFloat),
+            hit: Pos3.fromPos(posFloat).floor(),
+            hitf: Pos3.fromPos(posFloat),
             block,
             itemA: itemArr[iA],
             itemB: itemArr[iB],
@@ -331,6 +338,22 @@ export class ToolOperation {
         return true;
     }
 
+    /** DEBUG (`debugMod`): which path produced this click, and with which coordinates. */
+    private static logClick(caPlayer: CAPlayer, item: any, source: string, block: any, posFloat: any): void {
+        try {
+            if (Config.get(Config.GLOBAL, "debugMod", false) !== true) return;
+            const bp = block?.pos ?? {};
+            const fp = posFloat ?? {};
+            logger.info("[CALL][tool] path=" + source + " item=" + String(item?.type ?? "?")
+                + " block=" + String(bp.x) + "," + String(bp.y) + "," + String(bp.z)
+                + " type=" + String(block?.type ?? "?")
+                + " posf=" + String(fp.x) + "," + String(fp.y) + "," + String(fp.z)
+                + (caPlayer.lastClickSide != null ? " side=" + String(caPlayer.lastClickSide) : ""));
+        } catch {
+            // diagnostics only
+        }
+    }
+
     /** DEBUG (`debugMod`): which path produced this tool action, and where. */
     private static logPath(caPlayer: CAPlayer, path: string, item: any, source: string): void {
         try {
@@ -362,6 +385,7 @@ export class ToolOperation {
             ToolOperation.lastBlockAt.set(caPlayer.xuid, now);
         }
 
+        ToolOperation.logClick(caPlayer, item, source, block, posFloat);
         if (ToolOperation.tryPreviewPaste(caPlayer, item, source === "air" ? "air" : "block")) return;
         let items = ToolOperation.getItems(caPlayer, type);
         let name = "";

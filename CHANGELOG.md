@@ -13,6 +13,17 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 27)
+
+- **"All wands are one block off" was a `${posf}` binding, not the click routing.** `posf` is the
+  raw click point and it lies on the FACE plane: clicking the +Z face of the block at
+  z=-43 gives z=-42, so a binding like `call area a ${posf.x} ${posf.y} ${posf.z}` (which the old
+  configs used) selected the neighbouring block. Those bindings are now rewritten to `${pos.*}`
+  once - in `default.items` at startup and in every player's own settings on their next click -
+  and `${hit}`/`${hitf}` keep the raw point under a name that cannot be confused with the block.
+- The click diagnostic (`debugMod`) now logs EVERY routed click, not just the preview paste:
+  `[CALL][tool] path=block|air item=… block=x,y,z type=… posf=… side=…`. It printed nothing before,
+  which is why the report could not be answered from the console.
 ### Changed (3.9.5-beta1, build 26)
 
 - **The paste wand is now the only way to confirm a preview.** It answers BOTH buttons on both

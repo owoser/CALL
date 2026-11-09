@@ -13,6 +13,7 @@ import * as path from "path";
 import { collectEntries, createStoreZip } from "../io/ZipStore";
 import { describeError } from "../util/Safe";
 import { mergeToolBindings } from "./Bindings";
+import { migratePosfBindings } from "./BindingMigration";
 
 /**
  * The bundled tool items.
@@ -154,6 +155,12 @@ export class ToolItems {
         setTimeout(report, 5000);
     }
 
+    /**
+     * Rewrite `${posf.x}` -> `${pos.x}` in every stored binding (see BindingMigration).
+     */
+    public static migratePosfBindings(settings: any): number {
+        return migratePosfBindings(settings);
+    }
     public static isTool(type: string): boolean {
         return TOOL_IDS.indexOf(type) !== -1;
     }
@@ -268,10 +275,12 @@ export class ToolItems {
      * rebound (or removed) something keeps their choice.
      */
     public static migrateBindings(settings: any): boolean {
+        const posfFixed = ToolItems.migratePosfBindings(settings) > 0;
         // The SHIPPED template is the source of truth for our own items: `default.items` in
         // configs.json is written once and never grows, so a tool released later would have
         // no binding to copy no matter how often the player reconnects.
-        return mergeToolBindings(settings, { items: Config.toolBindingDefaults() }, TOOL_IDS);
+        const merged = mergeToolBindings(settings, { items: Config.toolBindingDefaults() }, TOOL_IDS);
+        return merged || posfFixed;
     }
 
     /**
@@ -285,6 +294,20 @@ export class ToolItems {
         try {
             const defaults = Config.toolBindingDefaults();
             const live = Config.get(Config.GLOBAL, "default.items") ?? {};
+
+            // Old configs bound their wands with `${posf.x}` (the FACE plane of the clicked
+            // block), which is why every wand selected the neighbouring block. Rewrite those
+            // bindings once; the player copies in `players.*` are migrated on their next click.
+            const fixed = migratePosfBindings({ items: live });
+            if (fixed > 0) {
+                Config.set(Config.GLOBAL, "default.items", live);
+                try {
+                    logger.warn("[CALL] 已把 " + fixed + " 条使用 ${posf} 的绑定改写为 ${pos}（点击的方块坐标）");
+                } catch {
+                    // logger may not be ready
+                }
+            }
+
             const missing: string[] = [];
             for (const kind of ["onUseItemOn", "onStartDestroyBlock"]) {
                 for (const id of TOOL_IDS) {
