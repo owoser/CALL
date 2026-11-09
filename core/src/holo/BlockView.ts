@@ -14,6 +14,14 @@ import Holo from "./Holo";
  * Verified exported by HologramLib 1.33.0 (LL 26.51) and 1.35.0 (LL 26.60).
  */
 let setFn: any;
+/** Block ids the client refused in their stateful form (stateful -> use the bare name). */
+const stripStates = new Map<string, boolean>();
+
+/** `minecraft:stone_stairs["a"=1]` -> `minecraft:stone_stairs`. */
+function bareName(id: string): string {
+    const i = id.indexOf("[");
+    return i < 0 ? id : id.slice(0, i);
+}
 let clearFn: any;
 
 function setter(): any {
@@ -36,12 +44,30 @@ export const BlockView = {
         return Holo.call("viewDescribe", "") !== undefined;
     },
 
-    /** true = applied, false = the client does not know that block id. */
+    /**
+     * Apply a per-client block override.
+     *
+     * `blockId` may carry states (`minecraft:stone_stairs["weirdo_direction"=2]`); the library
+     * resolves it through the block registry, so orientation survives. If the client rejects the
+     * stateful form the bare name is tried once and remembered, which keeps old/odd blocks
+     * visible instead of leaving a hole.
+     */
     set(playerName: string, x: number, y: number, z: number, blockId: string): boolean {
         const fn = setter();
         if (fn == null) return false;
+        const id = String(blockId ?? "");
+        const strip = stripStates.get(id) === true;
+        const plain = strip ? bareName(id) : id;
         try {
-            return fn(playerName, x, y, z, blockId) === true;
+            if (fn(playerName, x, y, z, plain) === true) return true;
+            if (!strip && plain !== bareName(id)) {
+                const bare = bareName(id);
+                if (fn(playerName, x, y, z, bare) === true) {
+                    stripStates.set(id, true);
+                    return true;
+                }
+            }
+            return false;
         } catch {
             // A stale handle after the library was reloaded: drop it and rebind next time.
             setFn = undefined;

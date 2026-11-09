@@ -391,6 +391,14 @@ export interface StructureLayout {
     size: [number, number, number];
     indices: number[];
     palette: { name: string; states: Record<string, NbtTypedValue>; version: number }[];
+    /**
+     * Block entity payloads, keyed by the CELL INDEX they belong to.
+     *
+     * Banner patterns, chest contents, sign text and bed colours live here, not in the palette;
+     * without them a paste produces empty blocks. The structure file stores them as
+     * `structure.block_position_data.<cell> = { block_entity_data: {...} }`.
+     */
+    blockEntities?: Map<number, NbtTag>;
 }
 
 /** Convert a compound's entries while keeping each value's tag id. */
@@ -459,6 +467,63 @@ function toJs(tag: NbtTag): any {
 }
 
 /** Parse a .mcstructure / toBinaryNBT() byte image into a placement layout. */
+/**
+ * `structure.block_position_data` -> cell index -> block entity compound.
+ *
+ * The key is the decimal cell index as a string; entries without `block_entity_data` are skipped.
+ */
+function parseBlockEntities(structureTag: Extract<NbtTag, { type: 10 }>): Map<number, NbtTag> | undefined {
+    const positions = child(structureTag, "block_position_data");
+    if (positions == null || positions.type !== 10) return undefined;
+    const out = new Map<number, NbtTag>();
+    for (const entry of positions.entries) {
+        const index = Number(entry.name);
+        if (!Number.isInteger(index) || index < 0) continue;
+        if (entry.tag.type !== 10) continue;
+        const data = child(entry.tag, "block_entity_data");
+        if (data == null || data.type !== 10) continue;
+        out.set(index, data);
+    }
+    return out.size > 0 ? out : undefined;
+}
+
+/**
+ * Rewrite a parsed tag as the LSE NbtCompound/NbtList objects `block.setNbt` expects.
+ *
+ * Only needed for block entity payloads, which are stored as a tag tree rather than the plain
+ * `{ name, states }` shape the palette uses.
+ */
+export function toLseTag(tag: NbtTag): any {
+    switch (tag.type) {
+        case 1: return new NbtByte(Number(tag.value));
+        case 2: return new NbtShort(Number(tag.value));
+        case 3: return new NbtInt(Number(tag.value));
+        case 4: return new NbtLong(Number(tag.value));
+        case 5: return new NbtFloat(Number(tag.value));
+        case 6: return new NbtDouble(Number(tag.value));
+        case 7: {
+            const bytes = new Uint8Array(tag.value.length);
+            bytes.set(tag.value);
+            return new NbtByteArray(bytes.buffer as ArrayBuffer);
+        }
+        case 8: return new NbtString(String(tag.value));
+        case 9: {
+            const list = new NbtList();
+            tag.items.forEach((item, i) => list.setTag(i, toLseTag(item)));
+            return list;
+        }
+        case 11: return new NbtList(Array.from(tag.value).map((v) => new NbtInt(Number(v))));
+        case 12: return new NbtList(Array.from(tag.value).map((v) => new NbtLong(Number(v))));
+        case 10: {
+            const compound = new NbtCompound();
+            for (const entry of tag.entries) compound.setTag(entry.name, toLseTag(entry.tag));
+            return compound;
+        }
+        default:
+            return new NbtString("");
+    }
+}
+
 export function parseStructureLayout(buf: Buffer): StructureLayout {
     const root = parseRoot(buf);
 
@@ -498,7 +563,8 @@ export function parseStructureLayout(buf: Buffer): StructureLayout {
         }
     }
 
-    return { size: [size[0], size[1], size[2]], indices, palette };
+    const blockEntities = parseBlockEntities(structureTag);
+    return { size: [size[0], size[1], size[2]], indices, palette, blockEntities };
 }
 // --------------------------------------------------- mirror / rotate support
 export interface TransformOptions {
@@ -579,5 +645,32 @@ export function transformLayout(layout: StructureLayout, options: TransformOptio
         }
     }
 
-    return { size: outSize, indices: outIndices, palette: layout.palette };
+    // Block entities follow their block: record where every source cell ended up.
+    let blockEntities: Map<number, NbtTag> | undefined;
+    if (layout.blockEntities != null && layout.blockEntities.size > 0) {
+        blockEntities = new Map<number, NbtTag>();
+        for (let x = 0; x < sx; x++) {
+            for (let z = 0; z < sz; z++) {
+                let nx = mirrorX ? sx - 1 - x : x;
+                let nz = mirrorZ ? sz - 1 - z : z;
+                let rx = nx;
+                let rz = nz;
+                switch (rotation) {
+                    case 90: rx = sz - 1 - nz; rz = nx; break;
+                    case 180: rx = sx - 1 - nx; rz = sz - 1 - nz; break;
+                    case 270: rx = nz; rz = sx - 1 - nx; break;
+                    default: break;
+                }
+                if (rx < 0 || rx >= outSize[0] || rz < 0 || rz >= outSize[2]) continue;
+                for (let y = 0; y < sy; y++) {
+                    const src = cellIndex(x, y, z, sz, sy);
+                    const data = layout.blockEntities.get(src);
+                    if (data == null) continue;
+                    blockEntities.set(cellIndex(rx, y, rz, outSz, sy), data);
+                }
+            }
+        }
+    }
+
+    return { size: outSize, indices: outIndices, palette: layout.palette, blockEntities };
 }

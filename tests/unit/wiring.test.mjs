@@ -155,3 +155,20 @@ test('moving a preview keeps its cells (no rebuild, no stale cleanup)', () => {
         'build() must discard stale cleanup before clearing');
     assert.ok(scene.includes('canMove(xuid: string): boolean'), 'PreviewScene needs canMove()');
 });
+
+test('block entities ride along with the paste', () => {
+    const codec = read('core/src/io/NbtCodec.ts');
+    assert.ok(codec.includes('block_position_data'), 'the codec must read block_position_data');
+    assert.ok(codec.includes('export function toLseTag('), 'block entity tags must be convertible');
+    assert.ok(/blockEntities\?: Map<number, NbtTag>/.test(codec), 'the layout must carry them');
+
+    const placement = read('core/src/structure/StructurePlacement.ts');
+    assert.ok(placement.includes('layout.blockEntities?.get(i)'), 'placement must look them up per cell');
+    assert.ok(placement.includes('getBlockEntity()'), 'they must be written through Block.getBlockEntity()');
+    assert.ok(placement.includes('String(target.type ?? "") !== name'),
+        'setNbt must be verified, not trusted');
+
+    // rotation has to move the payload with its block
+    assert.ok(/blockEntities\.set\(cellIndex\(rx, y, rz/.test(codec),
+        'transformLayout must remap block entity indices');
+});

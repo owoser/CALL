@@ -92,7 +92,7 @@ export function coveredArea(pos: Pos3, size: Vec3Tuple): Area3 {
     );
 }
 
-import { StructureLayout, NbtTypedValue, parseStructureLayout, transformLayout, TransformOptions } from "../io/NbtCodec";
+import { StructureLayout, NbtTypedValue, parseStructureLayout, toLseTag, transformLayout, TransformOptions } from "../io/NbtCodec";
 import { describeError, logFailure } from "../util/Safe";
 
 // --------------------------------------------------- per-block placement (bytes)
@@ -181,6 +181,25 @@ function blockNbtOf(entry: StructureLayout["palette"][number]): NbtCompound {
     }
 }
 
+/**
+ * Write a structure's block entity payload onto the block that was just placed.
+ *
+ * `Block.setNbt` only accepts `name`/`states` (verified: extra keys are dropped), so banner
+ * patterns, chest contents and sign text have to go through `Block.getBlockEntity()`, which owns
+ * the block's additional data.
+ */
+function writeBlockEntity(block: any, entityTag: any): boolean {
+    try {
+        if (typeof block.getBlockEntity !== "function") return false;
+        const entity = block.getBlockEntity();
+        if (entity == null || typeof entity.setNbt !== "function") return false;
+        const payload = toLseTag(entityTag);
+        if (payload == null) return false;
+        return entity.setNbt(payload) === true;
+    } catch {
+        return false;
+    }
+}
 /** Log once per key so a broken palette cannot flood the console. */
 const logged = new Set<string>();
 function logOnce(key: string, message: string): void {
@@ -261,6 +280,10 @@ export async function placeLayoutAsync(
         }
         if (blockNbt == null) continue;
 
+        // Banner patterns, chest contents and sign text are block ENTITY data: `block.setNbt`
+        // only takes name/states, so the payload is written through Block.getBlockEntity().
+        const entityTag = layout.blockEntities?.get(i);
+
         const name = String(blockNbt.getData("name") ?? "");
         const isAir = name === "" || name === "minecraft:air" || name === "minecraft:void_air" || name === "minecraft:cave_air";
         if (name === "minecraft:structure_void") continue;
@@ -282,7 +305,23 @@ export async function placeLayoutAsync(
                     skipped++;
                 } else {
                     try {
-                        block.setNbt(blockNbt);
+                        const ok = block.setNbt(blockNbt) === true;
+                        let target = mc.getBlock(targetX, targetY, targetZ, pos.dimid) ?? block;
+                        // `setNbt` can report success and still leave the cell empty for a block
+                        // that owns a block entity, so verify instead of trusting the flag.
+                        if (!ok || String(target.type ?? "") !== name) {
+                            // A block that owns a block entity (banner, chest, sign) cannot always
+                            // be materialised by NBT alone; create it first, then apply the payload.
+                            if (typeof mc.setBlock === "function") {
+                                mc.setBlock(targetX, targetY, targetZ, pos.dimid, name, 0);
+                                const created = mc.getBlock(targetX, targetY, targetZ, pos.dimid);
+                                if (created != null) {
+                                    created.setNbt(blockNbt);
+                                    target = created;
+                                }
+                            }
+                        }
+                        if (entityTag != null) writeBlockEntity(target, entityTag);
                         written++;
                     } catch {
                         // the game rejected this block (e.g. an invalid state)

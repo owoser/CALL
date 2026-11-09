@@ -13,6 +13,21 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 18)
+
+- **The preview now sends block states.** `SurfaceExtract` only stored the palette NAME, so every
+  stair faced the same way and fences/doors lost their variants while the paste (which writes
+  `name` + `states`) was already correct. The override id is now a full descriptor, e.g.
+  `minecraft:stone_stairs["weirdo_direction"=2,"upside_down_bit"=false]` - verified against
+  HologramLib, which resolves it through `Block::tryGetFromRegistry` - with a fallback to the
+  bare name when a client rejects a state.
+- **Block entity data is parsed and applied on paste.** `StructureLayout` now reads
+  `structure.block_position_data` (banner patterns, chest contents, sign text), `transformLayout`
+  moves it with its block for every rotation/mirror, and placement writes it through
+  `Block.getBlockEntity()` after verifying the block actually appeared (`Block.setNbt` reports
+  success but drops extra keys). Needs an in-game check with a patterned banner.
+- Banner/sign/chest contents still cannot be shown in the PREVIEW: the per-client block override
+  takes a block id only. Documented in docs/user/tools.md.
 ### Fixed (3.9.5-beta1, build 17)
 
 - **A freshly placed preview was cancelled by the previous one's timer.** `set()` builds a new

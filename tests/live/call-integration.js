@@ -1280,6 +1280,25 @@ async function runSuite() {
             Config.set(Config.GLOBAL, "previewTimeout", prevTimeout);
         }
     });
+    // --- the client override accepts block states ---------------------------
+    await checkAsync("ca.previewStateOverride", async () => {
+        const BlockView = require(path.join(M.root, "core", "src", "holo", "BlockView.js")).default;
+        const name = String(sim.realName || "CALLTEST");
+        const t = spot(62);
+
+        const stairs = 'minecraft:stone_stairs["weirdo_direction"=2,"upside_down_bit"=false]';
+        const withStates = BlockView.set(name, t.x, t.y, t.z, stairs);
+        BlockView.clear(name, t.x, t.y, t.z);
+
+        // an unparsable state must fall back to the bare block instead of leaving a hole
+        const bogus = 'minecraft:stone_stairs["no_such_state"=1]';
+        const fallback = BlockView.set(name, t.x, t.y, t.z, bogus);
+        BlockView.clear(name, t.x, t.y, t.z);
+
+        assert(withStates, "viewBlock rejected a stateful block id: " + stairs);
+        assert(fallback, "viewBlock did not fall back to the bare block name");
+        return "stateful id accepted, bogus state falls back";
+    });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;
         const t = spot(19);

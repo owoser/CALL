@@ -43,6 +43,36 @@ export interface ExtractResult {
     truncated: boolean;
 }
 
+/**
+ * Block descriptor for the client override: `name["state"=value,...]`.
+ *
+ * HologramLib resolves the string with `Block::tryGetFromRegistry`, which understands the same
+ * descriptor syntax as /setblock - so stairs keep their facing and fences their connections
+ * instead of rendering with default states.
+ */
+export function descriptorOf(entry: { name: string; states?: Record<string, any> }): string {
+    const name = String(entry?.name ?? "");
+    const states = entry?.states;
+    if (name === "" || states == null) return name;
+    const keys = Object.keys(states);
+    if (keys.length === 0) return name;
+    const parts: string[] = [];
+    for (const key of keys) {
+        const raw = (states as any)[key];
+        // The parser gives us {type, value}; accept a plain value as well.
+        const tag = raw != null && typeof raw === "object" && "type" in raw ? raw : null;
+        const value = tag != null ? tag.value : raw;
+        const kind = tag != null ? tag.type : typeof value === "boolean" ? 1 : 3;
+        let text: string;
+        if (kind === 1) text = Number(value) !== 0 ? "true" : "false";
+        else if (kind === 8) text = JSON.stringify(String(value));
+        else if (kind === 5 || kind === 6) text = String(Number(value));
+        else text = String(value);
+        parts.push("\"" + key + "\"=" + text);
+    }
+    return name + "[" + parts.join(",") + "]";
+}
+
 const AIR = new Set([
     "minecraft:air",
     "minecraft:cave_air",
@@ -120,7 +150,7 @@ export function extractSurface(
                     const idx = rowBase + z * w * h;
                     if (occ[idx] === 0) solidCount++;
                     occ[idx] = 1;
-                    names[idx] = entry.name;
+                    names[idx] = descriptorOf(entry);
                 }
             }
         }
