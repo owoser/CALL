@@ -204,26 +204,17 @@ export class ToolOperation {
             // keep the defaults
         }
 
-        // 1) what the crosshair hits. This is the block the operator believes they clicked, so
-        //    it must win: an air click that also fired for a block click used to place the point
-        //    at the player's feet, i.e. one block off from the block under the crosshair.
+        // 1) the block the player stands on - "clicking air means the block under my feet",
+        //    which is the rule the operator expects (the crosshair is deliberately NOT used:
+        //    clicking into the sky would otherwise target whatever happens to be in view).
         let block: any = null;
         try {
-            block = player.getBlockFromViewVector(false, false, 64, false);
+            block = player.getBlockStandingOn();
         } catch {
             block = null;
         }
 
-        // 2) the block the player stands on (nil while flying)
-        if (block == null) {
-            try {
-                block = player.getBlockStandingOn();
-            } catch {
-                block = null;
-            }
-        }
-
-        // 3) the cell below the feet
+        // 2) the cell below the feet
         if (block == null) {
             try {
                 block = mc.getBlock(x, y - 1, z, dimid as 0 | 1 | 2);
@@ -232,6 +223,14 @@ export class ToolOperation {
             }
         }
 
+        // 3) the cell the body occupies, as the last readable block
+        if (block == null) {
+            try {
+                block = mc.getBlock(x, y, z, dimid as 0 | 1 | 2);
+            } catch {
+                block = null;
+            }
+        }
         // 4) a stand-in at the feet cell
         if (block == null) {
             block = { pos: { x, y, z, dimid }, type: "minecraft:air", states: {} };

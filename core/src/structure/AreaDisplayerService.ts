@@ -353,6 +353,27 @@ export default class AreaDisplayerService {
         }
     }
 
+    /** One-line state for `/ca tools debug`: what is drawn, and from which numbers. */
+    public static describe(xuid: string): string[] {
+        const st = AreaDisplayerService.states.get(xuid);
+        const mode = AreaDisplayerService.mode();
+        if (st == null) return ["选区显示: " + mode + " · 未登记"];
+        const out = [
+            "选区显示: " + mode
+                + " · 锚点 " + (st.anchor != null ? st.anchor.x + "," + st.anchor.y + "," + st.anchor.z : "-")
+                + (st.record != null ? " · 占位方块 " + st.record.x + "," + st.record.y + "," + st.record.z : ""),
+        ];
+        try {
+            const stats = Wireframe.statsOf("area:" + xuid);
+            if (stats != null) {
+                out.push("选区线框: box moves " + stats.boxMoves + " / text reuses " + stats.textReuses);
+            }
+        } catch {
+            // wireframe not in use
+        }
+        return out;
+    }
+
     public static remove(caPlayer: CAPlayer): void {
         if (!caPlayer) return;
         const st = AreaDisplayerService.states.get(caPlayer.xuid);

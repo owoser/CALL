@@ -34,11 +34,11 @@ test('the routing is wired on both paths', () => {
     assert.ok(op.includes('"air");'), 'the air path must pass the marker');
 });
 
-test('air clicks take the crosshair block first, not the feet', () => {
+test('air clicks target the block under the feet (no crosshair)', () => {
     const op = read('core/src/user/ToolOperation.ts');
     const feet = op.slice(op.indexOf('private static feetBlock('), op.indexOf('public static onAirClick('));
-    const view = feet.indexOf('getBlockFromViewVector');
     const standing = feet.indexOf('getBlockStandingOn');
-    assert.ok(view > 0 && standing > 0, 'both lookups must exist');
-    assert.ok(view < standing, 'the crosshair block must be preferred over the standing block');
+    assert.ok(standing > 0, 'the standing block lookup must exist');
+    assert.equal(feet.includes('getBlockFromViewVector'), false,
+        'clicking air must NOT depend on where the player is looking');
 });

@@ -13,6 +13,14 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 28)
+
+- **Clicking air targets the block under the feet again** (no crosshair). The view ray was added
+  while chasing the one-block offset; the operator's rule is simpler: air click = the block you
+  stand on, then the cell below it, then the body cell.
+- `/ca tools debug` now prints the selection state: display mode, the wireframe anchor /
+  placeholder block, the stored `start -> end` and the wireframe counters - so a box that looks
+  shifted can be checked against the numbers that produced it instead of a screenshot.
 ### Fixed (3.9.5-beta1, build 27)
 
 - **"All wands are one block off" was a `${posf}` binding, not the click routing.** `posf` is the

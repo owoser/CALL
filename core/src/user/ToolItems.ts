@@ -1,4 +1,5 @@
 import Config from "../common/Config";
+import AreaDisplayerService from "../structure/AreaDisplayerService";
 import SwingWatcher from "./SwingWatcher";
 import { FakeBlocks } from "../holo/FakeBlocks";
 import * as HoloCompat from "../holo/HoloCompat";
@@ -378,6 +379,16 @@ export class ToolItems {
             lines.push(HoloCompat.describe());
         } catch {
             // version probe must never break the report
+        }
+        try {
+            for (const line of AreaDisplayerService.describe(caPlayer.xuid)) lines.push(line);
+            const area = caPlayer.settings?.area;
+            if (area?.start != null && area.start.dimid != null) {
+                lines.push("选区: " + area.start.x + "," + area.start.y + "," + area.start.z
+                    + " -> " + area.end.x + "," + area.end.y + "," + area.end.z);
+            }
+        } catch {
+            // diagnostics only
         }
         try {
             const ok = FakeBlocks.available();

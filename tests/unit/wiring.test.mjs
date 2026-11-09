@@ -108,7 +108,7 @@ test('air clicks reach the tools', () => {
     assert.ok(app.includes('onAirClick('), 'the air click must be routed to the tools');
     const op = read('core/src/user/ToolOperation.ts');
     assert.ok(op.includes('public static onAirClick('), 'ToolOperation needs onAirClick');
-    assert.ok(op.includes('getBlockFromViewVector'), 'the air click needs a target: what the player looks at');
+    assert.ok(op.includes('getBlockStandingOn'), 'the air click targets the block under the feet');
 });
 
 test('public structures must live in a folder', () => {
