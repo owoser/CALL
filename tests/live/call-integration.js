@@ -1433,6 +1433,20 @@ async function runSuite() {
         AreaOperation.clearArea(cap);
         return "lens " + lens.join("x") + ", z " + area.start.z + ".." + area.end.z;
     });
+    // --- what does shapeSetLocation mean for a BOX? -------------------------
+    await checkAsync("ca.shapeBoxAnchor", async () => {
+        const Holo = require(path.join(M.root, "core", "src", "holo", "Holo.js")).default;
+        assert(Holo.available(), "HologramLib is not available");
+        const id = Number(Holo.call("shapeCreateBox", 10, 20, 30, 12, 21, 32));
+        assert(id > 0, "shapeCreateBox failed");
+        const loc = Holo.call("shapeGetLocation", id);
+        Holo.call("shapeDestroy", id);
+        assert(Array.isArray(loc) && loc.length >= 3, "shapeGetLocation returned " + JSON.stringify(loc));
+        const corner = loc[0] === 10 && loc[1] === 20 && loc[2] === 30;
+        const centre = Math.abs(loc[0] - 11) < 0.01 && Math.abs(loc[1] - 20.5) < 0.01 && Math.abs(loc[2] - 31) < 0.01;
+        return "box(10,20,30)-(12,21,32) location=" + JSON.stringify(loc)
+            + (corner ? " => CORNER anchor" : centre ? " => CENTRE anchor" : " => ?");
+    });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;
         const t = spot(19);

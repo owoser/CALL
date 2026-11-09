@@ -273,10 +273,18 @@ export default class AreaDisplayerService {
     }
 
     /** "12×5×8 = 480" for the floating label above the box. */
+    /**
+     * "2×1×2 (4) @1376,179,-45" for the floating label.
+     *
+     * The corner coordinates are in the label on purpose: a box that *looks* shifted can then be
+     * checked against the numbers that drew it from the screenshot alone, instead of a round trip
+     * of "looks off by one" / "which number is wrong?".
+     */
     private static sizeLabel(area: Area3): string {
         const lens = area.getLens();
         const total = lens[0] * lens[1] * lens[2];
-        return "§f" + lens[0] + "§7×§f" + lens[1] + "§7×§f" + lens[2] + "  §7(" + total + ")";
+        return "§f" + lens[0] + "§7×§f" + lens[1] + "§7×§f" + lens[2] + "§7(" + total + ")"
+            + " §8@§7" + area.start.x + "," + area.start.y + "," + area.start.z;
     }
 
     /** Yellow while the selection is still a single point, green once it has volume. */

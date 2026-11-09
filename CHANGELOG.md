@@ -13,6 +13,13 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Changed (3.9.5-beta1, build 31)
+
+- The selection label now carries the box origin: `2×1×2(4) @1376,179,-45`. A box that looks
+  shifted can then be checked against the numbers that drew it straight from a screenshot.
+- Verified against the library (`ca.shapeBoxAnchor`): `shapeCreateBox(10,20,30, 12,21,32)` reports
+  its location as `[11,20.5,31]`, i.e. the CENTRE - so the "same size -> shapeSetLocation(centre)"
+  move path in Wireframe is correct and the drawn box follows `start`/`end` exactly.
 ### Fixed (3.9.5-beta1, build 30)
 
 - **The `${posf}` migration never ran for players whose configs still used it.** It was wired into
