@@ -13,6 +13,28 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Changed (3.9.5-beta1, build 26)
+
+- **The paste wand is now the only way to confirm a preview.** It answers BOTH buttons on both
+  targets - a click on a block and a click on air, left and right - because the left side already
+  fell back to the right binding. With a preview open the click pastes at the previewed position
+  (rotation, mirror, pivot and the manual offset) and ends the preview; with no preview it behaves
+  exactly as before. The interception sits before binding resolution, so a renamed wand still works.
+- The preview wand no longer confirms on sneak+right (the worst gesture to perform while flying);
+  it points at the paste wand instead, at most once every 30 s. `/ca preview confirm` and the menu
+  entry keep working.
+
+### Fixed (3.9.5-beta1, build 26)
+
+- **Every wand acted one block off.** A single click can reach the plugin twice - the block event
+  (correct coordinates) and the swing/use heuristic - and the second one ran the tool against the
+  block at the player's feet, overwriting the result. The air path now yields for 300 ms after a
+  block click, so a click that hit a block is handled once, on that block.
+- The air path also takes the block under the crosshair first (`getBlockFromViewVector`), before
+  the standing block and the feet cell: even when only the heuristic fires, the point is the block
+  the operator clicked.
+- `debugMod` logs `[CALL][tool] path=block|air|preview-paste item=… source=…` so a routing report
+  can be answered with evidence instead of a guess.
 ### Fixed (3.9.5-beta1, build 25)
 
 - **Clears are queued before sets ("先清理再移动").** `diffPlacement` emits sets first, so a move

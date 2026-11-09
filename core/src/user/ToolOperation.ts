@@ -4,11 +4,13 @@ import CAPlayer from "./CAPlayer";
 import { Pos3 } from "../common/Pos3";
 import { ToolType } from "../temp/Tool";
 import StrFactory from "../util/StrFactory";
+import { describeError } from "../util/Safe";
 import * as acorn from "acorn";
 import * as escodegen from "escodegen";
 import * as estraverse from "estraverse";
 import Tr from "../util/Translator";
 import BlockType from "../common/BlockType";
+import PreviewOperation from "../structure/PreviewOperation";
 import { faceFromView } from "../common/ViewFace";
 import { matchBinding } from "./Bindings";
 import { ToolItems, TOOL } from "./ToolItems";
@@ -195,27 +197,29 @@ export class ToolOperation {
             // keep the defaults
         }
 
-        // 1) the exact floor block, when the engine can answer
+        // 1) what the crosshair hits. This is the block the operator believes they clicked, so
+        //    it must win: an air click that also fired for a block click used to place the point
+        //    at the player's feet, i.e. one block off from the block under the crosshair.
         let block: any = null;
         try {
-            block = player.getBlockStandingOn();
+            block = player.getBlockFromViewVector(false, false, 64, false);
         } catch {
             block = null;
         }
 
-        // 2) one below the feet cell (standing on a block, or hovering just above one)
+        // 2) the block the player stands on (nil while flying)
         if (block == null) {
             try {
-                block = mc.getBlock(x, y - 1, z, dimid as 0 | 1 | 2);
+                block = player.getBlockStandingOn();
             } catch {
                 block = null;
             }
         }
 
-        // 3) whatever the player is looking at (useful while flying over nothing)
+        // 3) the cell below the feet
         if (block == null) {
             try {
-                block = player.getBlockFromViewVector(false, false, 64, false);
+                block = mc.getBlock(x, y - 1, z, dimid as 0 | 1 | 2);
             } catch {
                 block = null;
             }
@@ -248,6 +252,7 @@ export class ToolOperation {
         }
         const tool = String(hand?.type ?? "");
         if (!ToolOperation.AIR_TOOLS.has(tool)) return;
+        if (ToolOperation.tryPreviewPaste(caPlayer, hand, "air:" + side)) return;
 
         const block = ToolOperation.feetBlock(player);
 
@@ -276,9 +281,88 @@ export class ToolOperation {
             // keep the requested side
         }
 
-        ToolOperation.onClick(wanted, caPlayer, hand, block as any, block.pos as any);
+        ToolOperation.onClick(wanted, caPlayer, hand, block as any, block.pos as any, "air");
     }
-    public static onClick(type: ToolType, caPlayer: CAPlayer, item: Item, block: Block, posFloat: FloatPos) {
+    /** Last tool action per player: one click must never run a tool twice. */
+    private static lastAction = new Map<string, number>();
+    /** Last BLOCK click per player: the air path must not redo a click that hit a block. */
+    private static lastBlockAt = new Map<string, number>();
+
+    /**
+     * Paste the preview when the PASTE WAND is used, on either button and either target.
+     *
+     * The paste wand answers BOTH buttons today (the left side falls back to the right binding),
+     * so all four combinations must land here - a click on a block and a click on air, left and
+     * right - otherwise one of them would fall through to `call paste <feet>` and paste one block
+     * off. Without a preview this returns false and the normal binding runs unchanged.
+     */
+    private static tryPreviewPaste(caPlayer: CAPlayer, item: any, source: string): boolean {
+        if (caPlayer == null) return false;
+        if (String(item?.type ?? "") !== TOOL.paste) return false;
+        let has = false;
+        try {
+            has = PreviewOperation.has(caPlayer.xuid);
+        } catch {
+            has = false;
+        }
+        if (!has) return false;
+
+        // A block click and an air click can both fire for one physical click: run the paste once.
+        const now = Date.now();
+        const last = ToolOperation.lastAction.get(caPlayer.xuid) ?? 0;
+        if (now - last < 250) return true;
+        ToolOperation.lastAction.set(caPlayer.xuid, now);
+        ToolOperation.logPath(caPlayer, "preview-paste", item, source);
+
+        const player = caPlayer.$;
+        const output = {
+            success(message: string) {
+                if (player != null) tell(player, StrFactory.cmdSuccess(message), MsgType.TIP);
+            },
+            error(message: string) {
+                if (player != null) tell(player, StrFactory.cmdErr(message), MsgType.TIP);
+            },
+        };
+        try {
+            PreviewOperation.confirm(output as any, caPlayer);
+        } catch (e) {
+            output.error("粘贴失败: " + describeError(e));
+        }
+        return true;
+    }
+
+    /** DEBUG (`debugMod`): which path produced this tool action, and where. */
+    private static logPath(caPlayer: CAPlayer, path: string, item: any, source: string): void {
+        try {
+            if (Config.get(Config.GLOBAL, "debugMod", false) !== true) return;
+            logger.info("[CALL][tool] path=" + path + " item=" + String(item?.type ?? "?")
+                + " source=" + source + " player=" + String(caPlayer.$.realName ?? "?"));
+        } catch {
+            // diagnostics only
+        }
+    }
+
+    public static onClick(
+        type: ToolType,
+        caPlayer: CAPlayer,
+        item: Item,
+        block: Block,
+        posFloat: FloatPos,
+        source: "block" | "air" = "block"
+    ) {
+        const now = Date.now();
+        if (source === "air") {
+            // One physical click can arrive twice (block event + swing/use event). The block
+            // event carries the block the player actually clicked, so when it just happened the
+            // air path must stay out of the way - otherwise the tool acts on the feet block and
+            // every wand looks "one block off".
+            const blockAt = ToolOperation.lastBlockAt.get(caPlayer.xuid) ?? 0;
+            if (now - blockAt < 300) return;
+        } else {
+            ToolOperation.lastBlockAt.set(caPlayer.xuid, now);
+        }
+
+        if (ToolOperation.tryPreviewPaste(caPlayer, item, source === "air" ? "air" : "block")) return;
         let items = ToolOperation.getItems(caPlayer, type);
         let name = "";
         try {

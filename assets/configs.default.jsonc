@@ -317,7 +317,7 @@
                         "cmds": [
                             "call paste ${block.pos.x} ${block.pos.y} ${block.pos.z}"
                         ],
-                        "describe": "粘贴魔杖\nPaste wand"
+                        "describe": "粘贴魔杖（有预览时左右键都贴在预览位置；没有预览时贴在点击位置）\nPaste wand: pastes at the preview when one is open, otherwise at the click"
                     }
                 },
                 "call:wand_preview": {
@@ -325,7 +325,7 @@
                         "cmds": [
                             "call preview click ${block.pos.x} ${block.pos.y} ${block.pos.z}"
                         ],
-                        "describe": "预览魔杖（设落点/旋转/潜行确认）\nPreview wand"
+                        "describe": "预览魔杖（右键=设点/旋转，左键=换落点，潜行左键=取消；粘贴请用粘贴魔杖）\nPreview wand: right = set/rotate, left = move, sneak+left = cancel"
                     }
                 },
                 "call:wand_adjust": {

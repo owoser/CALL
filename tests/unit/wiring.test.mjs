@@ -232,3 +232,27 @@ test('clears are queued before sets (先清理再移动)', () => {
     assert.ok(scene.includes('Owed clears first') || scene.includes('stale.size > 0'),
         'owed clears must be retried before new work');
 });
+
+test('the paste wand takes over the click when a preview is open (both buttons, block + air)', () => {
+    const op = read('core/src/user/ToolOperation.ts');
+    assert.ok(op.includes('tryPreviewPaste('), 'the interception must exist');
+    assert.ok(op.includes('TOOL.paste'), 'it must be limited to the paste wand');
+    assert.ok(op.includes('PreviewOperation.has('), 'and only when a preview is open');
+    assert.ok(op.includes('PreviewOperation.confirm('), 'it must reuse the preview paste flow');
+
+    // onClick covers BOTH buttons (the left side falls back to the right binding today)
+    const clickAt = op.indexOf('public static onClick(');
+    const click = op.slice(clickAt, clickAt + 1500);
+    assert.ok(click.includes('tryPreviewPaste('), 'onClick must intercept before bindings');
+    // onAirClick covers air clicks on both buttons
+    const air = op.slice(op.indexOf('public static onAirClick('), op.indexOf('public static onClick('));
+    assert.ok(air.includes('tryPreviewPaste(caPlayer, hand'), 'onAirClick must intercept too');
+});
+
+test('the preview wand no longer confirms with sneak+right', () => {
+    const op = read('core/src/structure/PreviewOperation.ts');
+    const confirmCase = op.slice(op.indexOf('case "confirm":'), op.indexOf('case "confirm":') + 400);
+    assert.equal(/confirm\(output, caPlayer\)/.test(confirmCase), false,
+        'sneak+right must not paste any more');
+    assert.ok(confirmCase.includes('hintPasteWand'), 'it must point at the paste wand instead');
+});

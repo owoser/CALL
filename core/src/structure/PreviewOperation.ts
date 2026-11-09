@@ -464,7 +464,9 @@ export default class PreviewOperation {
         const gesture = gestureOf("right", PreviewOperation.sneaking(caPlayer), states.has(caPlayer.xuid));
         switch (gesture) {
             case "confirm":
-                PreviewOperation.confirm(output, caPlayer);
+                // Sneak+right no longer pastes (it is the worst gesture to perform while flying).
+                // The paste wand does it now, on either button; only remind, at most once.
+                PreviewOperation.hintPasteWand(caPlayer);
                 return;
             case "rotate":
                 PreviewOperation.rotate(output, caPlayer);
@@ -490,6 +492,23 @@ export default class PreviewOperation {
             return;
         }
         PreviewOperation.set(output, caPlayer, res);
+    }
+
+    /** Is a preview live for this player? (used by the paste wand to take over the click) */
+    public static has(xuid: string): boolean {
+        return states.has(xuid);
+    }
+
+    /** Tell the player the sneak gesture is gone, at most once every 30 seconds. */
+    private static hintedAt = new Map<string, number>();
+    public static hintPasteWand(caPlayer: CAPlayer): void {
+        const now = Date.now();
+        const last = PreviewOperation.hintedAt.get(caPlayer.xuid) ?? 0;
+        if (now - last < 30000) return;
+        PreviewOperation.hintedAt.set(caPlayer.xuid, now);
+        const player = caPlayer.$;
+        if (player == null) return;
+        tell(player, StrFactory.cmdMsg("潜行右键不再粘贴：拿着【粘贴魔杖】点一下就会贴在预览位置"), MsgType.TIP);
     }
 
     /** True when the player is crouching (some clients throw on the property). */
@@ -1083,9 +1102,6 @@ export default class PreviewOperation {
         }
     }
 
-    public static has(xuid: string): boolean {
-        return states.has(xuid);
-    }
 
     /** The wireframe is client-side only, so a reconnect must rebuild it. */
     public static refresh(xuid: string, caPlayer: CAPlayer): void {

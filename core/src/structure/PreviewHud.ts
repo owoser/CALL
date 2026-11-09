@@ -9,7 +9,7 @@
  * What a click with a tool item should do.
  *
  *   right            -> set the anchor, or rotate the live preview
- *   right + sneaking -> confirm the paste
+ *   right + sneaking -> (no longer used: the paste wand confirms; kept for the gesture table)
  *   left             -> set / move the anchor
  *   left  + sneaking -> CANCEL the preview (mobile: sneak + tap the block)
  */
@@ -78,7 +78,7 @@ export function countdownText(remainingMs: number): string {
         : left <= 10
             ? "§c预览剩余 §f" + left + "§cs"
             : "§e预览剩余 §f" + left + "§7s";
-    return head + "  §8| §7右键=旋转 §8| §7潜行右键=粘贴 §8| §7潜行左键=取消";
+    return head + "  §8| §7右键=旋转 §8| §7粘贴魔杖=粘贴 §8| §7潜行左键=取消";
 }
 
 /** Plain-text variant for the action bar fallback (no boss bar available). */
