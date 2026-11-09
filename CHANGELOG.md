@@ -13,6 +13,15 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 32)
+
+- **The point is derived from the HIT POINT when the event block disagrees.** A click on a face
+  reports a point on that face's plane; the reported block is *supposed* to be the clicked one, but
+  when it is the neighbouring cell every wand lands one block off (the repeated report: clicking
+  z=-45 sets z=-44). Geometry decides now: step 1e-3 INTO the block from the face plane and floor
+  (`side` 0/1/2/3/4/5 -> down/up/north/south/west/east). A correction is logged under `debugMod`
+  (`block corrected by hit point: event=… -> …`), so the engine's behaviour is visible instead of
+  argued about.
 ### Changed (3.9.5-beta1, build 31)
 
 - The selection label now carries the box origin: `2×1×2(4) @1376,179,-45`. A box that looks

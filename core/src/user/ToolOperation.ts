@@ -300,6 +300,43 @@ export class ToolOperation {
 
         ToolOperation.onClick(wanted, caPlayer, hand, block as any, block.pos as any, "air");
     }
+    /**
+     * The block the player actually clicked, derived from the HIT POINT and the face.
+     *
+     * The event's `block` is supposed to be the clicked block, but a click on a face reports a
+     * point on that face's plane - and when the engine hands us the neighbouring cell instead, every
+     * wand ends up "one block off" (which is what was reported repeatedly). Geometry cannot lie:
+     * step a fraction INTO the block from the face plane and floor the result.
+     *
+     * `side`: 0 down, 1 up, 2 north(-z), 3 south(+z), 4 west(-x), 5 east(+x), -1 unknown.
+     */
+    private static clickedBlock(posFloat: any, side: number, fallback: any): any {
+        const fp = posFloat ?? {};
+        const fx = Number(fp.x), fy = Number(fp.y), fz = Number(fp.z);
+        if (!Number.isFinite(fx) || !Number.isFinite(fy) || !Number.isFinite(fz)) return fallback;
+        const eps = 1e-3;
+        let x = fx, y = fy, z = fz;
+        switch (Number(side)) {
+            case 0: y += eps; break;   // down face: plane at block.y
+            case 1: y -= eps; break;   // up face: plane at block.y + 1
+            case 2: z += eps; break;   // north: plane at block.z
+            case 3: z -= eps; break;   // south: plane at block.z + 1
+            case 4: x += eps; break;   // west: plane at block.x
+            case 5: x -= eps; break;   // east: plane at block.x + 1
+            default: return fallback;
+        }
+        return {
+            pos: {
+                x: Math.floor(x),
+                y: Math.floor(y),
+                z: Math.floor(z),
+                dimid: Number(fallback?.pos?.dimid ?? 0),
+            },
+            type: fallback?.type ?? "minecraft:air",
+            states: fallback?.states ?? "",
+        };
+    }
+
     /** Last tool action per player: one click must never run a tool twice. */
     private static lastAction = new Map<string, number>();
     /** Last BLOCK click per player: the air path must not redo a click that hit a block. */
@@ -424,6 +461,25 @@ export class ToolOperation {
             ToolOperation.lastBlockAt.set(caPlayer.xuid, now);
         }
 
+        if (source === "block") {
+            const side = Number(caPlayer.lastClickSide ?? -1);
+            const anyBlock: any = block as any;
+            const derived = ToolOperation.clickedBlock(posFloat, side, block);
+            const bp: any = anyBlock?.pos ?? {};
+            const dp: any = derived?.pos ?? {};
+            if (dp.x !== bp.x || dp.y !== bp.y || dp.z !== bp.z) {
+                try {
+                    if (Config.get(Config.GLOBAL, "debugMod", false) === true) {
+                        logger.info("[CALL][tool] block corrected by hit point: event="
+                            + bp.x + "," + bp.y + "," + bp.z + " -> " + dp.x + "," + dp.y + "," + dp.z
+                            + " (side=" + side + ")");
+                    }
+                } catch {
+                    // diagnostics only
+                }
+                block = derived as any;
+            }
+        }
         ToolOperation.logClick(caPlayer, item, source, block, posFloat);
         if (ToolOperation.tryPreviewPaste(caPlayer, item, source === "air" ? "air" : "block")) return;
         let items = ToolOperation.getItems(caPlayer, type);

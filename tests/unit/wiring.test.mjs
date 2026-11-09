@@ -242,7 +242,7 @@ test('the paste wand takes over the click when a preview is open (both buttons, 
 
     // onClick covers BOTH buttons (the left side falls back to the right binding today)
     const clickAt = op.indexOf('public static onClick(');
-    const click = op.slice(clickAt, clickAt + 1500);
+    const click = op.slice(clickAt, clickAt + 4000);   // the correction block sits in between now
     assert.ok(click.includes('tryPreviewPaste('), 'onClick must intercept before bindings');
     // onAirClick covers air clicks on both buttons
     const air = op.slice(op.indexOf('public static onAirClick('), op.indexOf('public static onClick('));
