@@ -13,6 +13,13 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 30)
+
+- **The `${posf}` migration never ran for players whose configs still used it.** It was wired into
+  the "binding missing" branch, but a `${posf}` binding resolves perfectly - it just selects the
+  FACE plane, so the second click landed one block higher/off (`posf=1377.58,180,-44.35` for the
+  block at `1377,179,-45`). The rewrite now runs on the first click of every session (once per
+  player) and persists the settings.
 ### Added (3.9.5-beta1, build 29)
 
 - `debugMod` now logs the commands a click resolves to (`[CALL][tool] cmd call area a 1376 179 -44`),

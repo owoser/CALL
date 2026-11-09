@@ -256,3 +256,12 @@ test('the preview wand no longer confirms with sneak+right', () => {
         'sneak+right must not paste any more');
     assert.ok(confirmCase.includes('hintPasteWand'), 'it must point at the paste wand instead');
 });
+
+test('posf bindings are migrated on the first click, not only when a binding is missing', () => {
+    const op = read('core/src/user/ToolOperation.ts');
+    assert.ok(op.includes('ensurePosfMigrated('), 'the migration helper must exist');
+    const click = op.slice(op.indexOf('public static onClick('), op.indexOf('public static onClick(') + 1500);
+    assert.ok(click.includes('ensurePosfMigrated(caPlayer)'),
+        'every click must check it - a ${posf} binding resolves fine and keeps selecting the face plane');
+    assert.ok(op.includes('migratePosfBindings(caPlayer.settings)'), 'it must rewrite the stored bindings');
+});

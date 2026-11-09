@@ -13,6 +13,7 @@ import BlockType from "../common/BlockType";
 import PreviewOperation from "../structure/PreviewOperation";
 import { faceFromView } from "../common/ViewFace";
 import { matchBinding } from "./Bindings";
+import { migratePosfBindings } from "./BindingMigration";
 import { ToolItems, TOOL } from "./ToolItems";
 import { MsgType, tell } from "../util/Msg";
 
@@ -303,6 +304,34 @@ export class ToolOperation {
     private static lastAction = new Map<string, number>();
     /** Last BLOCK click per player: the air path must not redo a click that hit a block. */
     private static lastBlockAt = new Map<string, number>();
+    /** Players whose stored bindings have already been checked for `${posf}`. */
+    private static posfChecked = new Set<string>();
+
+    /**
+     * Rewrite `${posf.…}` bindings to `${pos.…}` once per player.
+     *
+     * This has to run on EVERY click, not only when a binding fails to resolve: a `${posf}`
+     * binding resolves fine, it just selects the face plane instead of the clicked block. The
+     * migration was wired into the "binding missing" branch first, so players whose configs
+     * still used `${posf}` kept the one-block offset.
+     */
+    private static ensurePosfMigrated(caPlayer: CAPlayer): void {
+        const xuid = caPlayer?.xuid;
+        if (xuid == null || xuid === "" || ToolOperation.posfChecked.has(xuid)) return;
+        ToolOperation.posfChecked.add(xuid);
+        try {
+            if (migratePosfBindings(caPlayer.settings) > 0) {
+                caPlayer.persistSettings();
+                try {
+                    logger.warn("[CALL][tool] 已把使用 ${posf} 的绑定改写为 ${pos}（点击的方块坐标）");
+                } catch {
+                    // logger may not be ready
+                }
+            }
+        } catch {
+            // never let a migration stop a click
+        }
+    }
 
     /**
      * Paste the preview when the PASTE WAND is used, on either button and either target.
@@ -382,6 +411,7 @@ export class ToolOperation {
         posFloat: FloatPos,
         source: "block" | "air" = "block"
     ) {
+        ToolOperation.ensurePosfMigrated(caPlayer);
         const now = Date.now();
         if (source === "air") {
             // One physical click can arrive twice (block event + swing/use event). The block
