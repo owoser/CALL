@@ -1,5 +1,6 @@
 import Holo from "./Holo";
 import Config from "../common/Config";
+import * as HoloCompat from "./HoloCompat";
 
 /**
  * Selection / preview boxes drawn through HologramLib's DebugShape packets.
@@ -57,9 +58,16 @@ function ttlSeconds(): number {
     return Math.min(120, Math.max(1, raw));
 }
 
-/** Park shapes before destroying them (the only way to clear them on this client build). */
+/**
+ * Should a shape be moved out of sight before it is destroyed?
+ *
+ * Only needed on libraries older than the shape-fix release: there `shapeDestroy` sends a
+ * packet that clients read as an update, so the shape stays. With a fixed library the plain
+ * destroy works and parking is skipped. The option forces it either way.
+ */
 function parkBeforeDestroy(): boolean {
-    return Config.get(Config.GLOBAL, "wireframeParkBeforeDestroy", true) !== false;
+    if (Config.get(Config.GLOBAL, "wireframeParkBeforeDestroy", false) === true) return true;
+    return !HoloCompat.removeReliable();
 }
 
 function maxRenderDistance(): number {

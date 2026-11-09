@@ -13,6 +13,17 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 15)
+
+- **HologramLib shape-fix release adopted.** 26.60.6 / 26.51.10 make the remove packet a bare
+  network id (`DebugShape::mType` became optional), so `shapeDestroy` finally clears the shape on
+  the client. CALL now locks that minimum (`HOLO_FIX_REMOVE_26_51 = 26.51.10`,
+  
+  `HOLO_FIX_REMOVE_26_60 = 26.60.6`, teeth dependency `>=26.51.10`) and only falls back to the
+  "park the shape below the world" workaround when the installed library is older - the
+  `wireframeParkBeforeDestroy` option now defaults to `false` and merely forces it on or off.
+- Both test servers upgraded (26.51.10 / 26.60.6); start-up reports the version as before.
+- `docs/user/tools.md` and `config.md` state the new minimums.
 ### Fixed (3.9.5-beta1, build 14)
 
 - **Clicking air targeted the cell the body occupies, one block above the floor.** The

@@ -17,7 +17,11 @@ import Holo from "./Holo";
 
 export const HOLO_MIN_API = "1.37.0";
 export const HOLO_MIN_26_51 = "26.51.9";
+/** First build where shapeDestroy removes the shape on the client (mType became optional). */
+export const HOLO_FIX_REMOVE_26_51 = "26.51.10";
 export const HOLO_MIN_26_60 = "26.60.5";
+/** 26.60 counterpart of HOLO_FIX_REMOVE_26_51 (shape-fix release). */
+export const HOLO_FIX_REMOVE_26_60 = "26.60.6";
 
 export interface HoloStatus {
     installed: boolean;
@@ -106,6 +110,20 @@ export function status(force = false): HoloStatus {
     return cached;
 }
 
+/**
+ * Can `shapeDestroy` actually remove a shape from clients?
+ *
+ * Before the shape-fix release the remove packet still carried `shape_type` (defaulted to Box),
+ * so clients treated it as an update and kept the shape. CALL worked around that by parking
+ * shapes far below the world first; with a fixed library that is unnecessary.
+ */
+export function removeReliable(): boolean {
+    const s = status();
+    if (!s.installed) return false;
+    const min = /^26\.(60|61)/.test(s.version) ? HOLO_FIX_REMOVE_26_60 : HOLO_FIX_REMOVE_26_51;
+    return atLeast(s.version, min);
+}
+
 /** `swingCount(name)` or null when unavailable. Never throws. */
 export function swingCount(name: string): number | null {
     if (!status().ok) return null;
@@ -146,4 +164,4 @@ export function reset(): void {
     Holo.reload();
 }
 
-export default { HOLO_MIN_API, HOLO_MIN_26_51, HOLO_MIN_26_60, status, swingCount, swingAvailable, describe, warnOnce, reset };
+export default { HOLO_MIN_API, HOLO_MIN_26_51, HOLO_MIN_26_60, HOLO_FIX_REMOVE_26_51, HOLO_FIX_REMOVE_26_60, status, swingCount, swingAvailable, removeReliable, describe, warnOnce, reset };

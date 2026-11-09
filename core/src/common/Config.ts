@@ -237,6 +237,13 @@ function migratePreviewDefaults(): void {
             current.previewCountdown = "always";
             changes.push("previewCountdown auto → always");
         }
+        // build 13 shipped wireframeParkBeforeDestroy = true (the library could not remove
+        // shapes back then). The shape-fix release fixed that, so the shipped default is false
+        // again and a stale true would force the workaround forever.
+        if (current.wireframeParkBeforeDestroy === true) {
+            current.wireframeParkBeforeDestroy = false;
+            changes.push("wireframeParkBeforeDestroy true → false（库已修复移除）");
+        }
         // build 11 shipped wireframeTtlSeconds = 5; a client-side lifetime made the library's
         // destroy stop removing the shape, which brought the ghosts back. Only the shipped
         // default is rewritten - a value the operator picked is left alone.

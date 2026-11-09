@@ -14,7 +14,7 @@
     *   the shipped template and merges the template in (your values win, missing keys and their
     *   comments are added).
     */
-    "version": 6,
+    "version": 7,
     /*
     *   ###是否开启CALL###
     *   [参数](如下)
@@ -552,17 +552,18 @@
 
     /*
     *   ###销毁前先挪走线框###   (3.9.5 新增)
-    *   [解析] 本版实测：给线框发 destroy 后服务端已删除（库内 0 个），但客户端仍在显示。
-    *          开启此项时，插件会先把线框挪到地表下 512 格并刷新（客户端一定会执行更新），
-    *          再执行删除 —— 玩家看不到残留。
-    *          true  [解析] 先挪走再删除（默认，推荐）
-    *          false [解析] 只删除（等库修好移除包后可关掉）
+    *   [解析] 旧版库的 shapeDestroy 客户端不生效（移除包被当成一次更新），
+    *          需要先把线框挪到地表下 512 格再删除。
+    *          库已修复（HologramLib ≥ 26.51.10 / ≥ 26.60.6）时插件会自动跳过这一步，
+    *          此项只用于强制打开/关闭：
+    *          false [解析] 默认：库已修复则直接删除，旧库自动改为「先挪走再删除」
+    *          true  [解析] 强制先挪走再删除（排查用）
     *
     * ###Park before destroy###   (new in 3.9.5)
     *   Move a shape far below the world and re-send it before destroying: clients ignore the
     *   library's remove packet, but they do honour updates.
     */
-    "wireframeParkBeforeDestroy": true,
+    "wireframeParkBeforeDestroy": false,
 
     /*
     *   ###预览倒计时显示###   (3.9.0 新增，3.9.1 起默认全程)

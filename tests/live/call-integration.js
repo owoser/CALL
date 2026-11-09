@@ -1185,7 +1185,8 @@ async function runSuite() {
         const previousPark = Config.get(Config.GLOBAL, "wireframeParkBeforeDestroy", true);
         Config.set(Config.GLOBAL, "previewMode", "wireframe");
         Config.set(Config.GLOBAL, "wireframeTtlSeconds", 0);
-        Config.set(Config.GLOBAL, "wireframeParkBeforeDestroy", true);
+        // the library now removes shapes properly, so parking must NOT happen by default
+        Config.set(Config.GLOBAL, "wireframeParkBeforeDestroy", false);
 
         const calls = [];
         const realCall = Holo.call;
@@ -1218,10 +1219,9 @@ async function runSuite() {
 
             const park = calls.filter((c) => c.name === "shapeSetLocation");
             const destroy = calls.filter((c) => c.name === "shapeDestroy");
-            const parkedLow = park.some((c) => Number(c.args[2]) < -400);
-            assert(park.length >= 2, "expected the box and label to be parked, got " + park.length);
-            assert(parkedLow, "parked location was not moved far below: " + JSON.stringify(park));
             assert(destroy.length >= 2, "expected both shapes to be destroyed, got " + destroy.length);
+            assert(park.filter((c) => Number(c.args[2]) < -400).length === 0,
+                "shapes were parked although the library removes them: " + JSON.stringify(park));
             assert(Wireframe.count() === 0, "tracked wireframes after cancel: " + Wireframe.count());
 
             const live = Holo.call("shapeGetAllShapeIds");
@@ -1229,7 +1229,7 @@ async function runSuite() {
                 ? live.filter((id) => id === ids.boxId || id === ids.labelId)
                 : [];
             assert(stillThere.length === 0, "preview shapes are still in the library: " + JSON.stringify(stillThere));
-            return "parked " + park.length + " + destroyed " + destroy.length + ", library clean";
+            return "destroyed " + destroy.length + " without parking, library clean";
         } finally {
             Holo.call = realCall;
             Config.set(Config.GLOBAL, "previewMode", previousMode);
