@@ -297,6 +297,59 @@ export const StructureStore = {
         return rel;
     },
 
+    /**
+     * Remove player folders that hold no structure at all.
+     *
+     * The layout migration used to call prepare() (mkdir) for every xuid it found in the old
+     * config and only then look for slice files, so a server ended up with one empty folder per
+     * player who ever appeared - including players who never had CALL permission. The folders are
+     * pure clutter: an empty folder carries no data.
+     *
+     * `_legacy`, `_orphan` and `public` are kept. Returns how many folders were removed.
+     */
+    pruneEmptyFolders(): number {
+        const root = StructureStore.root();
+        let removed = 0;
+        let entries: fs.Dirent[] = [];
+        try {
+            entries = fs.readdirSync(root, { withFileTypes: true });
+        } catch {
+            return 0;
+        }
+        for (const entry of entries) {
+            if (!entry.isDirectory()) continue;
+            if (entry.name === "_legacy" || entry.name === "_orphan" || entry.name === "public") continue;
+            const abs = path.join(root, entry.name);
+            if (StructureStore.hasAnyStructure(abs)) continue;
+            try {
+                fs.rmSync(abs, { recursive: true, force: true });
+                removed++;
+            } catch {
+                // a locked folder is not worth failing startup over
+            }
+        }
+        return removed;
+    },
+
+    /** Does this folder (recursively) contain a .mcstructure file? */
+    hasAnyStructure(dir: string, depth = 0): boolean {
+        if (depth > 4) return false;
+        let entries: fs.Dirent[] = [];
+        try {
+            entries = fs.readdirSync(dir, { withFileTypes: true });
+        } catch {
+            return true; // unreadable is not provably empty: never delete it
+        }
+        for (const entry of entries) {
+            if (entry.isFile() && /\.mcstructure$/i.test(entry.name)) return true;
+        }
+        for (const entry of entries) {
+            if (!entry.isDirectory()) continue;
+            if (StructureStore.hasAnyStructure(path.join(dir, entry.name), depth + 1)) return true;
+        }
+        return false;
+    },
+
     /** Atomic write: a half-written slice must never be visible to a reader. */
     writeAtomic(file: string, bytes: Buffer): void {
         fs.mkdirSync(path.dirname(file), { recursive: true });

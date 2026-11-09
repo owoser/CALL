@@ -457,6 +457,16 @@ export default class StructureService {
                 if (st == null) return;
                 const xSize = Number(st.xSize) || 1;
                 const zSize = Number(st.zSize) || 1;
+                // Only metadata is left for most historical players: prepare() would create a
+                // folder (and its copy/undo parents) before we ever look for a slice file, which
+                // is how a server collected one empty folder per player who ever logged in.
+                let anyFile = false;
+                for (let z = 0; z < zSize && !anyFile; z++) {
+                    for (let x = 0; x < xSize && !anyFile; x++) {
+                        if (fs.existsSync(path.join(root, sid + "_" + x + "_" + z + ".mcstructure"))) anyFile = true;
+                    }
+                }
+                if (!anyFile && !fs.existsSync(path.join(root, sid + ".mcstructure"))) return;
                 const ownerName = StructureStore.playerNameOf(ownerKey) ?? ownerKey;
                 StructureStore.prepare(kind, ownerName, displayName ?? st.name ?? sid, sid, xSize, zSize);
                 for (let z = 0; z < zSize; z++) {
@@ -567,9 +577,14 @@ export default class StructureService {
                 }
             }
 
-            if (moved > 0 || orphans > 0) {
+            // Folders that hold no structure at all are leftover scaffolding from the old
+            // migration (and from saves that failed before the first slice landed).
+            const pruned = StructureStore.pruneEmptyFolders();
+
+            if (moved > 0 || orphans > 0 || pruned > 0) {
                 logger.info("[CALL][store] 结构目录已整理：移动 " + moved + " 个切片" +
                     (orphans > 0 ? "，未归属 " + orphans + " 个（data/nbt/_orphan/）" : "") +
+                    (pruned > 0 ? "，清理空目录 " + pruned + " 个" : "") +
                     "；原件备份在 data/nbt/_legacy/");
             }
         } catch (e) {

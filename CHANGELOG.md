@@ -13,6 +13,15 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 21)
+
+- **data/nbt no longer grows a folder per server player.** The layout migration called
+  `StructureStore.prepare()` (mkdir) for every xuid it found in the old config and only afterwards
+  looked for slice files, so a server collected one empty folder per player who ever logged in,
+  permission or not (the test server had 68 folders, 66 of them empty). Migration now checks for a
+  real slice file first, and startup prunes folders that contain no `.mcstructure` at all
+  (`_legacy`, `_orphan` and `public` are never touched). Verified on the test server:
+  "清理空目录 66 个", leaving only the two folders that hold structures.
 ### Fixed (3.9.5-beta1, build 20)
 
 - **"这个工具还没有绑定" appeared at random.** Bindings are keyed by the item's display name, and
