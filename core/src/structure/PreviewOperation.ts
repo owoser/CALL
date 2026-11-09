@@ -373,6 +373,10 @@ export default class PreviewOperation {
         // a fresh arm always refreshes the visible countdown
         st.lastTitle = "";
         st.timer = setTimeout(() => {
+            // A timer from an OLDER preview must never cancel a newer one: set() replaces the
+            // state object, so an arm timer that survived would fire at its original deadline
+            // and kill a preview that just started ("剩下的 50 秒，却立刻提示取消").
+            if (states.get(caPlayer.xuid) !== st) return;
             PreviewOperation.cancelFor(caPlayer.xuid);
             const player = caPlayer.$;
             if (player != null) tell(player, StrFactory.cmdErr("预览已超时取消"), MsgType.TIP);
@@ -394,6 +398,8 @@ export default class PreviewOperation {
             : Pos3.fromPos(caPlayer.$.pos).calibration().floor();
 
         const prev = states.get(caPlayer.xuid);
+        // Moving the preview replaces the state object; its auto-cancel timer must go with it.
+        if (prev != null) clearTimer(prev);
         const st: PreviewState = {
             pos,
             // a fresh anchor means a fresh nudge: the offset belongs to the old placement

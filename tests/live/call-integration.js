@@ -1237,6 +1237,49 @@ async function runSuite() {
             Config.set(Config.GLOBAL, "wireframeParkBeforeDestroy", previousPark);
         }
     });
+    // --- a new preview must not be killed by the previous one timer --------
+    await checkAsync("ca.previewTimerReset", async () => {
+        const Config = require(path.join(M.root, "core", "src", "common", "Config.js")).default;
+        const PreviewOperation = require(path.join(M.root, "core", "src", "structure", "PreviewOperation.js")).default;
+        const prevMode = Config.get(Config.GLOBAL, "previewMode", "ghost");
+        const prevTimeout = Config.get(Config.GLOBAL, "previewTimeout", 60);
+        // wireframe mode needs no slice files, and a 2s timeout keeps the test short
+        Config.set(Config.GLOBAL, "previewMode", "wireframe");
+        Config.set(Config.GLOBAL, "previewTimeout", 2);
+        try {
+            const cap = fakePlayer(sim);
+            const where = spot(60);
+            const out = { success() { }, error(m) { throw new Error(String(m)); } };
+            const data = M.StructureService.getData(cap.xuid);
+            data.copy = {
+                c: new M.Structure(
+                    new M.Area3(
+                        new M.Pos3(where.x, where.y, where.z, DIM),
+                        new M.Pos3(where.x + 2, where.y + 1, where.z + 2, DIM)
+                    ),
+                    "c",
+                    false
+                ),
+            };
+            M.StructureService.setData(cap.xuid, data);
+
+            // first preview arms a 2s timer, the move replaces the state object
+            PreviewOperation.set(out, cap, new M.Pos3(where.x, where.y, where.z, DIM));
+            await new Promise((r) => setTimeout(r, 700));
+            assert(PreviewOperation.has(cap.xuid), "the preview was cancelled too early");
+            PreviewOperation.set(out, cap, new M.Pos3(where.x + 1, where.y, where.z, DIM));
+
+            // the old timer would have fired 2s after the FIRST set; the new preview must survive
+            await new Promise((r) => setTimeout(r, 1700));
+            const alive = PreviewOperation.has(cap.xuid);
+            PreviewOperation.cancelFor(cap.xuid);
+            assert(alive, "the previous preview timer cancelled the new one");
+            return "new preview survived the old timer";
+        } finally {
+            Config.set(Config.GLOBAL, "previewMode", prevMode);
+            Config.set(Config.GLOBAL, "previewTimeout", prevTimeout);
+        }
+    });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;
         const t = spot(19);

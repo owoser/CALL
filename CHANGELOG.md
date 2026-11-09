@@ -13,6 +13,13 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 17)
+
+- **A freshly placed preview was cancelled by the previous one's timer.** `set()` builds a new
+  state object and overwrites the old one, but the old auto-cancel `setTimeout` was left armed;
+  it fired at its original deadline and cancelled whatever preview was current - the countdown
+  read 50 s and then "预览已超时取消" appeared. The old timer is now cleared when the state is
+  replaced, and the timeout callback only acts when its own state is still the current one.
 ### Fixed (3.9.5-beta1, build 16)
 
 - **A left click on the preview wand left the ghost full of holes.** A left click re-sets the
