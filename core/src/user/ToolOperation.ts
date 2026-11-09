@@ -81,6 +81,16 @@ export class ToolOperation {
             });
             arr.push(nameArr);
         });
+        // DEBUG (`debugMod`): the commands a click actually resolves to. A "one block off"
+        // report can then be answered from the log instead of a screenshot.
+        try {
+            if (Config.get(Config.GLOBAL, "debugMod", false) === true) {
+                for (const cmd of arr) logger.info("[CALL][tool] cmd " + cmd);
+            }
+        } catch {
+            // diagnostics only
+        }
+
         return arr;
     }
 

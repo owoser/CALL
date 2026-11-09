@@ -1405,6 +1405,34 @@ async function runSuite() {
             "restore only covered " + restored + "/" + cells.length + " cells (library clear=" + batchClear + ")");
         return "restored " + restored + "/" + cells.length + " via the set path (blockBatchClear=" + batchClear + ")";
     });
+    // --- the selection box must cover exactly the two clicked blocks -------
+    await checkAsync("ca.areaLens", async () => {
+        const AreaOperation = require(path.join(M.root, "core", "src", "structure", "AreaOperation.js")).default;
+        const Area3 = require(path.join(M.root, "core", "src", "common", "Area3.js")).default;
+        const Pos3 = require(path.join(M.root, "core", "src", "common", "Pos3.js")).Pos3;
+        const cap = fakePlayer(sim);
+        assert(cap.settings != null, "the fake player has no settings");
+        cap.settings.area = {
+            start: { x: null, y: null, z: null, dimid: null },
+            end: { x: null, y: null, z: null, dimid: null },
+        };
+        AreaOperation.clearArea(cap);
+
+        // the exact pair from the bug report: B is MINOR to A on z, which is where the box
+        // used to collapse (start > end on one axis)
+        AreaOperation.setPosA(cap, new Pos3(1376, 179, -44, DIM));
+        AreaOperation.setPosB(cap, new Pos3(1377, 179, -45, DIM));
+
+        const area = Area3.fromArea3D(cap.settings.area);
+        const lens = area.getLens();
+        assert(lens[0] === 2 && lens[1] === 1 && lens[2] === 2,
+            "selection lens must be 2x1x2, got " + JSON.stringify(lens)
+            + " area=" + JSON.stringify(cap.settings.area));
+        assert(area.start.z === -45 && area.end.z === -44,
+            "the box must be normalised (min z -45, max z -44), got " + area.start.z + ".." + area.end.z);
+        AreaOperation.clearArea(cap);
+        return "lens " + lens.join("x") + ", z " + area.start.z + ".." + area.end.z;
+    });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;
         const t = spot(19);

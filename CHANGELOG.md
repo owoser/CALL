@@ -13,6 +13,14 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Added (3.9.5-beta1, build 29)
+
+- `debugMod` now logs the commands a click resolves to (`[CALL][tool] cmd call area a 1376 179 -44`),
+  so a "one block off" report can be split into *the command was wrong* vs *the drawing was wrong*.
+- `/ca tools debug` prints the selection state (display mode, wireframe anchor, stored `start -> end`).
+- `ca.areaLens` (live) pins the exact pair from the report: A=(1376,179,-44), B=(1377,179,-45) must
+  normalise to lens 2x1x2 with z -45..-44 - i.e. the stored box is correct even when the second
+  click is the minor corner.
 ### Fixed (3.9.5-beta1, build 28)
 
 - **Clicking air targets the block under the feet again** (no crosshair). The view ray was added
