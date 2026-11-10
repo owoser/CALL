@@ -25,6 +25,18 @@ fixes are based on.
 - **`/ca tools debug`** now prints the HologramLib capability matrix and resolves a sample stair
   through both resolvers, which is what told us the string resolver is name-only.
 
+### Fixed (3.9.5-beta1, a clear is not a confirmation)
+
+- **A restored cell is no longer forgotten.** `markCleared` removed the cell from `everApplied` as
+  soon as the restore packet was SUBMITTED. The library queues batches and can drop one, so a
+  dropped clear left a fake block that nothing remembered (measured: a session that sent 2412 cells
+  reported `ever=1624` at cancel - 788 cells had been forgotten). Clears now only drop the cell from
+  `applied`; `everApplied` keeps it, so a cancel restores a superset of everything the preview ever
+  drew (re-sending the real block is a no-op packet). The set is capped at 200k cells for very long
+  sessions.
+- Together with the plan-level registration this makes the cancel independent of clear reliability,
+  which is the last known source of leftovers.
+
 ### Fixed (3.9.5-beta1, cancel covers the whole plan)
 
 - **A cancel now restores every cell the plan asked for**, not only the cells whose packet was

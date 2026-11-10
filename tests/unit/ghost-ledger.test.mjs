@@ -30,13 +30,16 @@ test('a set is remembered as shown and as ever-applied', () => {
     assert.deepEqual(ledger.everApplied.get('1,2,3'), [1, 2, 3]);
 });
 
-test('a confirmed clear forgets the cell', () => {
+test('a clear drops it from applied but the teardown still remembers it', () => {
     const L = load();
     const ledger = L.emptyLedger();
     L.markSet(ledger, '1,2,3', 1, 2, 3, 'minecraft:stone');
     L.markCleared(ledger, '1,2,3');
-    assert.equal(ledger.applied.size, 0);
-    assert.equal(ledger.everApplied.size, 0);
+    assert.equal(ledger.applied.size, 0, 'we no longer claim it is applied');
+    // "Packet submitted" is not "client saw it": the library queues batches and can drop one, and a
+    // forgotten cell becomes a ghost nothing can clean. Teardown keeps restoring a superset.
+    assert.deepEqual(ledger.everApplied.get('1,2,3'), [1, 2, 3], 'the teardown must still know it');
+    assert.equal(L.teardownCells(ledger).length, 1);
 });
 
 test('an unconfirmed clear becomes owed work, not a silent ghost', () => {

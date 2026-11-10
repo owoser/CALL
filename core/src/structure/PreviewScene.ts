@@ -294,6 +294,8 @@ const teardownStats = { tasks: 0, cells: 0, waited: 0, passes: 0, deadlineHits: 
 
 /** How long a cancel may wait for the library queue to drain before restoring anyway. */
 const DRAIN_WAIT_MS = 3000;
+/** Upper bound for one scene's "ever drawn" set (see `enqueue`). */
+const EVER_APPLIED_MAX = 200000;
 let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
 
 function scheduleCleanup(): void {
@@ -748,6 +750,17 @@ export const PreviewScene = {
         for (const [key, cell] of desired) {
             if (String(cell.id ?? "") === "") continue;
             scene.everApplied.set(key, [cell.x, cell.y, cell.z]);
+        }
+        // Long sessions keep adding footprints (cleared cells stay here on purpose). Bound it: a
+        // preview that walked over 200k cells can drop the oldest safely - the ones most likely
+        // gone from the client anyway.
+        if (scene.everApplied.size > EVER_APPLIED_MAX) {
+            const drop = scene.everApplied.size - EVER_APPLIED_MAX;
+            let dropped = 0;
+            for (const key of scene.everApplied.keys()) {
+                scene.everApplied.delete(key);
+                if (++dropped >= drop) break;
+            }
         }
 
         const ops = diffPlacement(scene.applied, desired);

@@ -33,10 +33,17 @@ export function markSet(ledger: GhostLedger, key: string, x: number, y: number, 
     ledger.everApplied.set(key, [x, y, z]);
 }
 
-/** A confirmed clear: the client no longer shows this cell. */
+/**
+ * A clear we BELIEVE went out.
+ *
+ * `everApplied` is deliberately NOT touched. "Restore packet submitted" is not "client saw it":
+ * the library queues batches and can drop one, and then the cell keeps the fake block while the
+ * ledger has already forgotten it - a ghost nothing will ever clean. Keeping the cell in
+ * `everApplied` costs one map entry and makes a teardown restore a SUPERSET (re-sending the real
+ * block is a no-op), which is exactly the price worth paying for "cancel always cleans everything".
+ */
 export function markCleared(ledger: GhostLedger, key: string): void {
     ledger.applied.delete(key);
-    ledger.everApplied.delete(key);
 }
 
 /**
