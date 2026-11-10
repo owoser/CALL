@@ -405,10 +405,15 @@ export class ToolItems {
         try {
             // Block entity payload: the banner/sign case. Whether it carries Patterns/Base decides
             // if the black banner is a data problem or a rendering problem.
-            const beSample = PreviewScene.sampleEntitySnbt(caPlayer.xuid);
-            if (beSample != null) {
-                lines.push("预览实体样例: " + beSample.slice(0, 160) +
-                    (/"Patterns"|"Base"|"Text"/.test(beSample) ? " (含图案/颜色字段 ✓)" : " (缺图案/颜色字段 ✗)"));
+            const be = PreviewScene.sampleBlockEntity(caPlayer.xuid);
+            if (be != null) {
+                const head = "方块实体 " + be.be + " 格 / 旗帜 " + be.banners + " 面 / 带图案 " + be.patterned + " 面";
+                if (!be.isBanner) {
+                    lines.push("预览实体: " + head + "（结构里没有旗帜，样例是其它方块实体）");
+                } else {
+                    lines.push("预览实体: " + head + " · 样例 " + be.snbt.slice(0, 160) +
+                        (be.patterned > 0 ? " (含 Patterns ✓)" : " (缺 Patterns ✗)"));
+                }
             }
         } catch {
             // diagnostics only

@@ -1,5 +1,6 @@
 import Config from "../common/Config";
 import BlockView from "./BlockView";
+import Players from "../user/Players";
 import HoloCompat from "./HoloCompat";
 
 /**
@@ -44,6 +45,21 @@ function maxPerBatch(): number {
  * empty array and every paste silently reported "pushed 0" with no error anywhere.
  */
 function onlinePlayers(): any[] {
+    // CALL's own registry first: mc.getOnlinePlayers() answered 0 while six players were online,
+    // and a paste that repaints nobody is indistinguishable from "nobody was near".
+    push.via = "registry";
+    try {
+        const list: any[] = [];
+        for (const [, caPlayer] of Players.dataMap) {
+            const live = caPlayer == null ? null : (caPlayer as any).$;
+            if (live != null) list.push(live);
+        }
+        push.seenUnsupported = false;
+        if (list.length > 0) return list;
+    } catch {
+        // fall through to the global API
+    }
+    push.via = "api";
     try {
         const g: any = typeof mc !== "undefined" ? (mc as any) : null;
         if (g == null) return [];
@@ -59,7 +75,7 @@ function onlinePlayers(): any[] {
     return [];
 }
 
-const push = { pushed: 0, skipped: 0, seen: 0, inDim: 0, inRange: 0, failed: 0, seenUnsupported: false };
+const push = { pushed: 0, skipped: 0, seen: 0, inDim: 0, inRange: 0, failed: 0, seenUnsupported: false, via: "none" };
 
 /**
  * Repaint one cell for every player near it.
@@ -109,11 +125,12 @@ export function afterBlockEntity(x: number, y: number, z: number, dimid: number,
  */
 export function stats(): {
     pushed: number; skipped: number; seen: number; inDim: number; inRange: number;
-    failed: number; unsupported: boolean;
+    failed: number; unsupported: boolean; via: string;
 } {
     return {
         pushed: push.pushed, skipped: push.skipped, seen: push.seen, inDim: push.inDim,
         inRange: push.inRange, failed: push.failed, unsupported: push.seenUnsupported,
+        via: push.via,
     };
 }
 

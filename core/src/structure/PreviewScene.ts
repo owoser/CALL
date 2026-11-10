@@ -1215,14 +1215,33 @@ export const PreviewScene = {
      * `blockFakeResolveNbt(sample)` equals the bare-name id, the states in OUR string are not being
      * accepted (a type problem), and no amount of ordering fixes will help.
      */
-    /** First cell of the live scene that carries a block entity payload (banner/sign/chest). */
-    sampleEntitySnbt(xuid: string): string | null {
+    /**
+     * Block entity census for the live scene, preferring a BANNER sample.
+     *
+     * The previous version returned the first payload whatever it was - in practice a chest - and
+     * the debug line then judged that chest by banner rules, printing a meaningless "missing
+     * colour". A banner sample plus explicit counts is what makes the answer readable.
+     */
+    sampleBlockEntity(xuid: string): { snbt: string; be: number; banners: number; patterned: number; isBanner: boolean } | null {
         const scene = scenes.get(xuid);
         if (scene == null) return null;
+        let be = 0, banners = 0, patterned = 0;
+        let firstAny: string | null = null;
+        let firstBanner: string | null = null;
         for (const block of scene.blocks) {
-            if (block.snbt != null && block.snbt !== "") return block.snbt;
+            const snbt = block.snbt;
+            if (snbt == null || snbt === "") continue;
+            be++;
+            if (firstAny == null) firstAny = snbt;
+            if (/"(id|identifier)"\s*:\s*"[^"]*banner"/i.test(snbt)) {
+                banners++;
+                if (/"(Patterns|patterns)"/.test(snbt)) patterned++;
+                if (firstBanner == null) firstBanner = snbt;
+            }
         }
-        return null;
+        const pick = firstBanner ?? firstAny;
+        if (pick == null) return null;
+        return { snbt: pick, be, banners, patterned, isBanner: firstBanner != null };
     },
 
     sampleStateSnbt(xuid: string): string | null {
