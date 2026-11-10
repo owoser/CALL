@@ -809,13 +809,31 @@ export default class CACommand {
                 StructureOperation.publicDebug(output, caPlayer, res);
                 return;
             case "undo":
-            case "ud":
-                StructureOperation.undo(output, caPlayer);
+            case "ud": {
+                // Same rule as paste: the preview's teardown must be finished before the world is
+                // rewritten, otherwise the restore packets describe blocks the undo is replacing.
+                PreviewOperation.cancelFor(caPlayer.xuid);
+                void PreviewScene.flushCleanup(4000).then(() => {
+                    try {
+                        StructureOperation.undo(output, caPlayer);
+                    } catch (e) {
+                        output.error("撤销失败: " + String((e as any)?.message ?? e));
+                    }
+                });
                 return;
+            }
             case "redo":
-            case "rd":
-                StructureOperation.redo(output, caPlayer);
+            case "rd": {
+                PreviewOperation.cancelFor(caPlayer.xuid);
+                void PreviewScene.flushCleanup(4000).then(() => {
+                    try {
+                        StructureOperation.redo(output, caPlayer);
+                    } catch (e) {
+                        output.error("重做失败: " + String((e as any)?.message ?? e));
+                    }
+                });
                 return;
+            }
             case "tool":
             case "to":
                 ToolOperation.start(output, caPlayer, res);

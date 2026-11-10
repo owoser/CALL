@@ -25,6 +25,21 @@ fixes are based on.
 - **`/ca tools debug`** now prints the HologramLib capability matrix and resolves a sample stair
   through both resolvers, which is what told us the string resolver is name-only.
 
+### Fixed (3.9.5-beta1, selections and rollbacks across dimensions)
+
+- **Changing dimension no longer breaks selecting.** A selection keeps one corner per click; a
+  dimension change in between left the two corners in different worlds and `hasSetArea()` threw
+  ("两点不在同一维度内"). Selecting and cancelling both go through it, so the area feature was dead
+  until a relog. A stale selection is now `mixed` in `selectionState()`, dropped silently, and the
+  next click starts a new corner A. `mc.listen('onChangeDim')` also clears the selection, resets the
+  waiting-for-B flag, hides the wireframe and closes a preview that belongs to the dimension being
+  left.
+- **Undo/redo now wait for the preview teardown** (same rule as paste: restore packets describe the
+  blocks a rollback is about to replace) and say so when the snapshot's dimension is not the one the
+  player is standing in - undo replays the RECORDED area, so it was correct but invisible.
+- Snapshots without a dimension (written before dimensions were tracked) are normalised to the
+  Overworld with one warning instead of waiting out the chunk gate.
+
 ### Fixed (3.9.5-beta1, the Nether / End residues)
 
 - **The dimension was read from the wrong object.** LSE exposes `dimid` on `IntPos`/`FloatPos`

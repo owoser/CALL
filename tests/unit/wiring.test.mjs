@@ -227,6 +227,24 @@ test('the reset is gone from maybeResend (this is what left ghosts on the client
     assert.ok(resend.includes('applied.size > 30000'), 'huge windows must not re-send wholesale');
 });
 
+test('a cross-dimension selection is cleared instead of throwing', () => {
+    const area = read('core/src/structure/AreaOperation.ts');
+    assert.ok(area.includes('selectionState('), 'the guard must use the pure selection check');
+    assert.equal(area.includes('与两点不在同一维度'), false, 'the old throw must be gone');
+    assert.ok(area.includes('dropSelection('), 'a stale selection must be dropped');
+    const app = read('core/src/app.ts');
+    assert.ok(app.includes("mc.listen(\"onChangeDim\""), 'a dimension change must clear the selection');
+    assert.ok(app.includes('AreaOperation.dropSelection('));
+});
+
+test('undo and redo wait for the preview teardown', () => {
+    const cmd = read('core/src/CACommand.ts');
+    const undoBlock = cmd.slice(cmd.indexOf('case "undo":'), cmd.indexOf('case "tool":'));
+    assert.ok(undoBlock.includes('flushCleanup('), 'undo/redo must wait like the paste does');
+    const op = read('core/src/structure/StructureOperation.ts');
+    assert.ok(op.includes('warnOtherDimension('), 'a cross-dimension undo must say so');
+});
+
 test('the ledger owns applied / stale / everApplied', () => {
     const scene = read('core/src/structure/PreviewScene.ts');
     assert.ok(scene.includes('teardownCells('), 'teardown must clear the union');

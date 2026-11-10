@@ -13,6 +13,7 @@ import AreaOperation from "./AreaOperation";
 import { Pos } from "../temp/Pos";
 import Tr from "../util/Translator";
 import { MsgType, online, tell } from "../util/Msg";
+import { dimensionOf } from "../common/Dimension";
 import { describeError } from "../util/Safe";
 import { Degrees, MirrorMode, PivotMode, degreesName, rotatedTargetAreas, rotatedUnion } from "./Rotate";
 
@@ -529,6 +530,27 @@ export default class StructureOperation {
         );
     }
 
+    /**
+     * Tell the player when undo/redo works in a dimension they are not standing in.
+     *
+     * Undo replays the RECORDED area (its own dimid), so it is correct either way - but without a
+     * word the player sees "nothing happened" because the blocks are in another world.
+     */
+    private static warnOtherDimension(player: any, complex: any, action: string): void {
+        try {
+            const first = complex == null ? null : complex[Object.keys(complex)[0]];
+            const dim = Number(first?.area?.start?.dimid);
+            const mine = dimensionOf({ pos: player?.pos });
+            if (!Number.isFinite(dim) || dim < 0 || dim === mine) return;
+            const names: Record<number, string> = { 0: "主世界", 1: "地狱", 2: "末地" };
+            tell(player, StrFactory.cmdWarn(
+                action + "作用于 " + (names[dim] ?? ("维度 " + dim)) + " 的建筑，你当前不在这里"
+            ), MsgType.RAW);
+        } catch {
+            // a hint must never break the operation
+        }
+    }
+
     public static undo(output: CommandOutput, caPlayer: CAPlayer) {
         const player = caPlayer.$;
         let undoList = StructureService.getData(player.xuid).undoList;
@@ -538,6 +560,7 @@ export default class StructureOperation {
             );
         }
         let complex = undoList.pop();
+        StructureOperation.warnOtherDimension(player, complex, "撤销");
         let structArr: Array<Structure> = [];
         Object.keys(complex).forEach((sid) => {
             let area = Area3.fromArea3D(complex[sid].area);
@@ -566,6 +589,7 @@ export default class StructureOperation {
             );
         }
         let complex = redoList.pop();
+        StructureOperation.warnOtherDimension(player, complex, "重做");
         let structArr: Array<Structure> = [];
         Object.keys(complex).forEach((sid) => {
             let area = Area3.fromArea3D(complex[sid].area);

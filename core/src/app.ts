@@ -15,6 +15,7 @@ import Tr from "./util/Translator";
 import CACommand from "./CACommand";
 import { AddonInstaller } from "./addon/AddonInstaller";
 import PreviewOperation from "./structure/PreviewOperation";
+import AreaOperation from "./structure/AreaOperation";
 import PreviewScene from "./structure/PreviewScene";
 import StructureStore from "./structure/StructureStore";
 import StructureService from "./structure/StructureService";
@@ -211,6 +212,33 @@ const UseItem = "onUseItem";
         StructureService.migrateStore();
         mc.listen(Join, (player: Player) => onJoinHandler(player));
         mc.listen(Left, (player: Player) => onLeftHandler(player));
+
+        // A selection spans two clicks, so a dimension change in between leaves one corner in each
+        // world. That is a stale selection, not an error: clear it, drop the wireframe and close any
+        // preview that belongs to the dimension the player is leaving (its fake blocks live there).
+        try {
+            mc.listen("onChangeDim", (player: Player, dimId: number) => {
+                safeCall("onChangeDim", () => {
+                    if (player == null) return;
+                    const caPlayer = Players.getCAPlayer(player.xuid);
+                    if (caPlayer == null) return;
+                    const hadSelection = caPlayer.hasSetArea === true ||
+                        caPlayer.settings?.area?.start?.dimid != null;
+                    AreaOperation.dropSelection(caPlayer);
+                    if (hadSelection) {
+                        tell(player, StrFactory.cmdWarn("已切换维度，选区已清除"), MsgType.TIP);
+                    }
+                    try {
+                        PreviewOperation.cancelFor(caPlayer.xuid);
+                    } catch {
+                        // the preview teardown is best-effort here
+                    }
+                    logger.info("[CALL][dim] " + String(player.realName ?? player.xuid) + " -> " + String(dimId));
+                });
+            });
+        } catch {
+            // an older LSE without onChangeDim: the tolerant hasSetArea() still covers the stale case
+        }
 
         // anti-shake: onUseItemOn fires several times for one click on some clients
         const clickMap = new Map<string, boolean>();

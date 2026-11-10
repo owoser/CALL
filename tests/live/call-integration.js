@@ -701,6 +701,31 @@ async function runSuite() {
         return "banner round-tripped with patterns: " + pastedSnbt.slice(0, 90);
     });
 
+    // --- a cross-dimension selection is dropped, not thrown ------------------
+    await checkAsync("ca.dimensionSelection", async () => {
+        const AreaOperation = require(path.join(M.root, "core", "src", "structure", "AreaOperation.js")).default;
+        const Selection = require(path.join(M.root, "core", "src", "common", "Selection.js"));
+
+        // What a dimension change in the middle of selecting leaves behind.
+        const mixed = {
+            start: { x: 0, y: 64, z: 0, dimid: DIM },
+            end: { x: 5, y: 70, z: 5, dimid: (DIM + 1) % 3 },
+        };
+        assert(Selection.selectionState(mixed) === "mixed", "a mixed selection must report mixed");
+        assert(Selection.selectionState({ start: { dimid: 0 }, end: { dimid: 0 } }) === "valid", "same dim is valid");
+
+        const cap = fakePlayer(sim);
+        cap.settings.area = mixed;
+        cap.hasSetArea = true;
+        cap.isSetPosA = true;
+        // Used to throw "两点不在同一维度内" and took cancel down with it.
+        AreaOperation.dropSelection(cap);
+        assert(cap.settings.area.start.dimid == null, "the stale selection must be cleared");
+        assert(cap.hasSetArea === false, "hasSetArea must reset");
+        assert(cap.isSetPosA === false, "the waiting-for-B flag must reset too");
+        return "mixed selection dropped without throwing";
+    });
+
     // --- cancel during a build must converge, not leave residue -------------
     await checkAsync("ca.cancelNoResidue", async () => {
         const PreviewOperation = require(path.join(M.root, "core", "src", "structure", "PreviewOperation.js")).default;

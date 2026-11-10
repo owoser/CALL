@@ -3,6 +3,7 @@ import Constant from "../temp/Constant";
 import Enums from "../temp/Enums";
 import AreaDisplayerService from "./AreaDisplayerService";
 import Area3 from "../common/Area3";
+import { selectionState } from "../common/Selection";
 import CAPlayer from "../user/CAPlayer";
 import { Pos3 } from "../common/Pos3";
 import StrFactory from "../util/StrFactory";
@@ -152,22 +153,41 @@ export default class AreaOperation {
 
     /**private*/
     private static hasSetArea(caPlayer: CAPlayer) {
-        if (caPlayer.settings.area.start.dimid != null && caPlayer.settings.area.end.dimid != null) {
-            if (caPlayer.settings.area.start.dimid == caPlayer.settings.area.end.dimid) {
-                let area = Area3.fromArea3D(caPlayer.settings.area);
-                let lens = area.getLens();
-                // if (lens[0] > Constant.AREA.MAX_LENGTH || lens[1] > Constant.AREA.MAX_HIGHT || lens[2] > Constant.AREA.MAX_LENGTH) {
-                //     throw new Error(Tr._(caPlayer.$.langCode, "dynamic.AreaOperation.hasSetArea.overRange", `${Constant.AREA.MAX_LENGTH} ${Constant.AREA.MAX_HIGHT} ${Constant.AREA.MAX_LENGTH}`));
-                // }
-                caPlayer.hasSetArea = true;
-                return true;
-            }
-            else {
-                caPlayer.hasSetArea = false;
-                throw new Error(Tr._(caPlayer.$.langCode, "dynamic.AreaOperation.hasSetArea.notsame"));
-            }
+        const state = selectionState(caPlayer.settings.area as any);
+        if (state === "valid") {
+            caPlayer.hasSetArea = true;
+            return true;
+        }
+        if (state === "mixed") {
+            // The corners ended up in different dimensions (the player changed dimension between the
+            // two clicks). That is a STALE selection, not an error: throwing here used to break both
+            // selecting and cancelling (both call this). Drop it so the next click starts clean.
+            AreaOperation.dropSelection(caPlayer);
+            return false;
         }
         return false;
+    }
+
+    /**
+     * Remove the selection WITHOUT going through hasSetArea (it can be the thing being repaired).
+     *
+     * Also clears the wireframe and the "waiting for corner B" flag, so the next click is a fresh A.
+     */
+    public static dropSelection(caPlayer: CAPlayer): void {
+        caPlayer.hasSetArea = false;
+        caPlayer.isSetPosA = false;
+        try {
+            if (caPlayer.displayPos != null) {
+                AreaDisplayerService.remove(caPlayer);
+                caPlayer.displayPos = null;
+            }
+        } catch {
+            // the displayer is cosmetic
+        }
+        caPlayer.settings.area = {
+            start: { x: null, y: null, z: null, dimid: null },
+            end: { x: null, y: null, z: null, dimid: null },
+        } as any;
     }
 
     /***private */

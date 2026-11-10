@@ -16,6 +16,9 @@ import { describeError, logFailure, sleep } from "../util/Safe";
 import { acquire, isLoaded, waitLoaded } from "../game/Chunks";
 import { clipboardMin } from "./Clipboard";
 import StructureStore, { StoreKind, sliceFileName } from "./StructureStore";
+
+/** One warn is enough when historical snapshots carry no dimension. */
+let warnedUndoDimension = false;
 import { parseStructureLayout } from "../io/NbtCodec";
 import { Degrees, MirrorMode, PivotMode, sliceDestMin, transformedSize } from "./Rotate";
 
@@ -815,6 +818,22 @@ export default class StructureService {
             for (let i = 0; i < keys.length; i++) {
                 const sid = keys[i];
                 const st = complex[sid];
+                // Snapshots written before dimensions were tracked can carry no dimid. Without one the
+                // chunk gate waits for a region that can never load, so normalise it to the Overworld
+                // and say so once instead of silently timing out.
+                try {
+                    const dim = Number(st?.area?.start?.dimid);
+                    if (!Number.isFinite(dim) || dim < 0) {
+                        if (st?.area?.start != null) st.area.start.dimid = 0;
+                        if (st?.area?.end != null) st.area.end.dimid = 0;
+                        if (!warnedUndoDimension) {
+                            warnedUndoDimension = true;
+                            logger.warn("[CALL][undo] 快照缺少维度，已按主世界处理（首次出现在 " + sid + "）");
+                        }
+                    }
+                } catch {
+                    // never block a rollback on bookkeeping
+                }
                 failed += await StructureService.load(
                     caPlayer, st, sid, st.area.start, i, keys.length,
                     "none", "0_degrees", false, true, false, 100, "",
