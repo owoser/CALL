@@ -128,6 +128,8 @@ interface Scene extends GhostLedger {
     entitiesDropped: number;
     /** State-carrying / block-entity cells taken out of the batch and drawn per cell. */
     cellQueued: number;
+    /** Entries the library did not see in a payload we packed (argument truncation tripwire). */
+    truncated: number;
     /** Last chunk boundary log (one INFO line per burst, not per tick). */
     batchLogAt: number;
     /** Counters as of the last log line, so the log shows this burst's delta. */
@@ -577,6 +579,7 @@ export const PreviewScene = {
             entitiesSent: 0,
             entitiesDropped: 0,
             cellQueued: 0,
+            truncated: 0,
             batchLogAt: 0,
             logBatches: 0,
             logCells: 0,
@@ -903,6 +906,23 @@ export const PreviewScene = {
             for (const op of batchable) markSet(scene, op.key, op.x, op.y, op.z, String((op as any).id ?? ""));
             scene.batches++;
             scene.batchCells += batchable.length;
+            if (debugEnabled()) {
+                // Same tripwire as the restore: if the library sees fewer entries than we packed,
+                // the tail of the string was cut by the argument limit and those cells will never
+                // appear (the old "preview has a hole" report).
+                let expected = 0;
+                let parsed = 0;
+                for (const segment of packed.segments) {
+                    expected += segment.split(";").length;
+                    const report = FakeBlocks.selfTest(segment);
+                    if (report != null) parsed += Number((/changes=(\d+)/.exec(report) || [])[1] ?? 0);
+                }
+                if (parsed < expected) {
+                    scene.truncated += expected - parsed;
+                    logger.warn("[CALL][preview] 预览载荷被截断: 打包 " + expected + " 条，库只解析 " +
+                        parsed + " 条（段=" + packed.segments.length + "）");
+                }
+            }
             return;
         }
 
@@ -1285,6 +1305,10 @@ export const PreviewScene = {
                     const after = FakeBlocks.stats();
                     const dDropped = after == null ? -1 : after.dropped - before.dropped;
                     const dBad = after == null ? -1 : after.bad - before.bad;
+                    if ((result.truncated ?? 0) > 0) {
+                        logger.warn("[CALL][preview] 还原载荷被截断: " + result.truncated +
+                            " 条没进库（检查 PACK_MAX_BYTES 是否仍低于参数上限）");
+                    }
                     logger.info("[CALL][preview] 还原: 请求=" + task.cells.length +
                         " 可读=" + result.restored.length + " 不可读=" + result.skipped.length +
                         " 段=" + ((result.probe ?? []).length || "?") +
@@ -1476,7 +1500,7 @@ export const PreviewScene = {
         return "预览计数: mode=" + scene.mode +
             " 批量=" + scene.batches + "/" + scene.batchCells + "格 回退=" + scene.batchFallbacks +
             " 拒绝=" + scene.batchRejected + " 编码跳过=" + scene.batchSkipped +
-            " 逐格=" + scene.cellQueued +
+            " 逐格=" + scene.cellQueued + " 截断=" + scene.truncated +
             " 实体=" + scene.entitiesSent + " 丢弃=" + scene.entitiesDropped +
             " 失败=" + scene.failed;
     },

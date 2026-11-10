@@ -259,6 +259,8 @@ export const FakeBlocks = {
         direct: FakeCell[];
         /** `blockBatchSelfTest` output per segment (only with `probe`), for diagnostics. */
         probe?: string[];
+        /** Entries the library did NOT see in a segment we packed (the 16 KB truncation tripwire). */
+        truncated?: number;
     } {
         const entries: FakeCell[] = [];
         const skipped: Array<[number, number, number]> = [];
@@ -306,10 +308,18 @@ export const FakeBlocks = {
             }
         }
         const probe: string[] = [];
+        let truncated = 0;
         if (options.probe === true) {
             for (const segment of packed.segments) {
                 const report = FakeBlocks.selfTest(segment);
-                if (report != null) probe.push(report);
+                if (report == null) continue;
+                probe.push(report);
+                // TRIPWIRE for the ~16 KB argument truncation: if the library parses fewer entries
+                // than we packed, the tail of the string never arrived. Without this the symptom is
+                // just "some cells were not restored", which is indistinguishable from a client bug.
+                const expected = segment.split(";").length;
+                const parsed = Number((/changes=(\d+)/.exec(report) || [])[1] ?? expected);
+                if (parsed < expected) truncated += expected - parsed;
             }
         }
         for (const segment of packed.segments) {
@@ -318,7 +328,9 @@ export const FakeBlocks = {
             }
         }
         const restored = entries.map((e) => [e.x, e.y, e.z] as [number, number, number]);
-        return probe.length > 0 ? { restored, skipped, direct, probe } : { restored, skipped, direct };
+        return probe.length > 0
+            ? { restored, skipped, direct, probe, truncated }
+            : { restored, skipped, direct };
     },
 
     /**

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-10T05:51:09Z",
-  "updated_at": "2026-11-10T13:51:11Z",
+  "updated_at": "2026-11-10T14:07:56Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -53,9 +53,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "89c02485738703ae6fdeef9cad93184f6037589c700f0f62daf3332154d52182",
-      "size": 95598,
-      "normalized_sha256": "89c02485738703ae6fdeef9cad93184f6037589c700f0f62daf3332154d52182"
+      "sha256": "f3f690143487720599a015d0ec880f71350653b49a8d17dc93958c9c1219f311",
+      "size": 96500,
+      "normalized_sha256": "f3f690143487720599a015d0ec880f71350653b49a8d17dc93958c9c1219f311"
     },
     "LICENSE": {
       "role": "index",
@@ -71,9 +71,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "31cdb8823b9cfc26a13e71a4a6f699dd1d557ba438df2c28f77951d928a370f3",
-      "size": 67458,
-      "normalized_sha256": "31cdb8823b9cfc26a13e71a4a6f699dd1d557ba438df2c28f77951d928a370f3"
+      "sha256": "26d73b12ae0a30a1a57caf1c06fda31dbaaf5f3ca067b9e47c0e8e8cbe142ce5",
+      "size": 67478,
+      "normalized_sha256": "26d73b12ae0a30a1a57caf1c06fda31dbaaf5f3ca067b9e47c0e8e8cbe142ce5"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -532,9 +532,9 @@
     },
     "core/src/holo/FakeBlocks.ts": {
       "role": "index",
-      "sha256": "13471946876c6140bc98f514fa38dee30edfa0fc7792fe727e2aced8f7695c50",
-      "size": 15574,
-      "normalized_sha256": "13471946876c6140bc98f514fa38dee30edfa0fc7792fe727e2aced8f7695c50"
+      "sha256": "52edfcce7d947f8ba557ef0e144d102bab02d4abd65c3141921e16f5234f9d34",
+      "size": 16103,
+      "normalized_sha256": "52edfcce7d947f8ba557ef0e144d102bab02d4abd65c3141921e16f5234f9d34"
     },
     "core/src/holo/Holo.ts": {
       "role": "index",
@@ -1203,9 +1203,9 @@
     },
     "docs/dev/pitfalls.md": {
       "role": "index",
-      "sha256": "4cb9f259039ab168b17259d47848f56b14bd82b35f87dd9c0d92ce8a9c371fbb",
-      "size": 17252,
-      "normalized_sha256": "4cb9f259039ab168b17259d47848f56b14bd82b35f87dd9c0d92ce8a9c371fbb"
+      "sha256": "cc6d042d59b6b9484b74f0b0bb84df9e4f7684a340d7d6086888af878f785629",
+      "size": 17773,
+      "normalized_sha256": "cc6d042d59b6b9484b74f0b0bb84df9e4f7684a340d7d6086888af878f785629"
     },
     "docs/dev/plugin.md": {
       "role": "index",
@@ -1584,9 +1584,9 @@
     },
     "tests/unit/fake-blocks.test.mjs": {
       "role": "observe",
-      "sha256": "fecdee8f97e0a417194ed8f3609e615b6bc3b056948ca9cb4d3d7fad0ed1e75f",
-      "size": 5055,
-      "normalized_sha256": "fecdee8f97e0a417194ed8f3609e615b6bc3b056948ca9cb4d3d7fad0ed1e75f"
+      "sha256": "872e2cbcd88db48e0872f775786afc5a8d5aa7a78a146f50c377d344c3a1f61c",
+      "size": 6075,
+      "normalized_sha256": "872e2cbcd88db48e0872f775786afc5a8d5aa7a78a146f50c377d344c3a1f61c"
     },
     "tests/unit/fake-stats.test.mjs": {
       "role": "observe",

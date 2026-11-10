@@ -193,6 +193,10 @@ test('the preview sends through the batch API', () => {
     // restore once - a queued batch landing after the restore is what left a half structure.
     assert.ok(scene.includes('FakeBlocks.restoreDetailed(task.playerName, task.cells, task.dimid'),
         'teardown must restore the real blocks and know WHICH cells went out');
+    assert.ok(scene.includes('PACK_MAX_BYTES') || scene.includes('packed.segments'),
+        'the draw path must respect the packed segment budget');
+    assert.ok(scene.includes('预览载荷被截断'),
+        'a truncated payload must be reported, not silently half-drawn');
     assert.ok(scene.includes('库丢包+') && scene.includes('selfTest:'),
         'the restore must log the library\'s dropped/bad delta and a selfTest of the payload');
     assert.ok(scene.includes('scene.everApplied.set('),
