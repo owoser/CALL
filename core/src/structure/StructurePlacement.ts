@@ -344,14 +344,34 @@ export async function placeLayoutAsync(
                         if (!ok || String(target.type ?? "") !== name) {
                             // A block that owns a block entity (banner, chest, sign) cannot always
                             // be materialised by NBT alone; create it first, then apply the payload.
+                            //
+                            // Both forms exist in the LSE typings: (x, y, z, dimId, name, tileData)
+                            // and (pos, name, tileData). Use the coordinate form the rest of the
+                            // code base uses, and VERIFY: setBlock can report true while the cell
+                            // still holds air.
                             if (typeof mc.setBlock === "function") {
-                                mc.setBlock(targetX, targetY, targetZ, pos.dimid, name, 0);
+                                let made = false;
+                                try {
+                                    made = mc.setBlock(targetX, targetY, targetZ, pos.dimid, name, 0) === true;
+                                } catch {
+                                    made = false;
+                                }
                                 const created = mc.getBlock(targetX, targetY, targetZ, pos.dimid);
-                                if (created != null) {
+                                if (created != null && String(created.type ?? "") === name) {
                                     created.setNbt(blockNbt);
                                     target = created;
+                                } else {
+                                    logOnce("blockEntityCreate", "cannot create " + name + " at " +
+                                        targetX + "," + targetY + "," + targetZ + " (setBlock=" + made + ")");
                                 }
                             }
+                        }
+                        // Only count a cell that really holds the block afterwards: `setNbt` can
+                        // answer true and leave the cell empty for a block-entity carrier.
+                        const verified = mc.getBlock(targetX, targetY, targetZ, pos.dimid);
+                        if (verified == null || String(verified.type ?? "") !== name) {
+                            skipped++;
+                            continue;
                         }
                         if (entityTag != null) {
                             // A block entity created by `setNbt` is not reachable until the world

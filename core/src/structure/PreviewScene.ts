@@ -1215,6 +1215,16 @@ export const PreviewScene = {
      * `blockFakeResolveNbt(sample)` equals the bare-name id, the states in OUR string are not being
      * accepted (a type problem), and no amount of ordering fixes will help.
      */
+    /** First cell of the live scene that carries a block entity payload (banner/sign/chest). */
+    sampleEntitySnbt(xuid: string): string | null {
+        const scene = scenes.get(xuid);
+        if (scene == null) return null;
+        for (const block of scene.blocks) {
+            if (block.snbt != null && block.snbt !== "") return block.snbt;
+        }
+        return null;
+    },
+
     sampleStateSnbt(xuid: string): string | null {
         const scene = scenes.get(xuid);
         if (scene == null) return null;

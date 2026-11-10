@@ -25,6 +25,22 @@ fixes are based on.
 - **`/ca tools debug`** now prints the HologramLib capability matrix and resolves a sample stair
   through both resolvers, which is what told us the string resolver is name-only.
 
+### Fixed (3.9.5-beta1, rotation of the preview and block-entity blocks)
+
+- **The preview now rotates the block STATES, not just the cells.** Both extraction call sites pass
+  `0, "none"` and the real angle is applied later by `planCells()`, so the remap added at extract
+  time always used 0 degrees - which is why 0 degrees looked right and 90 degrees did not. Blocks
+  now carry their palette entry and `planCells()` re-derives `id`/`blockSnbt` from the actual
+  degrees/mirror (one conversion per palette item, not per cell).
+- **Block-entity blocks are created with the right API.** The fallback used
+  `mc.setBlock(x, y, z, dimid, name, data)`, which LSE does not have: the call threw, the throw was
+  swallowed, and the cell silently stayed air - a pasted banner could simply vanish. It now uses the
+  documented `mc.setBlock(pos, name, tileData)` / `mc.setBlock(pos, nbt)` forms and logs once when
+  creation fails.
+- `/ca tools debug` prints the first block-entity payload of the live preview and whether it carries
+  `Patterns`/`Base`/`Text`, plus a new live test (`ca.bannerRoundTrip`) that seeds a patterned
+  banner, copies and pastes it, and reports `written / dstType / dstStates / dstBE` when it breaks.
+
 ### Fixed (3.9.5-beta1, batched vs immediate writes)
 
 - **Block states and block entity contents finally reach the client.** A batch larger than

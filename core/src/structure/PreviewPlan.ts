@@ -10,7 +10,8 @@
  * Kept free of engine globals so the diff can be unit tested.
  */
 import { Degrees, MirrorMode, PivotMode, cellOffset, pivotShift } from "./Rotate";
-import type { PreviewBlock } from "./SurfaceExtract";
+import { blockSnbtOf, descriptorOf, type PreviewBlock } from "./SurfaceExtract";
+import { remapStates } from "./StateRemap";
 
 export interface PlannedCell {
     key: string;
@@ -48,16 +49,36 @@ export function planCells(
     blocks: PreviewBlock[]
 ): Map<string, PlannedCell> {
     const out = new Map<string, PlannedCell>();
+    // The cells are rotated here, so the block STATES have to be rotated here too: extraction
+    // always runs at 0°, and a staircase whose cells turn while its facing does not is exactly the
+    // "rotated preview is wrong" report. One entry per palette item (not per cell).
+    const turned = degrees !== 0 || mirror !== "none";
+    const cache = turned ? new Map<object, { id: string; blockSnbt?: string }>() : null;
+
     for (const block of blocks) {
         const [dx, dz] = cellOffset(block.dx, block.dz, size[0], size[2], degrees, mirror, pivot);
         const x = Math.floor(anchor.x + dx);
         const y = Math.floor(anchor.y + block.dy);
         const z = Math.floor(anchor.z + dz);
         const key = cellKey(x, y, z);
+
+        let id = block.id;
+        let blockSnbt = block.blockSnbt;
+        if (cache != null && block.raw != null) {
+            let hit = cache.get(block.raw as any);
+            if (hit == null) {
+                const entry = { name: block.raw.name, states: remapStates(block.raw.states as any, degrees, mirror) };
+                hit = { id: descriptorOf(entry as any), blockSnbt: blockSnbtOf(entry as any) || undefined };
+                cache.set(block.raw as any, hit);
+            }
+            id = hit.id;
+            blockSnbt = hit.blockSnbt;
+        }
+
         out.set(key, {
-            key, x, y, z, id: block.id,
+            key, x, y, z, id,
             ...(block.snbt ? { snbt: block.snbt } : {}),
-            ...(block.blockSnbt ? { blockSnbt: block.blockSnbt } : {}),
+            ...(blockSnbt ? { blockSnbt } : {}),
         });
     }
     return out;

@@ -1,6 +1,5 @@
 import { StructureLayout, snbtOf } from "../io/NbtCodec";
 import { Degrees, MirrorMode, transformOffset } from "./Rotate";
-import { remapStates } from "./StateRemap";
 
 /**
  * Turns copied structure slices into the list of blocks a preview has to draw.
@@ -49,6 +48,14 @@ export interface PreviewBlock {
      * SNBT and drawn with `viewBlockById`.
      */
     blockSnbt?: string;
+    /**
+     * The palette entry this cell came from ({"name","states"}).
+     *
+     * Kept by REFERENCE so a later rotation can re-derive `id`/`blockSnbt` with the real
+     * degrees/mirror: extraction always runs at 0°, so anything rotated at extract time is
+     * computed from the wrong angle.
+     */
+    raw?: { name: string; states?: Record<string, any> };
 }
 
 export interface ExtractResult {
@@ -176,6 +183,8 @@ export function extractSurface(
     let entities: (any | undefined)[] | null = null;
     /** Block SNBT per cell, only for palette entries that carry states. */
     let blockSnbts: (string | undefined)[] | null = null;
+    /** Palette entry per state-carrying cell, so a later rotation can re-derive its descriptor. */
+    let raws: (any | undefined)[] | null = null;
     let solidCount = 0;
 
     for (const slice of slices) {
@@ -206,16 +215,13 @@ export function extractSurface(
                     if (!(pi >= 0)) continue;
                     const entry = palette[pi];
                     if (entry == null || AIR.has(entry.name)) continue;
-                    // The preview turns the cells with transformOffset below; the block's own
-                    // directional states have to turn the same way (a rotated staircase must not
-                    // keep facing its original direction).
-                    const turned = entry.states == null
-                        ? entry
-                        : { ...entry, states: remapStates(entry.states, degrees, mirror) };
+                    // NOTE: no state remap here. Both callers extract at 0°/"none" and the real
+                    // rotation is applied later by planCells(); remapping here would use the
+                    // wrong angle (and, once planCells also remaps, apply it twice).
                     const idx = rowBase + z * w * h;
                     if (occ[idx] === 0) solidCount++;
                     occ[idx] = 1;
-                    names[idx] = descriptorOf(turned);
+                    names[idx] = descriptorOf(entry);
 
                     const entityTag = layout.blockEntities?.get(i);
                     if (entityTag != null) {
@@ -224,12 +230,14 @@ export function extractSurface(
                     }
                     let stateSnbt = stateSnbtCache.get(pi);
                     if (stateSnbt === undefined) {
-                        stateSnbt = blockSnbtOf(turned);
+                        stateSnbt = blockSnbtOf(entry);
                         stateSnbtCache.set(pi, stateSnbt);
                     }
                     if (stateSnbt !== "") {
                         if (blockSnbts == null) blockSnbts = new Array(cells);
                         blockSnbts[idx] = stateSnbt;
+                        if (raws == null) raws = new Array(cells);
+                        raws[idx] = entry;
                     }
                 }
             }
@@ -260,9 +268,11 @@ export function extractSurface(
                 const [dx, dz] = transformOffset(x + minX, z + minZ, degrees, mirror);
                 const entityTag = entities == null ? undefined : entities[idx];
                 const blockSnbt = blockSnbts == null ? undefined : blockSnbts[idx];
+                const raw = raws == null ? undefined : raws[idx];
                 kept.push({
                     dx, dy: y + minY, dz, id: names[idx] ?? "",
                     ...(blockSnbt ? { blockSnbt } : {}),
+                    ...(raw == null ? {} : { raw: { name: String(raw.name ?? ""), states: raw.states } }),
                     ...(entityTag == null ? {} : { snbt: snbtOf(entityTag) }),
                 });
             }

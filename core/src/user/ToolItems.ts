@@ -403,6 +403,17 @@ export class ToolItems {
             // diagnostics only
         }
         try {
+            // Block entity payload: the banner/sign case. Whether it carries Patterns/Base decides
+            // if the black banner is a data problem or a rendering problem.
+            const beSample = PreviewScene.sampleEntitySnbt(caPlayer.xuid);
+            if (beSample != null) {
+                lines.push("预览实体样例: " + beSample.slice(0, 160) +
+                    (/"Patterns"|"Base"|"Text"/.test(beSample) ? " (含图案/颜色字段 ✓)" : " (缺图案/颜色字段 ✗)"));
+            }
+        } catch {
+            // diagnostics only
+        }
+        try {
             // Does the library actually READ the states out of the SNBT we generate?
             const sample = PreviewScene.sampleStateSnbt(caPlayer.xuid);
             if (sample != null) {

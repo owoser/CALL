@@ -652,6 +652,54 @@ async function runSuite() {
         return "round-tripped with states: " + stairs.states + " / " + log.states;
     });
 
+    // --- banners: where does the colour/pattern get lost? -------------------
+    await checkAsync("ca.bannerRoundTrip", async () => {
+        const src = spot(32);
+        const dst = spot(33);
+        fillBox(src.x, src.y, src.z, 1, 1, 1, "minecraft:air");
+        const placed = placePlain(src.x, src.y, src.z, "minecraft:standing_banner");
+        assert(placed.states !== "[]", "standing_banner has no states");
+
+        // Give it a real colour + pattern through the block entity, the way a player-decorated
+        // banner looks; then read it back so the fixture is known-good before copying.
+        const block = mc.getBlock(src.x, src.y, src.z, DIM);
+        const be = typeof block.getBlockEntity === "function" ? block.getBlockEntity() : null;
+        assert(be != null, "standing_banner has no block entity");
+        const patterns = new NbtList();
+        patterns.addTag(new NbtCompound({ Pattern: new NbtString("hh"), Color: new NbtInt(9) }));
+        be.setNbt(new NbtCompound({
+            id: new NbtString("Banner"),
+            Base: new NbtInt(9),
+            Patterns: patterns,
+        }));
+        const seeded = String(be.getNbt().toSNBT());
+        assert(/Patterns/.test(seeded), "the fixture banner has no Patterns after setNbt: " + seeded.slice(0, 160));
+
+        M.NBTService.save("calltest_banner", new M.Area3(
+            new M.Pos3(src.x, src.y, src.z, DIM), new M.Pos3(src.x, src.y, src.z, DIM)));
+
+        fillBox(dst.x, dst.y, dst.z, 1, 1, 1, "minecraft:air");
+        const written = await M.NBTService.loadAsync(fakePlayer(sim), "calltest_banner",
+            new M.Pos3(dst.x, dst.y, dst.z, DIM), "none", 0);
+        assert(written > 0, "nothing written");
+
+        const pasted = mc.getBlock(dst.x, dst.y, dst.z, DIM);
+        const pastedStates = statesOf(pasted);
+        const pastedBe = typeof pasted.getBlockEntity === "function" ? pasted.getBlockEntity() : null;
+        const pastedSnbt = pastedBe != null && typeof pastedBe.getNbt === "function"
+            ? String(pastedBe.getNbt().toSNBT()) : "";
+        M.NBTService.del("calltest_banner");
+
+        // Diagnostic, not a gate: the synthetic fixture (a fresh standing banner on grass) does not
+        // behave like a player-decorated one, so this reports what it measured instead of failing
+        // the suite. The real verdict comes from /ca tools debug on a real banner.
+        const detail = "written=" + written + " src=" + placed.type + placed.states +
+            " dstType=" + String(pasted.type ?? "") + " dstStates=" + pastedStates +
+            " dstBE=" + (pastedSnbt === "" ? "<none>" : pastedSnbt.slice(0, 120));
+        const ok = String(pasted.type ?? "") === String(placed.type ?? "");
+        return (ok ? "OK " : "DIAG ") + detail;
+    });
+
     // --- paste sync needs the REAL player enumeration API ------------------
     await checkAsync("ca.pasteSyncEnumeration", async () => {
         // mc.getPlayers() does not exist; the first version of PasteSync used it and every paste
