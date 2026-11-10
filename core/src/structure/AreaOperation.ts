@@ -12,6 +12,22 @@ import Tr from "../util/Translator";
 export default class AreaOperation {
     public static start(output: CommandOutput, caPlayer: CAPlayer, res: any) {
         const player = caPlayer.$;
+        // DEBUG (`debugMod`): what the command parser handed us, and what ends up stored. A point
+        // that "moves by one" can then be split into parser vs. storage instead of argued about.
+        const dbg = (stage: string) => {
+            try {
+                if (Config.get(Config.GLOBAL, "debugMod", false) !== true) return;
+                const rp: any = res?.IntPos ?? {};
+                const a: any = caPlayer.settings?.area ?? {};
+                logger.info("[CALL][area] " + stage
+                    + " enum_1=" + String(res?.enum_1)
+                    + " IntPos=" + rp.x + "," + rp.y + "," + rp.z
+                    + " stored=" + (a.start?.x ?? "-") + "," + (a.start?.y ?? "-") + "," + (a.start?.z ?? "-")
+                    + " -> " + (a.end?.x ?? "-") + "," + (a.end?.y ?? "-") + "," + (a.end?.z ?? "-"));
+            } catch {
+                // diagnostics only
+            }
+        };
         let pos: IntPos = res.IntPos;
         let enum_1 = res.enum_1;
         let enum_2 = res.enum_2;
@@ -87,6 +103,7 @@ export default class AreaOperation {
                 }
                 break;
         }
+        dbg("after");
     };
 
     /**private*/
