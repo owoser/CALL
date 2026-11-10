@@ -77,7 +77,7 @@ test('positions pack for blockBatchClear', () => {
 test('stats parse into numbers', () => {
     const { parseStats } = load();
     assert.deepEqual(parseStats('batch=3 queue=1 packets=12 bytes=21400 nearSets=0'),
-        { batch: 3, queue: 1, packets: 12, bytes: 21400 });
+        { batch: 3, queue: 1, packets: 12, bytes: 21400, dropped: 0, bad: 0, nearSets: 0 });
     assert.equal(parseStats(''), null);
 });
 
@@ -100,6 +100,7 @@ test('a working library is used and its ids are returned', () => {
     assert.equal(FakeBlocks.available(), true);
     assert.equal(FakeBlocks.set('Steve', '0 0 0 minecraft:stone', true), 7);
     assert.deepEqual(calls[0], ['Steve', '0 0 0 minecraft:stone', true]);
-    assert.deepEqual(FakeBlocks.stats(), { batch: 1, queue: 0, packets: 2, bytes: 300 });
+    assert.deepEqual(FakeBlocks.stats(),
+        { batch: 1, queue: 0, packets: 2, bytes: 300, dropped: 0, bad: 0, nearSets: 0 });
     FakeBlocks.setSource(null);
 });

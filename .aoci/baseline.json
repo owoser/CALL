@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-10T05:51:09Z",
-  "updated_at": "2026-11-10T12:48:17Z",
+  "updated_at": "2026-11-10T13:00:59Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -53,9 +53,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "9e628125ffb852ad363da64721b95ff1e0cab92476194acf7a31a120a8d2be9e",
-      "size": 93979,
-      "normalized_sha256": "9e628125ffb852ad363da64721b95ff1e0cab92476194acf7a31a120a8d2be9e"
+      "sha256": "856b44d060e6df6aa8d81cd522e97f6a4043de7f77e44401879792fb20943d86",
+      "size": 94789,
+      "normalized_sha256": "856b44d060e6df6aa8d81cd522e97f6a4043de7f77e44401879792fb20943d86"
     },
     "LICENSE": {
       "role": "index",
@@ -71,9 +71,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "f9471bf5145c519d53a5fd2548889a01c02185156286be60d74ad25b78ccd4fa",
-      "size": 67209,
-      "normalized_sha256": "f9471bf5145c519d53a5fd2548889a01c02185156286be60d74ad25b78ccd4fa"
+      "sha256": "c885b46ce318df2e0f2bf171a81bd3b46446c7c292bf94798c2a65baf9a0c9f6",
+      "size": 67305,
+      "normalized_sha256": "c885b46ce318df2e0f2bf171a81bd3b46446c7c292bf94798c2a65baf9a0c9f6"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -814,9 +814,9 @@
     },
     "core/src/structure/GhostLedger.ts": {
       "role": "index",
-      "sha256": "a792c381f1e3248194e2ad3f559083cc9873b95deea4b6bfdf6e641a0f8622be",
-      "size": 3497,
-      "normalized_sha256": "a792c381f1e3248194e2ad3f559083cc9873b95deea4b6bfdf6e641a0f8622be"
+      "sha256": "d0798e4c10b55d98f408ad452d3782498140599a41ec9b562b03cb5762c1e99a",
+      "size": 3923,
+      "normalized_sha256": "d0798e4c10b55d98f408ad452d3782498140599a41ec9b562b03cb5762c1e99a"
     },
     "core/src/structure/NBTService.ts": {
       "role": "index",
@@ -850,9 +850,9 @@
     },
     "core/src/structure/PreviewScene.ts": {
       "role": "index",
-      "sha256": "67dc0315acd31848902b6c1f557e84c885272c706e123f6f184bf2c4a71fd2ad",
-      "size": 62219,
-      "normalized_sha256": "67dc0315acd31848902b6c1f557e84c885272c706e123f6f184bf2c4a71fd2ad"
+      "sha256": "7ab071a1aa7022f283087b1b3c4611fb82b4f2840d96efffbff33f75be8a5dde",
+      "size": 62885,
+      "normalized_sha256": "7ab071a1aa7022f283087b1b3c4611fb82b4f2840d96efffbff33f75be8a5dde"
     },
     "core/src/structure/Rotate.ts": {
       "role": "index",
@@ -1203,9 +1203,9 @@
     },
     "docs/dev/pitfalls.md": {
       "role": "index",
-      "sha256": "3592427c48f9b4c3ef433aeeab573014b24141114f39ae9fe2ebb272560394c8",
-      "size": 16042,
-      "normalized_sha256": "3592427c48f9b4c3ef433aeeab573014b24141114f39ae9fe2ebb272560394c8"
+      "sha256": "5ee161003927f82a120e9595ef4c7c74abf0e483cd216c6c33e84b5bded58aca",
+      "size": 16615,
+      "normalized_sha256": "5ee161003927f82a120e9595ef4c7c74abf0e483cd216c6c33e84b5bded58aca"
     },
     "docs/dev/plugin.md": {
       "role": "index",
@@ -1596,9 +1596,9 @@
     },
     "tests/unit/ghost-ledger.test.mjs": {
       "role": "observe",
-      "sha256": "6ccc49be1280b048acdcf32d10b13c631953c21cbd8a0a9b9ea33e79b3333440",
-      "size": 3452,
-      "normalized_sha256": "6ccc49be1280b048acdcf32d10b13c631953c21cbd8a0a9b9ea33e79b3333440"
+      "sha256": "1e3c40ba48703b3aecd430c2280230ef315ad6cedff2c03d71e75f8d85a576a2",
+      "size": 3822,
+      "normalized_sha256": "1e3c40ba48703b3aecd430c2280230ef315ad6cedff2c03d71e75f8d85a576a2"
     },
     "tests/unit/jsonc-config.test.mjs": {
       "role": "observe",

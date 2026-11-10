@@ -1278,7 +1278,19 @@ export const PreviewScene = {
                 // Exact positions, not a count: cells whose block cannot be read are skipped, and
                 // the old slice(count) then dropped the WRONG cells while reporting success - a
                 // residue that looked like a clean teardown.
-                const result = FakeBlocks.restoreDetailed(task.playerName, task.cells, task.dimid);
+                const before = debugEnabled() ? FakeBlocks.stats() : null;
+                const result = FakeBlocks.restoreDetailed(task.playerName, task.cells, task.dimid,
+                    { probe: debugEnabled() });
+                if (debugEnabled() && before != null) {
+                    const after = FakeBlocks.stats();
+                    const dDropped = after == null ? -1 : after.dropped - before.dropped;
+                    const dBad = after == null ? -1 : after.bad - before.bad;
+                    logger.info("[CALL][preview] 还原: 请求=" + task.cells.length +
+                        " 可读=" + result.restored.length + " 不可读=" + result.skipped.length +
+                        " 段=" + ((result.probe ?? []).length || "?") +
+                        " 库丢包+" + dDropped + " 库坏项+" + dBad +
+                        ((result.probe ?? []).length > 0 ? " selfTest: " + result.probe!.join(" | ") : ""));
+                }
                 if (result.restored.length + result.skipped.length < task.cells.length) {
                     const done = new Set(result.restored.concat(result.skipped as any).map((c: any) => c[0] + "," + c[1] + "," + c[2]));
                     task.cells = task.cells.filter((c) => !done.has(c[0] + "," + c[1] + "," + c[2]));

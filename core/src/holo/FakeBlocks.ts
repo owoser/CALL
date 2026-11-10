@@ -82,14 +82,40 @@ export function packPositions(cells: Array<[number, number, number]>): string {
 }
 
 /** `batch=3 queue=1 packets=12 bytes=21400 nearSets=0` -> numbers. */
-export function parseStats(raw: string): { batch: number; queue: number; packets: number; bytes: number } | null {
+/**
+ * Parse `blockBatchStats()`: `batch=N queue=N packets=N bytes=N dropped=N bad=N nearSets=N`.
+ *
+ * `dropped` and `bad` are the library TELLING us it threw work away: a packet whose player could
+ * not be resolved (`flushOne`), or a sub-chunk body that came out empty (encoding). They are the
+ * only authoritative signal that "we sent it" is not "the client got it", so they are parsed here
+ * instead of being ignored.
+ */
+/**
+ * `["key"=v,...]` -> `[key=v,...]`.
+ *
+ * The ENGINE reports states in /setblock style (quoted keys). HologramLib's state parser only
+ * unquotes VALUES, so a quoted key is looked up with the quotes in it and the entry is rejected -
+ * measured earlier with the preview descriptors, same parser. Every `x y z state` string we hand
+ * to the library must therefore have bare keys.
+ */
+export function unquoteStateKeys(states: string): string {
+    return String(states ?? "").replace(/"([A-Za-z0-9_:.\-]+)"\s*=/g, "$1=");
+}
+
+export function parseStats(raw: string): {
+    batch: number; queue: number; packets: number; bytes: number;
+    dropped: number; bad: number; nearSets: number;
+} | null {
     const text = String(raw ?? "");
     if (text === "") return null;
     const pick = (key: string): number => {
         const m = new RegExp(key + "\\s*=\\s*(\\d+)").exec(text);
         return m == null ? 0 : Number(m[1]);
     };
-    return { batch: pick("batch"), queue: pick("queue"), packets: pick("packets"), bytes: pick("bytes") };
+    return {
+        batch: pick("batch"), queue: pick("queue"), packets: pick("packets"), bytes: pick("bytes"),
+        dropped: pick("dropped"), bad: pick("bad"), nearSets: pick("nearSets"),
+    };
 }
 
 type AnyFn = (...args: any[]) => any;
@@ -196,9 +222,16 @@ export const FakeBlocks = {
      * caller's `slice(count)` removed the wrong positions and left the skipped ones behind while
      * claiming they were done - a residue source that looks like "cleanup reported 0 failures".
      */
-    restoreDetailed(playerName: string, cells: Array<[number, number, number]>, dimid = 0): {
+    restoreDetailed(
+        playerName: string,
+        cells: Array<[number, number, number]>,
+        dimid = 0,
+        options: { probe?: boolean } = {}
+    ): {
         restored: Array<[number, number, number]>;
         skipped: Array<[number, number, number]>;
+        /** `blockBatchSelfTest` output per segment (only with `probe`), for diagnostics. */
+        probe?: string[];
     } {
         const entries: FakeCell[] = [];
         const skipped: Array<[number, number, number]> = [];
@@ -208,7 +241,10 @@ export const FakeBlocks = {
                 const block = mc.getBlock(x, y, z, dimid as 0 | 1 | 2);
                 if (block != null) {
                     const bt = BlockType.generateFromBlock(block);
-                    const states = String(bt.states ?? "");
+                    // The engine hands states back in /setblock style with QUOTED KEYS, and the
+                    // library's state parser only unquotes VALUES - "key"=v is then looked up with
+                    // the quotes in it and rejected. Unquote the keys, keep the values as they are.
+                    const states = unquoteStateKeys(String(bt.states ?? ""));
                     id = states === "" || states === "[]" ? String(bt.type) : String(bt.type) + states;
                 }
             } catch {
@@ -221,12 +257,20 @@ export const FakeBlocks = {
 
         const packed = packCells(entries);
         if (packed.segments.length === 0) return { restored: [], skipped: [...skipped, ...entries.map((e) => [e.x, e.y, e.z] as [number, number, number])] };
+        const probe: string[] = [];
+        if (options.probe === true) {
+            for (const segment of packed.segments) {
+                const report = FakeBlocks.selfTest(segment);
+                if (report != null) probe.push(report);
+            }
+        }
         for (const segment of packed.segments) {
             if (FakeBlocks.set(playerName, segment, false) < 0) {
                 return { restored: [], skipped: [...skipped, ...entries.map((e) => [e.x, e.y, e.z] as [number, number, number])] };
             }
         }
-        return { restored: entries.map((e) => [e.x, e.y, e.z] as [number, number, number]), skipped };
+        const restored = entries.map((e) => [e.x, e.y, e.z] as [number, number, number]);
+        return probe.length > 0 ? { restored, skipped, probe } : { restored, skipped };
     },
 
     /**
@@ -248,7 +292,10 @@ export const FakeBlocks = {
         }
     },
 
-    stats(): { batch: number; queue: number; packets: number; bytes: number } | null {
+    stats(): {
+        batch: number; queue: number; packets: number; bytes: number;
+        dropped: number; bad: number; nearSets: number;
+    } | null {
         const fn = bind("stats", "blockBatchStats");
         if (fn == null) return null;
         try {

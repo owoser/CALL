@@ -452,7 +452,12 @@ export class ToolItems {
         try {
             const ok = FakeBlocks.available();
             const probe = ok ? FakeBlocks.selfTest("0 0 0 minecraft:stone") : null;
+            // The library's own counters: 'dropped' means IT threw a packet away (player not
+            // resolvable, or an empty sub-chunk body) and 'bad' counts undecodable entries. They are
+            // the only authoritative "sent is not received" signal it gives us.
+            const st = ok ? FakeBlocks.stats() : null;
             lines.push("假方块批量: " + (ok ? "可用" : "不可用（库版本过旧）")
+                + (st != null ? " · 库: 队列=" + st.queue + " 已发=" + st.packets + " 丢包=" + st.dropped + " 坏项=" + st.bad : "")
                 + (probe != null ? " · selfTest: " + probe.slice(0, 60) : ""));
         } catch {
             // diagnostics only
