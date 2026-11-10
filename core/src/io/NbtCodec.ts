@@ -493,6 +493,17 @@ function parseBlockEntities(structureTag: Extract<NbtTag, { type: 10 }>): Map<nu
  * Only needed for block entity payloads, which are stored as a tag tree rather than the plain
  * `{ name, states }` shape the palette uses.
  */
+/** SNBT text for one parsed tag tree - what HologramLib's `blockFakeSetBlockEntity` expects. */
+export function snbtOf(tag: any): string {
+    try {
+        const lse: any = toLseTag(tag);
+        if (lse != null && typeof lse.toSNBT === "function") return String(lse.toSNBT());
+    } catch {
+        // a malformed/unknown tag must not take the preview down
+    }
+    return "";
+}
+
 export function toLseTag(tag: NbtTag): any {
     switch (tag.type) {
         case 1: return new NbtByte(Number(tag.value));

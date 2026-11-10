@@ -32,6 +32,7 @@ import { clipboardBox } from "./Clipboard";
 import Area3 from "../common/Area3";
 import { Structure } from "../common/Structure";
 import BlockView from "../holo/BlockView";
+import HoloCompat from "../holo/HoloCompat";
 import { FakeBlocks, packCells } from "../holo/FakeBlocks";
 import BatchSender from "./BatchSender";
 import { GhostLedger, markCleared, markOwed, markSet, resetLedger, takeOwed, teardownCells } from "./GhostLedger";
@@ -119,6 +120,12 @@ interface Scene extends GhostLedger {
     /** Batched sets the library refused (-1) and cells the encoder had to drop. */
     batchRejected: number;
     batchSkipped: number;
+    /** Block entity payloads accepted / refused-or-over-budget for this preview. */
+    entitiesSent: number;
+    entitiesDropped: number;
+    /** State overlays (network-id re-draws) accepted / over budget for this preview. */
+    statesPushed: number;
+    statesDropped: number;
     /** Last chunk boundary log (one INFO line per burst, not per tick). */
     batchLogAt: number;
     /** Counters as of the last log line, so the log shows this burst's delta. */
@@ -157,6 +164,78 @@ const batchTimeout = () => Math.floor(num("previewBatchTimeoutMs", 5000, 1000, 1
 const batchPerTick = () => Math.floor(num("previewBatchPerTick", 6, 2, 8));
 const resendSeconds = () => Math.floor(num("previewResendSeconds", 45, 0, 120));
 const queueMax = () => Math.floor(num("previewBatchQueueMax", 24, 0, 128));
+/**
+ * Cells per preview that may be re-drawn by network id to get their block states right.
+ *
+ * The batch path is the fast one but it can only carry a state STRING, and HologramLib resolves
+ * that string by block NAME (measured: stairs at `weirdo_direction=2` and `=0` return the same
+ * network id), so a batched stair always faces north. Cells whose palette entry has states are
+ * therefore overlaid with `viewBlockById`, whose id comes from the SNBT resolver that DOES honour
+ * states. The cap keeps a structure made entirely of stairs from turning into a packet storm:
+ * past it the cells keep their default orientation and the count is reported.
+ */
+const STATE_OVERLAY_MAX = 2048;
+/** blockSnbt -> network id (ids are global, so one cache is enough). */
+const stateIdCache = new Map<string, number>();
+
+function stateIdOf(blockSnbt: string): number {
+    const cached = stateIdCache.get(blockSnbt);
+    if (cached !== undefined) return cached;
+    const id = BlockView.resolveId(blockSnbt);
+    stateIdCache.set(blockSnbt, id);
+    return id;
+}
+
+/**
+ * Re-draw the state-carrying cells of `ops` with their real network id.
+ *
+ * Runs AFTER the batch/per-cell set, so the client already has the block body; this only
+ * corrects its state (facing, waterlogged, axis...).
+ */
+function overlayStates(scene: Scene, ops: PlanOp[]): void {
+    const caps = HoloCompat.status().caps;
+    if (!caps.viewById || !caps.snbt) return;
+    for (const op of ops) {
+        if (op.op !== "set" || op.blockSnbt == null || op.blockSnbt === "") continue;
+        const id = stateIdOf(op.blockSnbt);
+        if (id < 0 || scene.statesPushed >= STATE_OVERLAY_MAX) {
+            scene.statesDropped++;
+            continue;
+        }
+        if (BlockView.setById(scene.playerName, op.x, op.y, op.z, id)) scene.statesPushed++;
+        else scene.statesDropped++;
+    }
+}
+
+/** Draw block entities (banner patterns, sign text, chests) on top of the fake blocks. */
+const blockEntityOn = () => String(Config.get(Config.GLOBAL, "previewBlockEntity", "true")).toLowerCase() !== "false";
+/** How many block entity payloads one preview may push (they are per-cell packets). */
+const blockEntityMax = () => Math.floor(num("previewBlockEntityMax", 64, 0, 512));
+
+/**
+ * Push the block entity payloads of just-applied cells.
+ *
+ * The block body must already be on the client - the library ignores a BlockActorData packet for
+ * a cell it does not know - so this runs AFTER the set for those cells, and only when the
+ * installed library exports `blockFakeSetBlockEntity` (450-export surface: 26.60.8 / 26.51.11).
+ * The budget is per preview: banners and signs are rare, a 64 cap keeps a village worth of them
+ * visible without turning every pump into a packet storm.
+ */
+function pushEntities(scene: Scene, ops: PlanOp[]): void {
+    if (!blockEntityOn()) return;
+    const cap = blockEntityMax();
+    if (cap <= 0) return;
+    if (!HoloCompat.status().caps.fakeEntity) return;
+    for (const op of ops) {
+        if (op.op !== "set" || op.snbt == null || op.snbt === "") continue;
+        if (scene.entitiesSent >= cap) {
+            scene.entitiesDropped++;
+            continue;
+        }
+        if (BlockView.setBlockEntity(scene.playerName, op.x, op.y, op.z, op.snbt)) scene.entitiesSent++;
+        else scene.entitiesDropped++;
+    }
+}
 
 /** Should this send go through the batch API? */
 export function batchingAvailable(): boolean {
@@ -342,7 +421,7 @@ export const PreviewScene = {
         if (!BlockView.available()) {
             return {
                 ok: false, blocks: 0, visible: 0, truncated: false,
-                reason: "需要 HologramLib 的 viewBlock 接口（1.30.0 / LL 26.51.4 起）",
+                reason: "需要 HologramLib 的方块覆盖接口（blockFakeSet，或旧版 viewBlock）",
             };
         }
 
@@ -384,6 +463,10 @@ export const PreviewScene = {
             batchFallbacks: 0,
             batchRejected: 0,
             batchSkipped: 0,
+            entitiesSent: 0,
+            entitiesDropped: 0,
+            statesPushed: 0,
+            statesDropped: 0,
             batchLogAt: 0,
             logBatches: 0,
             logCells: 0,
@@ -673,6 +756,8 @@ export const PreviewScene = {
             for (const op of ops) markSet(scene, op.key, op.x, op.y, op.z, String((op as any).id ?? ""));
             scene.batches++;
             scene.batchCells += ops.length;
+            overlayStates(scene, ops);
+            pushEntities(scene, ops);
             return;
         }
 
@@ -681,14 +766,18 @@ export const PreviewScene = {
         if (packed.segments.length === 0) scene.batchSkipped += 0;
         else scene.batchRejected++;
         scene.batchFallbacks++;
+        const applied: PlanOp[] = [];
         for (const op of ops) {
             const id = String((op as any).id ?? "");
             if (BlockView.set(scene.playerName, op.x, op.y, op.z, id)) {
                 markSet(scene, op.key, op.x, op.y, op.z, id);
+                applied.push(op);
             } else {
                 scene.failed++;
             }
         }
+        overlayStates(scene, applied);
+        pushEntities(scene, applied);
     },
 
     /** One batched clear (restores the real blocks); per-cell fallback on refusal. */
@@ -781,11 +870,14 @@ export const PreviewScene = {
         const per = batchSize();
         const deadline = Date.now() + tickBudgetMs();
         let done = 0;
+        const applied: PlanOp[] = [];
         while (scene.queue.length > 0 && done < per) {
             const op = scene.queue.shift() as PlanOp;
             if (op.op === "set") {
-                if (BlockView.set(scene.playerName, op.x, op.y, op.z, op.id)) scene.applied.set(op.key, op.id);
-                else scene.failed++;
+                if (BlockView.set(scene.playerName, op.x, op.y, op.z, op.id)) {
+                    scene.applied.set(op.key, op.id);
+                    applied.push(op);
+                } else scene.failed++;
             } else {
                 BlockView.clear(scene.playerName, op.x, op.y, op.z);
                 scene.applied.delete(op.key);
@@ -793,6 +885,8 @@ export const PreviewScene = {
             done++;
             if ((done & 31) === 0 && Date.now() >= deadline) break;
         }
+        overlayStates(scene, applied);
+        pushEntities(scene, applied);
 
         if (scene.queue.length > 0) {
             setTimeout(() => PreviewScene.pumpLegacy(xuid), 0);
@@ -1114,8 +1208,11 @@ export const PreviewScene = {
 
     /** Which renderer the preview uses (no entity fallback any more). */
     backend(): string {
-        if (!BlockView.available()) return "不可用（缺少 HologramLib viewBlock）";
-        return batchingAvailable() ? "viewBlock+batch" : "viewBlock";
+        const kind = BlockView.backend();
+        if (kind === "none") return "不可用（缺少 HologramLib 方块覆盖接口）";
+        const batched = batchingAvailable();
+        if (kind === "blockFake") return batched ? "blockFake+batch" : "blockFake";
+        return batched ? "viewBlock+batch（方块状态会丢失）" : "viewBlock（方块状态会丢失）";
     },
 };
 

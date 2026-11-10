@@ -25,12 +25,12 @@ test('cells pack into the documented format', () => {
     const { packCells } = load();
     const res = packCells([
         { x: 100, y: 64, z: 100, id: 'minecraft:stone' },
-        { x: 101, y: 64, z: 100, id: 'minecraft:stone_stairs["weirdo_direction"=2]' },
+        { x: 101, y: 64, z: 100, id: 'minecraft:stone_stairs[weirdo_direction=2]' },
     ]);
     assert.equal(res.skipped, 0);
     assert.equal(res.segments.length, 1);
     assert.equal(res.segments[0],
-        '100 64 100 minecraft:stone;101 64 100 minecraft:stone_stairs["weirdo_direction"=2]');
+        '100 64 100 minecraft:stone;101 64 100 minecraft:stone_stairs[weirdo_direction=2]');
 });
 
 test('a state containing a semicolon is dropped, not corrupting the batch', () => {
@@ -58,7 +58,7 @@ test('a huge batch is split into size-capped segments', () => {
     const { packCells } = load();
     const cells = [];
     for (let i = 0; i < 400; i++) {
-        cells.push({ x: i, y: 64, z: 0, id: 'minecraft:polished_deepslate_stairs["upside_down_bit"=false]' });
+        cells.push({ x: i, y: 64, z: 0, id: 'minecraft:polished_deepslate_stairs[upside_down_bit=false]' });
     }
     const res = packCells(cells, 4096);
     assert.ok(res.segments.length > 1, 'expected several segments');

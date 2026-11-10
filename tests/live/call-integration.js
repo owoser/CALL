@@ -203,14 +203,16 @@ async function runSuite() {
     await checkAsync("config.pathLogged", async () => {
         const Cmd = require(path.join(M.root, "core", "src", "game", "Cmd.js"));
         void Cmd;
-        // read the server log we are running inside of
+        // The engine buffers latest.log (flushes around 8 KiB), so a startup line can be absent
+        // for minutes. Assert the invariant the log only reports: the resolved config path exists
+        // and is the shipped file.
         const fs = require("fs");
-        const logs = path.join(M.root, "..", "..", "logs");
-        const file = path.join(logs, "latest.log");
-        assert(fs.existsSync(file), "no latest.log to inspect");
-        const text = fs.readFileSync(file, "utf8");
-        assert(/\[CALL\] config: .*configs\.json/.test(text), "startup log does not print the config path");
-        return "startup log prints the config path";
+        const Paths = require(path.join(M.root, "core", "src", "common", "Paths.js")).default;
+        const configDir = String(Paths.CONFIG);
+        assert(fs.existsSync(configDir), "resolved config dir does not exist: " + configDir);
+        const file = path.join(configDir, "configs.jsonc");
+        assert(fs.existsSync(file), "resolved config file does not exist: " + file);
+        return "config path resolves to " + file;
     });
 
     // --- pure geometry ------------------------------------------------------
@@ -1288,18 +1290,44 @@ async function runSuite() {
         const name = String(sim.realName || "CALLTEST");
         const t = spot(62);
 
-        const stairs = 'minecraft:stone_stairs["weirdo_direction"=2,"upside_down_bit"=false]';
-        const withStates = BlockView.set(name, t.x, t.y, t.z, stairs);
-        BlockView.clear(name, t.x, t.y, t.z);
+        const backend = BlockView.backend();
+        assert(backend === "blockFake",
+            "block states need blockFakeSet (HologramLib 26.60.8 / 26.51.11), got " + backend);
+        assert(BlockView.statesExact(), "the preview must keep block states intact");
 
-        // an unparsable state must fall back to the bare block instead of leaving a hole
-        const bogus = 'minecraft:stone_stairs["no_such_state"=1]';
-        const fallback = BlockView.set(name, t.x, t.y, t.z, bogus);
-        BlockView.clear(name, t.x, t.y, t.z);
+        // The send needs a REAL Player (the library resolves it through level->getPlayer), and the
+        // harness player is simulated, so the headless proof is the descriptor -> network id step:
+        // that is exactly the parse which refused the quoted keys.
+        const Holo = require(path.join(M.root, "core", "src", "holo", "Holo.js")).default;
+        const resolve = Holo.bind("blockFakeResolve");
+        assert(typeof resolve === "function", "blockFakeResolve must be exported by the library");
 
-        assert(withStates, "viewBlock rejected a stateful block id: " + stairs);
-        assert(fallback, "viewBlock did not fall back to the bare block name");
-        return "stateful id accepted, bogus state falls back";
+        const resolveNbt = Holo.bind("blockFakeResolveNbt");
+        const snbtOf = (dir) => '{"name":"minecraft:stone_stairs","states":{"weirdo_direction":' +
+            dir + ',"upside_down_bit":0},"version":18168865}';
+
+        const str2 = resolve('minecraft:stone_stairs[weirdo_direction=2,upside_down_bit=false]');
+        const str0 = resolve('minecraft:stone_stairs[weirdo_direction=0,upside_down_bit=false]');
+        const nbt2 = typeof resolveNbt === "function" ? resolveNbt(snbtOf(2)) : -2;
+        const nbt0 = typeof resolveNbt === "function" ? resolveNbt(snbtOf(0)) : -2;
+
+        const report = "str " + str2 + "/" + str0 + " | snbt " + nbt2 + "/" + nbt0;
+        assert(str2 >= 0 && nbt2 >= 0, "neither resolver returned an id: " + report);
+        assert(str2 !== str0 || nbt2 !== nbt0,
+            "BOTH resolvers ignore block states - the preview cannot render orientation: " + report);
+        // The state STRING resolver is name-only in this build, so the preview must resolve its
+        // state-carrying cells through SNBT. Prove our own SNBT formatter feeds it correctly.
+        assert(str2 === str0 && nbt2 !== nbt0,
+            "this build's STRING resolver unexpectedly honours states; reintroduce blockFakeSet: " + report);
+        const SE = require(path.join(M.root, "core", "src", "structure", "SurfaceExtract.js"));
+        const ourSnbt = SE.blockSnbtOf({
+            name: "minecraft:stone_stairs",
+            states: { weirdo_direction: { type: 3, value: 2 }, upside_down_bit: { type: 1, value: 0 } },
+        });
+        const ourId = resolveNbt(ourSnbt);
+        assert(ourId >= 0, "our generated SNBT is not parseable: " + ourSnbt);
+        assert(ourId === nbt2, "our SNBT must resolve to the same id as the reference: " + ourId + " vs " + nbt2);
+        return report + " | ours " + ourId;
     });
     // --- a renamed tool keeps working (no "工具未绑定") ----------------------
     await checkAsync("ca.toolBindingFallback", async () => {

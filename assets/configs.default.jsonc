@@ -758,6 +758,56 @@
     "previewBatchQueueMax": 24,
 
     /*
+     *   ###预览方块实体内容###   (3.9.6 新增)
+     *   true  [解析] 预览里连带显示方块实体内容（旗帜图案、告示牌文字、箱子内容）
+     *   false [解析] 只显示方块本体（更快，旗帜会显示成纯色）
+     *   [依赖] 需要 HologramLib 的 blockFakeSetBlockEntity（26.60.8 / 26.51.11 起）；
+     *          旧库自动跳过，不影响其它功能
+     *
+     * ###Preview block entity contents###   (new in 3.9.6)
+     */
+    "previewBlockEntity": true,
+
+    /*
+     *   ###预览方块实体条数上限###   (3.9.6 新增)
+     *   [范围] 0--512   [建议] 64
+     *   [解析] 一次预览最多下发多少条方块实体数据。每条是独立的数据包，
+     *          而旗帜/告示牌/箱子在建筑里本来就少；超出部分只显示方块本体。
+     *
+     * ###Preview block entity budget###   (new in 3.9.6)
+     */
+    "previewBlockEntityMax": 64,
+
+    /*
+     *   ###粘贴后方块实体同步###   (3.9.6 新增)
+     *   "fake" [解析] 粘贴写完后，用 HologramLib 把同一份方块实体数据重画给附近玩家
+     *          （服务端数据本来就对，客户端只缺 BlockActorData 包）
+     *   "off"  [解析] 关闭；玩家需要重进或等区块重载才能看到旗帜图案/告示牌文字
+     *   [依赖] 需要 HologramLib 的 blockFakeSetNbt + blockFakeSetBlockEntity（26.60.8 / 26.51.11 起）
+     *
+     * ###Repaint clients after a paste###   (new in 3.9.6)
+     */
+    "pasteSyncBlockEntities": "fake",
+
+    /*
+     *   ###粘贴同步半径(格)###   (3.9.6 新增)
+     *   [范围] 16--256   [建议] 64
+     *   [解析] 只重画这个范围内的在线玩家；更远的玩家随区块发送拿到正确数据
+     *
+     * ###Paste repaint radius (blocks)###   (new in 3.9.6)
+     */
+    "pasteSyncRadius": 64,
+
+    /*
+     *   ###粘贴同步条数上限###   (3.9.6 新增)
+     *   [范围] 0--4096   [建议] 256
+     *   [解析] 每个写入批次最多重画多少格方块实体（每条是独立数据包），超出只保留服务端正确数据
+     *
+     * ###Paste repaint budget###   (new in 3.9.6)
+     */
+    "pasteSyncMax": 256,
+
+    /*
     *   ###预览每 tick 生成数量###   (3.3.0 新增，3.6.0 起默认值上调，3.8.0 起为每轮上限)
     *   [范围] 50--5000   [建议] 1000
     *   [解析] 每 tick 发多少个方块覆盖，越小越平滑、越大越快画完

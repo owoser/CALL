@@ -18,10 +18,14 @@ export interface PlannedCell {
     y: number;
     z: number;
     id: string;
+    /** Block entity SNBT for this cell, when the clipboard has one (see SurfaceExtract). */
+    snbt?: string;
+    /** Block SNBT for cells whose block carries states (resolved through blockFakeResolveNbt). */
+    blockSnbt?: string;
 }
 
 export type PlanOp =
-    | { op: "set"; key: string; x: number; y: number; z: number; id: string }
+    | { op: "set"; key: string; x: number; y: number; z: number; id: string; snbt?: string; blockSnbt?: string }
     | { op: "clear"; key: string; x: number; y: number; z: number };
 
 export function cellKey(x: number, y: number, z: number): string {
@@ -50,7 +54,11 @@ export function planCells(
         const y = Math.floor(anchor.y + block.dy);
         const z = Math.floor(anchor.z + dz);
         const key = cellKey(x, y, z);
-        out.set(key, { key, x, y, z, id: block.id });
+        out.set(key, {
+            key, x, y, z, id: block.id,
+            ...(block.snbt ? { snbt: block.snbt } : {}),
+            ...(block.blockSnbt ? { blockSnbt: block.blockSnbt } : {}),
+        });
     }
     return out;
 }
@@ -70,7 +78,11 @@ export function diffPlacement(
     const ops: PlanOp[] = [];
     for (const [key, cell] of desired) {
         if (applied.get(key) === cell.id) continue;
-        ops.push({ op: "set", key, x: cell.x, y: cell.y, z: cell.z, id: cell.id });
+        ops.push({
+            op: "set", key, x: cell.x, y: cell.y, z: cell.z, id: cell.id,
+            ...(cell.snbt ? { snbt: cell.snbt } : {}),
+            ...(cell.blockSnbt ? { blockSnbt: cell.blockSnbt } : {}),
+        });
     }
     for (const key of applied.keys()) {
         if (desired.has(key)) continue;

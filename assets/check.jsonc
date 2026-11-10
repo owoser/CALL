@@ -287,6 +287,31 @@
             "min": 0,
             "max": 128
         },
+        "previewBlockEntity": {
+            "type": "boolean"
+        },
+        "previewBlockEntityMax": {
+            "type": "number",
+            "min": 0,
+            "max": 512
+        },
+        "pasteSyncBlockEntities": {
+            "type": "enum",
+            "values": [
+                "off",
+                "fake"
+            ]
+        },
+        "pasteSyncRadius": {
+            "type": "number",
+            "min": 16,
+            "max": 256
+        },
+        "pasteSyncMax": {
+            "type": "number",
+            "min": 0,
+            "max": 4096
+        },
         "previewCountdown": {
             "type": "enum",
             "values": [

@@ -2,6 +2,7 @@ import Config from "../common/Config";
 import Area3 from "../common/Area3";
 import { Pos3, Vec3Tuple } from "../common/Pos3";
 import { shouldWriteTarget } from "../game/SafeArgs";
+import { afterBlockEntity } from "../holo/PasteSync";
 
 /**
  * Structure placement helpers.
@@ -208,6 +209,20 @@ function flushBlockEntities(
             if (payload == null || entity.setNbt(payload) !== true) {
                 pending.push([x, y, z, entityTag]);
                 failed++;
+            } else {
+                // The world is right; the CLIENT is not - it never got a BlockActorData packet.
+                // Repaint the players standing here (no-op without the 450-export library).
+                try {
+                    const blockSnbt = block != null && typeof (block as any).getNbt === "function"
+                        ? String((block as any).getNbt().toSNBT())
+                        : "";
+                    const beSnbt = typeof (payload as any).toSNBT === "function"
+                        ? String((payload as any).toSNBT())
+                        : "";
+                    afterBlockEntity(x, y, z, dimid, blockSnbt, beSnbt);
+                } catch {
+                    // a repaint failure must never fail the paste
+                }
             }
         } catch {
             failed++;

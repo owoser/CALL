@@ -1,4 +1,4 @@
-import { StructureLayout } from "../io/NbtCodec";
+import { StructureLayout, snbtOf } from "../io/NbtCodec";
 import { Degrees, MirrorMode, transformOffset } from "./Rotate";
 
 /**
@@ -32,6 +32,22 @@ export interface PreviewBlock {
     dy: number;
     dz: number;
     id: string;
+    /**
+     * SNBT of this cell's block entity (banner patterns, sign text, chest contents), when the
+     * structure carries one. Sent separately: the client draws the block from `id` and needs a
+     * BlockActorData packet for the contents.
+     */
+    snbt?: string;
+    /**
+     * Block SNBT (`{name, states, version}`) for cells whose palette entry carries states.
+     *
+     * HologramLib's STATE STRING resolver (`blockFakeSet`/`blockBatchSet`) returns the block's
+     * BASE network id - measured on 26.60.8: `weirdo_direction=2` and `=0` resolve to the same
+     * id - so a stair drawn that way always faces north. Its SNBT resolver honours the states
+     * (`blockFakeResolveNbt` -> different ids), which is why those cells are resolved through
+     * SNBT and drawn with `viewBlockById`.
+     */
+    blockSnbt?: string;
 }
 
 export interface ExtractResult {
@@ -44,12 +60,46 @@ export interface ExtractResult {
 }
 
 /**
- * Block descriptor for the client override: `name["state"=value,...]`.
+ * Block descriptor for the client override: `name[state=value,...]`.
  *
  * HologramLib resolves the string with `Block::tryGetFromRegistry`, which understands the same
  * descriptor syntax as /setblock - so stairs keep their facing and fences their connections
  * instead of rendering with default states.
+ *
+ * The state KEY must NOT be quoted. HologramLib's parser (`blockstate::parseBlockState`) trims
+ * the key but only unquotes the VALUE, so `["weirdo_direction"=2]` reaches the registry with
+ * literal quotes in the name and the whole descriptor is refused (measured on 26.60.8: the call
+ * returns false and the cell keeps its real block).
  */
+/**
+ * `{name,states,version}` SNBT for one palette entry - the form `blockFakeResolveNbt` parses.
+ *
+ * Only states that are actually present are emitted; the version field is the one Bedrock writes
+ * for 1.21 era blocks and is ignored by the resolver when unknown.
+ */
+export function blockSnbtOf(entry: { name: string; states?: Record<string, any> }): string {
+    const name = String(entry?.name ?? "");
+    if (name === "") return "";
+    const states = entry?.states;
+    if (states == null || Object.keys(states).length === 0) return "";
+    const pairs: string[] = [];
+    for (const key of Object.keys(states)) {
+        if (!/^[A-Za-z0-9_.\-]+$/.test(key)) continue;
+        const raw = (states as any)[key];
+        const tag = raw != null && typeof raw === "object" && "type" in raw ? raw : null;
+        const value = tag != null ? tag.value : raw;
+        const kind = tag != null ? tag.type : typeof value === "boolean" ? 1 : 3;
+        let text: string;
+        if (kind === 1) text = Number(value) !== 0 ? "1b" : "0b";
+        else if (kind === 8) text = JSON.stringify(String(value));
+        else if (kind === 5 || kind === 6) text = String(Number(value));
+        else text = String(Number(value));
+        pairs.push('"' + key + '":' + text);
+    }
+    if (pairs.length === 0) return "";
+    return '{"name":"' + name + '","states":{' + pairs.join(",") + '},"version":18168865}';
+}
+
 export function descriptorOf(entry: { name: string; states?: Record<string, any> }): string {
     const name = String(entry?.name ?? "");
     const states = entry?.states;
@@ -68,7 +118,9 @@ export function descriptorOf(entry: { name: string; states?: Record<string, any>
         else if (kind === 8) text = JSON.stringify(String(value));
         else if (kind === 5 || kind === 6) text = String(Number(value));
         else text = String(value);
-        parts.push("\"" + key + "\"=" + text);
+        // A key with a separator would corrupt the descriptor: drop that state instead.
+        if (!/^[A-Za-z0-9_.\-]+$/.test(key)) continue;
+        parts.push(key + "=" + text);
     }
     return name + "[" + parts.join(",") + "]";
 }
@@ -119,6 +171,10 @@ export function extractSurface(
     const occ = new Uint8Array(cells);
     /** Block id per occupied cell; only written where occ is 1. */
     const names: (string | undefined)[] = new Array(cells);
+    /** Parsed block entity tag per cell (allocated only when a slice actually has one). */
+    let entities: (any | undefined)[] | null = null;
+    /** Block SNBT per cell, only for palette entries that carry states. */
+    let blockSnbts: (string | undefined)[] | null = null;
     let solidCount = 0;
 
     for (const slice of slices) {
@@ -135,6 +191,8 @@ export function extractSurface(
         const oz = slice.origin[2] - minZ;
         const total = sx * sy * sz;
         const limit = Math.min(total, indices.length);
+        /** palette index -> block SNBT ("" when the entry has no states). */
+        const stateSnbtCache = new Map<number, string>();
 
         // ZYX order: i = SZ*SY*x + SZ*y + z, so a plain x/y/z triple loop walks i in step.
         let i = 0;
@@ -151,6 +209,21 @@ export function extractSurface(
                     if (occ[idx] === 0) solidCount++;
                     occ[idx] = 1;
                     names[idx] = descriptorOf(entry);
+
+                    const entityTag = layout.blockEntities?.get(i);
+                    if (entityTag != null) {
+                        if (entities == null) entities = new Array(cells);
+                        entities[idx] = entityTag;
+                    }
+                    let stateSnbt = stateSnbtCache.get(pi);
+                    if (stateSnbt === undefined) {
+                        stateSnbt = blockSnbtOf(entry);
+                        stateSnbtCache.set(pi, stateSnbt);
+                    }
+                    if (stateSnbt !== "") {
+                        if (blockSnbts == null) blockSnbts = new Array(cells);
+                        blockSnbts[idx] = stateSnbt;
+                    }
                 }
             }
         }
@@ -178,7 +251,13 @@ export function extractSurface(
                 if (!exposed) continue;
 
                 const [dx, dz] = transformOffset(x + minX, z + minZ, degrees, mirror);
-                kept.push({ dx, dy: y + minY, dz, id: names[idx] ?? "" });
+                const entityTag = entities == null ? undefined : entities[idx];
+                const blockSnbt = blockSnbts == null ? undefined : blockSnbts[idx];
+                kept.push({
+                    dx, dy: y + minY, dz, id: names[idx] ?? "",
+                    ...(blockSnbt ? { blockSnbt } : {}),
+                    ...(entityTag == null ? {} : { snbt: snbtOf(entityTag) }),
+                });
             }
         }
     }

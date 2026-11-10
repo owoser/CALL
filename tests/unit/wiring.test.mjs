@@ -127,10 +127,13 @@ test('left click on air goes through the library gate', () => {
     assert.ok(app.includes('SwingWatcher.noteBlockLeft'), 'block clicks must cancel the air click');
 
     const compat = read('core/src/holo/HoloCompat.ts');
-    assert.ok(compat.includes('HOLO_MIN_API') && compat.includes('swingCount'),
-        'HoloCompat must gate swingCount on the documented minimum');
-    assert.ok(compat.includes('HOLO_MIN_26_51') && compat.includes('HOLO_MIN_26_60'),
-        'both release lines need their own minimum (26.51.8 is withdrawn)');
+    assert.ok(compat.includes('swingCount'), 'HoloCompat must expose the swing capability');
+    assert.ok(compat.includes('Holo.bind(n) != null'),
+        'capabilities must be probed on the exported API surface, not on a release number');
+    assert.ok(compat.includes('holoLseVersion'),
+        'the LSE export-surface version is the version signal (ABI 1.37.0 is shared by 442 and 450 builds)');
+    assert.ok(!compat.includes('requiredFor('),
+        'no release-number thresholds: 26.60.6 and 26.60.8 report the same ABI');
 
     const swing = read('core/src/user/SwingWatcher.ts');
     assert.ok(swing.includes('DEDUPE_MS = 100'), 'the dedupe window is 100ms by decision');
