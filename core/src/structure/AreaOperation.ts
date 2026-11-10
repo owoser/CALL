@@ -10,6 +10,50 @@ import Players from "../user/Players";
 import Tr from "../util/Translator";
 
 export default class AreaOperation {
+    /**
+     * The block the player stands ON - "select what is under my feet".
+     *
+     * `player.pos.y` is one block ABOVE the feet cell (the same convention `ToolOperation` uses),
+     * so the floor block is `floor(pos.y) - 2`, not `- 1`: `/ca area b` with no coordinates used to
+     * land on the cell the player occupies instead of the block beneath it.
+     * `getBlockStandingOn()` is preferred because it answers the question directly (and copes with
+     * slabs/stairs); the arithmetic is the fallback for when there is no block to stand on.
+     */
+    private static feetPos(player: any): Pos3 {
+        let x = 0, y = 64, z = 0, dimid = 0;
+        let feetCell = 64;
+        try {
+            const p = player.pos;
+            x = Math.floor(Number(p.x));
+            feetCell = Math.floor(Number(p.y));
+            y = feetCell - 2;
+            z = Math.floor(Number(p.z));
+            dimid = Number(p.dimid ?? 0);
+        } catch {
+            return new Pos3(x, y, z, dimid as 0 | 1 | 2);
+        }
+
+        // Walk down from the cell just below the player and take the first non-air block.
+        // Two reasons: `player.pos.y` is the feet cell (so the block under the feet is -1 for a
+        // normal stand and -2 when the position already sits on the block), and `getBlockStandingOn`
+        // on this build answers the FEET cell (measured: it returned the player's own y), so the
+        // world is the only reliable source.
+        for (let dy = 1; dy <= 3; dy++) {
+            const cy = feetCell - dy;
+            try {
+                const block = mc.getBlock(x, cy, z, dimid as 0 | 1 | 2);
+                const name = String(block?.type ?? "");
+                if (block == null) continue;
+                if (name === "minecraft:air" || name === "minecraft:cave_air" || name === "minecraft:void_air") continue;
+                return new Pos3(x, cy, z, dimid as 0 | 1 | 2);
+            } catch {
+                // keep walking down
+            }
+        }
+
+        // Flying over nothing: the cell two below is the best answer we have.
+        return new Pos3(x, y, z, dimid as 0 | 1 | 2);
+    }
     public static start(output: CommandOutput, caPlayer: CAPlayer, res: any) {
         const player = caPlayer.$;
         // DEBUG (`debugMod`): what the command parser handed us, and what ends up stored. A point
@@ -49,7 +93,7 @@ export default class AreaOperation {
                     }
                 }
                 else {
-                    AreaOperation.setPosA(caPlayer, Pos3.fromPos(player.pos).calibration());
+                    AreaOperation.setPosA(caPlayer, AreaOperation.feetPos(player));
                 }
                 break;
             case "end":
@@ -69,7 +113,7 @@ export default class AreaOperation {
                     }
                 }
                 else {
-                    AreaOperation.setPosB(caPlayer, Pos3.fromPos(player.pos).calibration());
+                    AreaOperation.setPosB(caPlayer, AreaOperation.feetPos(player));
                 }
                 break;
             case "cancel":
@@ -91,7 +135,7 @@ export default class AreaOperation {
                 break;
             case "set":
             case "se":
-                let pos3d = (pos == null ? Pos3.fromPos(player.pos).floor().calibration() : Pos3.fromPos(pos));
+                let pos3d = (pos == null ? AreaOperation.feetPos(player) : Pos3.fromPos(pos));
                 if (caPlayer.isSetPosA) {
                     Players.silenceCmd(caPlayer, `call area cancel`);
                     Players.silenceCmd(caPlayer, `call area a ${pos3d.formatStr()}`);

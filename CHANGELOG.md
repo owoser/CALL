@@ -13,6 +13,15 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 35)
+
+- **`/ca area a|b` with no coordinates now selects the block UNDER the feet.** It used
+  `player.pos` minus one, which is the cell the body occupies; the block beneath it is one lower.
+  The rule is now "walk down from the player and take the first non-air block" (up to 3 cells),
+  which also works for a hovering player and for slabs/stairs - and it replaced
+  `getBlockStandingOn()`, which on this build answers the FEET cell (measured in the live probe).
+- Air clicks (selection/preview/paste wands) use the same rule, so "click the air = the block under
+  my feet" is now literally true (live: `call area a 28 37 28` for a player at y=38).
 ### Fixed (3.9.5-beta1, build 34)
 
 - **Every wand was one block off for NEGATIVE coordinates.** Measured with a probe command: LSE

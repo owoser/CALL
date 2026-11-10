@@ -1012,12 +1012,6 @@ async function runSuite() {
             direction: { pitch: 0, yaw: 0, toFacing: () => 0 },
             getHand: () => ({ type: "call:wand_select" }),
             getBlockFromViewVector: () => null,
-            // the floor block: a click on air must target THIS cell, not the one the body is in
-            getBlockStandingOn: () => ({
-                pos: { x: Math.floor(pos.x), y: Math.floor(pos.y) - 2, z: Math.floor(pos.z), dimid: DIM },
-                type: "minecraft:stone",
-                states: {},
-            }),
             getInventory: () => ({ getAllItems: () => [] }),
             runcmd: (cmd) => { sent.push(String(cmd)); return true; },
         };
@@ -1048,7 +1042,15 @@ async function runSuite() {
         assert(fired === 1, "the swing did not turn into a left click (" + fired + ")");
         assert(sent.length === 1, "expected one command, got " + JSON.stringify(sent));
         // standing block = one below the cell the body occupies
-        const feet = { x: Math.floor(pos.x), y: Math.floor(pos.y) - 2, z: Math.floor(pos.z) };
+        // same rule as feetBlock(): the first non-air block below the player
+        let feet = { x: Math.floor(pos.x), y: Math.floor(pos.y) - 2, z: Math.floor(pos.z) };
+        for (let dy = 1; dy <= 3; dy++) {
+            const b = mc.getBlock(feet.x, Math.floor(pos.y) - dy, feet.z, DIM);
+            const name = b == null ? "" : String(b.type);
+            if (name === "" || /air$/.test(name)) continue;
+            feet = { x: feet.x, y: Math.floor(pos.y) - dy, z: feet.z };
+            break;
+        }
         assert(sent[0] === `call area a ${feet.x} ${feet.y} ${feet.z}`,
             "wrong target: " + sent[0] + " vs " + JSON.stringify(feet));
         return sent[0];
@@ -1499,6 +1501,27 @@ async function runSuite() {
         const fmt = (list) => list.map((v) => v.join(",")).join("  ");
         return "in: " + inputs.map((v) => v.join(",")).join("  ")
             + " || BlockPos: " + fmt(seen.block) + " || Vec3: " + fmt(seen.vec);
+    });
+    // --- "select what is under my feet" with no coordinates ----------------
+    await checkAsync("ca.areaFeetPoint", async () => {
+        const Players = require(path.join(M.root, "core", "src", "user", "Players.js")).default;
+        const AreaOperation = require(path.join(M.root, "core", "src", "structure", "AreaOperation.js")).default;
+        const cap = fakePlayer(sim);
+        cap.settings.area = {
+            start: { x: null, y: null, z: null, dimid: null },
+            end: { x: null, y: null, z: null, dimid: null },
+        };
+        const out = { success() { }, error(m) { throw new Error(String(m)); } };
+        AreaOperation.start(out, cap, { enum_1: "b" });
+        const end = cap.settings.area.end;
+        const feet = Math.floor(sim.pos.y);
+        assert(end != null && end.y != null, "B was not set: " + JSON.stringify(end));
+        assert(end.y < feet,
+            "B must be BELOW the player (feet cell " + feet + "), got y=" + end.y);
+        // the standing block is one below the feet cell
+        assert(end.y === feet - 1 || end.y === feet - 2,
+            "B is " + end.y + ", expected the block under the feet (" + (feet - 1) + " or " + (feet - 2) + ")");
+        return "no-coordinate /ca area b -> (" + end.x + "," + end.y + "," + end.z + ") with the player at y=" + feet;
     });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;

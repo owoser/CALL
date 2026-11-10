@@ -108,7 +108,7 @@ test('air clicks reach the tools', () => {
     assert.ok(app.includes('onAirClick('), 'the air click must be routed to the tools');
     const op = read('core/src/user/ToolOperation.ts');
     assert.ok(op.includes('public static onAirClick('), 'ToolOperation needs onAirClick');
-    assert.ok(op.includes('getBlockStandingOn'), 'the air click targets the block under the feet');
+    assert.ok(op.includes('feetBlock('), 'the air click needs the feet target');
 });
 
 test('public structures must live in a folder', () => {
@@ -137,7 +137,7 @@ test('left click on air goes through the library gate', () => {
 
     const op = read('core/src/user/ToolOperation.ts');
     assert.ok(op.includes('AIR_TOOLS'), 'only the bundled tools react to air');
-    assert.ok(op.includes('Math.floor(Number(p.y)) - 1'), 'the air target is the block at the feet');
+    assert.ok(op.includes('mc.getBlock(x, feetCell - dy, z'), 'the air target is the block under the feet, read from the world');
     assert.ok(op.includes('faceFromView('), 'the adjust wand uses the view direction on air');
 });
 

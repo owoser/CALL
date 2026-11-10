@@ -203,50 +203,45 @@ export class ToolOperation {
      * the player looks at, then to a stand-in (bindings that never touch $pos/$block still work).
      */
     private static feetBlock(player: any): any {
-        // The cell the player's body occupies (feet level), used for every fallback below.
+        // The cell the player occupies (feet level) and the block under it, from the WORLD:
+        // `getBlockStandingOn()` on this build answers the feet cell itself (measured), so it
+        // cannot be trusted for "the block under my feet".
         let x = 0, y = 64, z = 0, dimid = 0;
+        let feetCell = 64;
         try {
             const p = player.pos;
             x = Math.floor(Number(p.x));
+            feetCell = Math.floor(Number(p.y));
+            y = feetCell - 1;
             z = Math.floor(Number(p.z));
-            y = Math.floor(Number(p.y)) - 1;
             dimid = Number(p.dimid ?? 0);
         } catch {
             // keep the defaults
         }
 
-        // 1) the block the player stands on - "clicking air means the block under my feet",
-        //    which is the rule the operator expects (the crosshair is deliberately NOT used:
-        //    clicking into the sky would otherwise target whatever happens to be in view).
-        let block: any = null;
+        // 1) the first non-air block below the player
+        for (let dy = 1; dy <= 3; dy++) {
+            try {
+                const block = mc.getBlock(x, feetCell - dy, z, dimid as 0 | 1 | 2);
+                if (block == null) continue;
+                const name = String(block?.type ?? "");
+                if (name === "minecraft:air" || name === "minecraft:cave_air" || name === "minecraft:void_air") continue;
+                return block;
+            } catch {
+                // keep walking down
+            }
+        }
+
+        // 2) flying over nothing: the cell two below the player's position
         try {
-            block = player.getBlockStandingOn();
+            const fallback = mc.getBlock(x, feetCell - 2, z, dimid as 0 | 1 | 2);
+            if (fallback != null) return fallback;
         } catch {
-            block = null;
+            // keep the stub
         }
 
-        // 2) the cell below the feet
-        if (block == null) {
-            try {
-                block = mc.getBlock(x, y - 1, z, dimid as 0 | 1 | 2);
-            } catch {
-                block = null;
-            }
-        }
-
-        // 3) the cell the body occupies, as the last readable block
-        if (block == null) {
-            try {
-                block = mc.getBlock(x, y, z, dimid as 0 | 1 | 2);
-            } catch {
-                block = null;
-            }
-        }
-        // 4) a stand-in at the feet cell
-        if (block == null) {
-            block = { pos: { x, y, z, dimid }, type: "minecraft:air", states: {} };
-        }
-        return block;
+        // 3) a stand-in so bindings that never touch $pos/$block still work
+        return { pos: { x, y: feetCell - 2, z, dimid }, type: "minecraft:air", states: {} };
     }
     /**
      * A click that did not land on a block (LSE has no event for one; see SwingWatcher).
