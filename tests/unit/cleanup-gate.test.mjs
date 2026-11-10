@@ -41,6 +41,15 @@ test('no deadline means wait as long as the queue is busy', () => {
     assert.deepEqual(shouldWaitForDrain({ queued: 1, now: 9e9 }), { wait: true, expired: false });
 });
 
+test('a ledger is only inherited by the same player in the same dimension', () => {
+    const { canInheritLedger } = require(MOD);
+    assert.equal(canInheritLedger({ playerName: 'a', dimid: 0 }, { playerName: 'a', dimid: 0 }), true);
+    assert.equal(canInheritLedger({ playerName: 'a', dimid: 0 }, { playerName: 'a', dimid: 1 }), false);
+    assert.equal(canInheritLedger({ playerName: 'a', dimid: 0 }, { playerName: 'b', dimid: 0 }), false);
+    assert.equal(canInheritLedger(null, { playerName: 'a', dimid: 0 }), false);
+    assert.equal(canInheritLedger({ playerName: '', dimid: 0 }, { playerName: '', dimid: 0 }), false);
+});
+
 test('a negative/garbage depth is treated as empty', () => {
     const shouldWaitForDrain = gate();
     assert.equal(shouldWaitForDrain({ queued: -5, deadline: 1, now: 2 }).wait, false);

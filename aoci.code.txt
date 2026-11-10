@@ -5,7 +5,7 @@
 .gitignore[FC5T]: F:忽略 node_modules、dist 产物、CALL-CLI 的 bin/obj 与本地草稿日志，并注明 types/lse 是刻意入库 | R:code:package.json | A:- | S:types/lse 虽是 fetch-types 生成却必须入库，忽略它会同时破坏 typecheck 与类型契约
 .prettierrc[FC3T]: F:Prettier 格式约定：双引号、分号、4 空格缩进、80 列 | R:- | A:- | S:只有格式约定无强制 lint；改 tabWidth 会波及全仓 TS 缩进，应单独提交
 AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库导出面闸门与状态串规则、发版门禁、提交闸门）加 AOCI 托管区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md,code:core/src/holo/HoloCompat.ts | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:aoci 区块由 init 维护不可手改；能力判定已改为按导出面，勿再加入发布号门槛
-CHANGELOG.md[SC8L]: F:版本史：逐版本记录移植修复，含旋转状态重映射、批量与即时写冲突、SNBT 自写序列化与方块实体写入校验 | R:code:README.md | A:顶部 3.9.5-beta1 下的 Added/Fixed/Changed/Docs 段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
+CHANGELOG.md[SC8L]: F:版本史：逐版本记录移植修复，含 SNBT 自写序列化、旋转状态重映射与取消清理时序 | R:code:README.md | A:顶部 3.9.5-beta1 下的 Added/Fixed/Changed/Docs 段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
 LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
 README.md[SC8M]: F:对外说明：fork 缘由、版本矩阵（含可选 HologramLib）、内置工具、构建与真机测试、参考链接 | R:code:CHANGELOG.md,code:docs/user/install.md | A:Why this fork exists、References | S:版本矩阵与发版门禁口径须与 docs/ 一致，改一处两处同步
 build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
@@ -176,7 +176,7 @@ ShapeService.ts[ED6S]: F:形状包服务：读取包内结构、转换为 NBT �
 AreaDisplayerService.ts[AU8L]: F:选区显示：按 areaDisplayMode 选结构方块/粒子/文字/线框，并驱动每玩家定时刷新与释放 | R:code:core/src/holo/Wireframe.ts | A:areaDisplayMode 分支与 release | S:structure_block 是唯一被实测能渲染的方式；粒子在 2.0 报过完全不可见
 AreaOperation.ts[EU8M]: F:/ca area 选区操作：两点设置、脚下方块推断、区域归一化与显示同步 | R:code:core/src/structure/AreaDisplayerService.ts | A:feetPos、start | S:getBlockStandingOn 在此构建返回脚部格子，故「脚下方块」须向下扫非空气块（最多 3 格）
 BasicTranslOperation.ts[AD6M]: F:基础平移/翻转/旋转操作：对选区或结构做位移、镜像与旋转并回显结果 | R:code:core/src/structure/StructureService.ts,code:core/src/structure/Rotate.ts | A:transform 与 fillCommand 调用 | S:变换后须先算目标占用区再落块，直接按原尺寸写会覆盖邻区
-BatchSender.ts[RP7T]: F:全局批次节流：每刻最多下发 previewBatchPerTick 个任务，多预览轮转，首块同步发送 | R:code:core/src/structure/PreviewScene.ts | A:TICK_MS、drain | S:库按全局 8 包/刻限流，一次性提交会挤掉全服全息与其它批次
+BatchSender.ts[IR7S]: F:全局分帧投递：按 previewBatchPerTick 每刻派发有限任务，任务可带 owner 供取消时精确清理 | R:code:structure/PreviewScene.ts | A:request(owner)、cancelOwner、pendingOf、drainNow、reset | S:取消预览必须先 cancelOwner，否则排队任务会在还原之后把假方块画回来
 BlockEditerOperation.ts[EU4T]: F:/ca block 子命令：编辑器表单入口与按 NBT 写入单方块 | R:code:core/src/view/BlockEditerForm.ts | A:start | S:无子命令即直接编辑，menu 走表单；两条分支的 IntPos 语义相同
 ChunkOperation.ts[ER3T]: F:/ca chunk 子命令：强制刷新玩家周围区块并回显成功 | R:code:core/src/user/PlayerManager.ts | A:start | S:它只是提示刷新，真正的加载由 tickingarea 租约负责
 Clipboard.ts[DD6S]: F:剪贴板几何：从多切片结构名解析各切片真实偏移并合成包围盒 | R:code:core/src/structure/Rotate.ts | A:sliceOrigin、clipboardBox | S:偏移只能从文件名解析，用 relative() 归零会让多切片粘贴叠在同一点
@@ -188,7 +188,7 @@ PreviewHud.ts[DU6S]: F:预览 HUD 纯函数：倒计时文案与样式、手势�
 PreviewHudLock.ts[DU5T]: F:动作条占用锁：预览倒计时期间占位，选区提示让出，避免每秒互相覆盖 | R:code:core/src/structure/AreaDisplayerService.ts | A:hold/release | S:锁短时且须成对释放，泄漏会让选区提示长期不显示
 PreviewOperation.ts[AU9L]: F:预览总控：锚点与枢轴、旋转镜像、倒计时、手势与 HUD、超时清理与场景重建 | R:code:core/src/structure/PreviewScene.ts,code:core/src/structure/PreviewPlan.ts | A:PreviewState、anchorOf | S:旋转四次必须零下发靠 diff；重建不得清掉即将重画的格子
 PreviewPlan.ts[DU8M]: F:纯规划：格子到世界坐标的映射与差量，并按真实角度重算带状态方块的 id 与 SNBT | R:code:structure/StateRemap.ts,code:structure/SurfaceExtract.ts | A:planCells、diffPlacement | S:提取恒 0°，状态重映射必须在这里做；每个 palette 条目每角度只算一次
-PreviewScene.ts[AU9L]: F:预览场景：full/window/lazy 三模式、批量下发、带状态与方块实体格子走逐格路径，并给出方块实体普查与丢弃计数 | R:code:structure/PreviewPlan.ts,code:holo/BlockView.ts | A:submitSets、drawCells、pushEntities、diagnostics、sampleBlockEntity | S:批量超过 previewBatchImmediate 会排队下发，即时逐格写必须写不同格子；提取恒 0°，状态重映射在 planCells
+PreviewScene.ts[AU9L]: F:预览场景：三模式构建、批量与逐格下发、开启/取消清理时序（先停喂、等队列排空、双次还原）与诊断计数 | R:code:structure/PreviewPlan.ts,code:structure/CleanupGate.ts,code:structure/BatchSender.ts | A:build、submitSets、drawCells、clear、drainCleanup、teardownReport | S:取消不可立即还原：库队列里的批次会晚于还原落地，造成残留；teardown 必须用场景自己的维度
 Rotate.ts[KD8M]: F:旋转与镜像数学：偏移变换、枢轴平移与旋转后的目标脚印 | R:code:core/src/structure/Clipboard.ts | A:rotateOffset、rotatedUnion | S:锚点固定在目标盒最小角，旋转只转盒内图案，不翻到反侧
 StructureOperation.ts[AD9L]: F:/ca structure 总命令：保存/载入/删除/列表、撤销重做与跨玩家共享 | R:code:core/src/structure/StructureService.ts,code:core/src/structure/StructureStore.ts | A:子命令分发 | S:结构名解析要同时接受 id 与显示名，旧数据里两者都可能出现
 StructurePlacement.ts[DD9L]: F:结构放置：镜像旋转映射、占用区计算、逐块写入并回读校验，方块实体经 SNBT 往返后写入并触发客户端重画 | R:code:io/NbtCodec.ts,code:holo/PasteSync.ts | A:coveredArea、placeNbtAsync、flushBlockEntities、blockEntityPayload | S:setStructure 会段错误；setNbt 会返回 true 却留空，必须回读校验；BE 载荷优先 NBT.parseSNBT(snbtOf())
@@ -197,6 +197,7 @@ StructureStore.ts[PD8L]: F:结构磁盘布局：按玩家/名称/类型分目录
 SurfaceExtract.ts[KD8M]: F:表面提取：内部剔除与预算截断，产出 descriptorOf 状态串、blockSnbtOf 的 SNBT、方块实体载荷，并保留 palette 条目引用供旋转期重算 | R:code:io/NbtCodec.ts,code:structure/PreviewPlan.ts | A:extractSurface、descriptorOf、blockSnbtOf | S:这里不做状态重映射（调用方恒 0°），重算归 planCells
 TextureOperation.ts[EU3T]: F:/ca texture 子命令：把准星方块记入纹理选择器的 A/B 槽 | R:code:core/src/user/SettingsOperation.ts | A:start | S:只写 settings.texture 的 a/b 槽，方块名须先经 BlockType 规范化
 StateRemap.ts[KD8S]: F:旋转/镜像时的方块状态重映射表：楼梯、朝向、火把、原木轴向与告示牌角度 | R:code:core/src/structure/Rotate.ts,code:io/NbtCodec.ts | A:remapStates、MAPPED_KEYS、UNMAPPED | S:只映射语义确定的键；表外的键保持原值，确认语义后再加，不猜
+CleanupGate.ts[KD7T]: F:取消清理的门控：库队列未排空则继续等，超过期限则放行并标记 timeout | R:code:structure/PreviewScene.ts | A:shouldWaitForDrain | S:纯函数，便于无头单测；期限必须存在，否则卡住的队列会永久挂住取消
 
 ===E:/code/LL3/Plugins/CALL/core/src/temp/===
 Common.ts[CG3T]: F:通用小枚举：比较结果 Compare 与文件打开模式 FileMode | R:- | A:Compare | S:取值直接映射比较与 IO 语义（-1/0/1），不要重排枚值
@@ -217,7 +218,7 @@ PlayerManager.ts[RU4T]: F:区块刷新：刷新单个玩家或同维度附近玩
 Players.ts[DD8S]: F:玩家数据总表：xuid 到 CAPlayer 映射、数据加载保存与按名字查 xuid | R:code:core/src/user/CAPlayer.ts | A:dataMap、createCAPlayer | S:只缓存在线玩家，离线玩家数据必须走文件而不是 dataMap
 SettingsOperation.ts[EU7T]: F:/ca setting：读写玩家设置，禁止修改 enable、displayPos、area 三个受保护键 | R:code:core/src/temp/Data.ts | A:forbidModifyKeys | S:受保护键是防呆设计，放开会让启用开关与选区状态被脚本覆盖
 SwingWatcher.ts[IU8M]: F:左键检测（含对空挥动）：轮询 HologramLib 的 swingCount 并去重成点击事件 | R:code:core/src/holo/HoloCompat.ts | A:DEDUPE_MS、SwingWatcher | S:库缺失时该能力整体消失且只提示一次；去重窗口 100ms 防一次挥动触发两次
-ToolItems.ts[AU9L]: F:工具物品判定与诊断：/ca tools debug 打印构建戳、库能力矩阵、方块实体普查、状态样例与粘贴同步计数 | R:code:addon/AddonInstaller.ts,code:holo/HoloCompat.ts | A:TOOL_SPECS、debug() | S:identifier 必须与 assets/addon 下 items/*.json 一致，改名会认不出工具
+ToolItems.ts[AU9L]: F:工具物品判定与诊断：/ca tools debug 打印构建戳、库能力矩阵、方块实体普查、粘贴同步与取消清理计数 | R:code:addon/AddonInstaller.ts,code:holo/HoloCompat.ts | A:TOOL_SPECS、debug() | S:identifier 必须与 assets/addon 下 items/*.json 一致，改名会认不出工具
 ToolOperation.ts[AU9L]: F:绑定执行引擎：把玩家绑定解析成命令或 JS 片段，变量替换后经 acorn 解析求值 | R:code:core/src/user/Bindings.ts | A:变量表与 matcher | S:替换后必须重新解析再执行；直接 eval 会撞上未定义变量并抛错
 
 ===E:/code/LL3/Plugins/CALL/core/src/util/===
@@ -260,10 +261,10 @@ _sidebar.md[SG4T]: F:docsify 侧边栏：用户手册、功能介绍、开发者
 index.html[SV5T]: F:文档站外壳：本地化 docsify 资源与初始化配置，不依赖 CDN | R:code:docs/_sidebar.md | A:docsify 初始化配置 | S:必须保持全本地化，改回 CDN 会让国内访问白屏
 
 ===E:/code/LL3/Plugins/CALL/docs/dev/===
-architecture.md[SG8S]: F:平台坑机制：七条铁律、坐标语义、预览选型与实测，含 SNBT 必须自写序列化、批量排队覆盖即时写、旋转必须重映射状态 | R:code:docs/dev/pitfalls.md,code:docs/ARCHITECTURE.md | A:第 9 节坐标、第 10 节预览与实测表 | S:与 AGENTS.md 和 docs/ARCHITECTURE.md 重叠，改一处须三处同步
+architecture.md[SG8S]: F:平台坑机制：七条铁律、坐标语义、预览选型与实测，含 SNBT 自写序列化、取消清理时序与批量排队覆盖即时写 | R:code:docs/dev/pitfalls.md,code:docs/ARCHITECTURE.md | A:第 9 节坐标、第 10 节预览与实测表 | S:与 AGENTS.md 和 docs/ARCHITECTURE.md 重叠，改一处须三处同步
 plugin.md[SG6M]: F:形状包开发须知：文件结构、必须导出的定义、参数与命令生成流程 | R:code:docs/dev/shape.md | A:形状包开发 | S:包必须含一个 js 入口定义包名与形状数组，缺任一字段即不会被加载
 shape.md[SG6L]: F:形状包 API：export_cmd 生成函数与表单函数的签名、参数与示例 | R:code:docs/dev/plugin.md | A:导出函数 | S:签名与 Plugin.ts 的 IPlugin 契约绑定，参数顺序变更属破坏性改动
-pitfalls.md[SG8T]: F:真机台账：A–G 分类症状到根因到验证，含 C14 批量排队、C16 旋转角度、C17 方块实体写入与 C18 SNBT 复合列表 | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式，否则下次仍靠肉眼猜
+pitfalls.md[SG8T]: F:真机台账：A–G 分类症状到根因到验证，含 C14 批量排队、C18 SNBT 复合列表与 C19 取消残留时序 | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式，否则下次仍靠肉眼猜
 release.md[SG7T]: F:发版规范：触发授权、前置闸门清单（含 check:version）、版本策略、产物约定、单次发布步骤、事故恢复与禁止项 | R:code:scripts/check-version.mjs,code:CHANGELOG.md | A:第 3 节前置清单、第 5 节发布动作、第 8 节禁止项 | S:未获维护者明确指令不得发版；发布包不入库；变更日志顶部段落须等于当前版本
 
 ===E:/code/LL3/Plugins/CALL/docs/other/===

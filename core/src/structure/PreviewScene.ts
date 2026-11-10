@@ -35,7 +35,7 @@ import BlockView from "../holo/BlockView";
 import HoloCompat from "../holo/HoloCompat";
 import { FakeBlocks, packCells } from "../holo/FakeBlocks";
 import BatchSender, { TICK_MS } from "./BatchSender";
-import { shouldWaitForDrain } from "./CleanupGate";
+import { canInheritLedger, shouldWaitForDrain } from "./CleanupGate";
 import { GhostLedger, markCleared, markOwed, markSet, resetLedger, takeOwed, teardownCells } from "./GhostLedger";
 import { MsgType, online, tell } from "../util/Msg";
 import StrFactory from "../util/StrFactory";
@@ -283,7 +283,7 @@ interface CleanupTask {
 const cleanups: CleanupTask[] = [];
 
 /** Counters for /ca tools debug: how the last cancels actually went. */
-const teardownStats = { tasks: 0, cells: 0, waited: 0, passes: 0, deadlineHits: 0, failed: 0 };
+const teardownStats = { tasks: 0, cells: 0, waited: 0, passes: 0, deadlineHits: 0, failed: 0, carried: 0 };
 
 /** How long a cancel may wait for the library queue to drain before restoring anyway. */
 const DRAIN_WAIT_MS = 3000;
@@ -320,6 +320,60 @@ function discardCleanup(playerName: string): void {
     for (let i = cleanups.length - 1; i >= 0; i--) {
         if (cleanups[i].playerName === playerName) cleanups.splice(i, 1);
     }
+}
+
+/**
+ * Drop only the cells the inherited ledger already covers.
+ *
+ * A rebuild inherits the previous scene's ledger, so those cells are still tracked and will be
+ * cleared by the next teardown - dropping their pending task is safe and stops it punching holes
+ * into the new scene. Tasks holding cells that are NOT inherited keep running, because nothing else
+ * remembers them (that omission is what left pieces of a nudged preview on the client).
+ */
+function discardCleanupCovered(playerName: string, covered: Map<string, [number, number, number]>): void {
+    if (covered.size === 0) return;
+    for (let i = cleanups.length - 1; i >= 0; i--) {
+        const task = cleanups[i];
+        if (task.playerName !== playerName) continue;
+        const left: Array<[number, number, number]> = [];
+        for (const cell of task.cells) {
+            if (!covered.has(cell[0] + "," + cell[1] + "," + cell[2])) left.push(cell);
+        }
+        if (left.length === 0) cleanups.splice(i, 1);
+        else task.cells = left;
+    }
+}
+
+/**
+ * Detach a scene WITHOUT sending anything, handing its ledger over.
+ *
+ * A rebuild must not tear the old scene down (that is what discarded the old cells and produced
+ * residue after a nudge); it inherits what the client is already showing and diffs against it.
+ */
+function detachScene(xuid: string): { ledger: GhostLedger; dimid: number; playerName: string } | null {
+    const scene = scenes.get(xuid);
+    if (scene == null) return null;
+    scene.cancelled = true;
+    scene.queue = [];
+    if (scene.timer != null) {
+        clearInterval(scene.timer);
+        scene.timer = null;
+    }
+    if (scene.loadTimer != null) {
+        clearTimeout(scene.loadTimer);
+        scene.loadTimer = null;
+    }
+    try {
+        BatchSender.cancelOwner("preview:" + xuid);
+    } catch {
+        // best effort
+    }
+    scenes.delete(xuid);
+    return {
+        ledger: { applied: scene.applied, stale: scene.stale, everApplied: scene.everApplied },
+        dimid: scene.dimid,
+        playerName: scene.playerName,
+    };
 }
 
 function playerOnline(name: string): boolean {
@@ -434,25 +488,51 @@ export const PreviewScene = {
     ): BuildResult {
         const xuid = caPlayer.xuid;
         const realName = String(caPlayer.$?.realName ?? "");
-        // A rebuild must not race the previous scene's teardown: those cleanup tasks restore
-        // the real blocks and would punch holes into the cells we are about to draw.
-        if (realName !== "") discardCleanup(realName);
-        PreviewScene.clear(xuid);
+        const dimid = Number((caPlayer.$ as any)?.dimid ?? 0);
+
+        // A rebuild INHERITS the previous scene's ledger instead of tearing it down.
+        //
+        // The old code cleared here and started from an empty ledger, while also discarding the
+        // pending teardown so it could not punch holes into the new scene. Cells of the previous
+        // footprint that were no longer part of the plan then had nobody left to clear them: after a
+        // nudge or a rotate the preview left pieces of itself behind, and the final cancel only knew
+        // about the last scene's cells (measured: 1719 cells cleaned out of ~9000 drawn).
+        const previous = detachScene(xuid);
+        let carried: GhostLedger | null = null;
+        if (previous != null) {
+            if (canInheritLedger({ playerName: previous.playerName, dimid: previous.dimid },
+                { playerName: realName, dimid })) {
+                carried = previous.ledger;
+                discardCleanupCovered(realName, carried.everApplied);
+                teardownStats.carried += carried.applied.size;
+            } else {
+                // A different dimension or player cannot inherit: those cells can only be restored.
+                enqueueCleanup(previous.playerName, [...previous.ledger.everApplied.values()], previous.dimid, { waitForDrain: true });
+                discardCleanup(realName);
+            }
+        }
+        /** Hand the inherited cells to the cleanup queue when this build cannot go on. */
+        const giveUp = (result: BuildResult): BuildResult => {
+            if (carried != null && carried.everApplied.size > 0 && realName !== "") {
+                enqueueCleanup(realName, [...carried.everApplied.values()], dimid, { waitForDrain: true });
+            }
+            return result;
+        };
 
         if (!BlockView.available()) {
-            return {
+            return giveUp({
                 ok: false, blocks: 0, visible: 0, truncated: false,
                 reason: "需要 HologramLib 的方块覆盖接口（blockFakeSet，或旧版 viewBlock）",
-            };
+            });
         }
 
         if (realName === "") {
-            return { ok: false, blocks: 0, visible: 0, truncated: false, reason: "无法解析玩家名" };
+            return giveUp({ ok: false, blocks: 0, visible: 0, truncated: false, reason: "无法解析玩家名" });
         }
 
         const info = PreviewScene.gatherInfo(xuid);
         if (info.error != null) {
-            return { ok: false, blocks: 0, visible: 0, truncated: false, reason: info.error };
+            return giveUp({ ok: false, blocks: 0, visible: 0, truncated: false, reason: info.error });
         }
 
         const scene: Scene = {
@@ -474,9 +554,9 @@ export const PreviewScene = {
             sliceOrder: [],
             pending: [],
             windowBox: null,
-            applied: new Map(),
-            stale: new Map(),
-            everApplied: new Map(),
+            applied: carried?.applied ?? new Map(),
+            stale: carried?.stale ?? new Map(),
+            everApplied: carried?.everApplied ?? new Map(),
             resendRequested: false,
             resendAt: 0,
             resends: 0,
@@ -1114,37 +1194,19 @@ export const PreviewScene = {
 
     /** Drop the scene and clear every cell it applied (batched, never viewClearAll). */
     clear(xuid: string): void {
-        const scene = scenes.get(xuid);
-        if (scene == null) return;
-        scene.cancelled = true;
-        scene.queue = [];
-        if (scene.timer != null) {
-            clearInterval(scene.timer);
-            scene.timer = null;
-        }
-        if (scene.loadTimer != null) {
-            clearTimeout(scene.loadTimer);
-            scene.loadTimer = null;
-        }
-        scenes.delete(xuid);
+        // detachScene stops the timers and the queued pump jobs before anything is restored - a
+        // job that runs after the restore would draw the fake blocks right back. It also returns
+        // the ledger, which now carries every cell the scene ever drew (inherited across rebuilds
+        // included), so a cancel cleans the WHOLE preview instead of just the last footprint.
+        const detached = detachScene(xuid);
+        if (detached == null) return;
+        const ledger = detached.ledger;
+        const cells = teardownCells(ledger);
+        resetLedger(ledger as any);
 
-        // The union of everything this scene ever drew: `applied` alone is not enough, because a
-        // clear that could not be confirmed moved its cell to `stale`, and an older drift could
-        // have left cells that only `everApplied` still remembers.
-        const cells = teardownCells(scene);
-        resetLedger(scene);
-
-        // Stop feeding FIRST: a queued pump job that runs after the restore would draw the fake
-        // blocks right back.
-        try {
-            BatchSender.cancelOwner("preview:" + xuid);
-        } catch {
-            // the sender is best-effort
-        }
-
-        // Then restore through the deferred path, which waits for the library's own queue to
-        // drain and repeats the restore once, so a packet already in flight cannot survive.
-        enqueueCleanup(scene.playerName, cells, scene.dimid, { waitForDrain: true });
+        // Restore through the deferred path: it waits for the library's own queue to drain and
+        // repeats the restore once, so a packet already in flight cannot survive.
+        enqueueCleanup(detached.playerName, cells, detached.dimid, { waitForDrain: true });
     },
 
     /**
@@ -1222,7 +1284,7 @@ export const PreviewScene = {
         return "取消清理: 待处理 " + cleanups.length + " 条 · 累计 " + teardownStats.tasks + " 次/" +
             teardownStats.cells + " 格 · 等队列 " + teardownStats.waited + " 次 · 二次还原 " +
             teardownStats.passes + " 次 · 超时放行 " + teardownStats.deadlineHits + " · 失败 " +
-            teardownStats.failed + " 格" +
+            teardownStats.failed + " 格 · 继承 " + teardownStats.carried + " 格" +
             (BatchSender.pending() > 0 ? " · 发送队列 " + BatchSender.pending() : "");
     },
 

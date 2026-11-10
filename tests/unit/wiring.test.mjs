@@ -152,10 +152,14 @@ test('moving a preview keeps its cells (no rebuild, no stale cleanup)', () => {
         'set() must move the scene instead of rebuilding it');
 
     const scene = read('core/src/structure/PreviewScene.ts');
-    assert.ok(scene.includes('function discardCleanup('),
-        'a rebuild must drop that player stale cleanup tasks');
-    assert.ok(/if \(realName !== ""\) discardCleanup\(realName\);/.test(scene),
-        'build() must discard stale cleanup before clearing');
+    // A rebuild INHERITS the previous ledger instead of clearing and starting empty: clearing is
+    // what lost the old footprint (a nudged preview left pieces of itself behind).
+    assert.ok(scene.includes('function detachScene('),
+        'a rebuild must detach the old scene without emitting packets');
+    assert.ok(scene.includes('discardCleanupCovered('),
+        'only cells the inherited ledger covers may have their cleanup dropped');
+    assert.ok(scene.includes('carried?.applied ?? new Map()'),
+        'the new scene must start from the inherited ledger');
     assert.ok(scene.includes('canMove(xuid: string): boolean'), 'PreviewScene needs canMove()');
 });
 
@@ -212,7 +216,8 @@ test('the reset is gone from maybeResend (this is what left ghosts on the client
 
 test('the ledger owns applied / stale / everApplied', () => {
     const scene = read('core/src/structure/PreviewScene.ts');
-    assert.ok(scene.includes('teardownCells(scene)'), 'teardown must clear the union');
+    assert.ok(scene.includes('teardownCells('), 'teardown must clear the union');
+    assert.ok(scene.includes('detachScene(xuid)'), 'a cancel must detach before restoring');
     assert.ok(scene.includes('markOwed('), 'an unconfirmed clear must be owed, not dropped');
     assert.ok(scene.includes('takeOwed(scene'), 'owed clears must be retried');
     assert.ok(scene.includes('scene.stale.size > 0'), 'the pump must service owed clears first');

@@ -25,6 +25,18 @@ fixes are based on.
 - **`/ca tools debug`** now prints the HologramLib capability matrix and resolves a sample stair
   through both resolvers, which is what told us the string resolver is name-only.
 
+### Fixed (3.9.5-beta1, residue after moving or rotating the preview)
+
+- **A rebuild inherits the previous ledger instead of clearing it.** Every nudge/rotate rebuilt the
+  scene with `clear()` and discarded the pending teardown, so cells of the old footprint that were
+  no longer part of the plan had nobody left to clear them - the cancel only knew the last scene's
+  cells (measured: 1719 cells cleaned out of ~9000 drawn). `detachScene()` now stops the timers and
+  the queued jobs without sending a packet and hands `applied/stale/everApplied` to the new scene, so
+  the diff clears whatever left the footprint and a cancel covers everything the preview ever drew.
+  Inheriting is refused across dimensions/players (`CleanupGate.canInheritLedger`), where the old
+  cells are restored instead.
+- `/ca tools debug` reports `… · 继承 N 格` so the inherited footprint is visible.
+
 ### Fixed (3.9.5-beta1, cancel left half a preview behind)
 
 - **Cancelling during a build no longer leaves fake blocks on the client.** A batch larger than

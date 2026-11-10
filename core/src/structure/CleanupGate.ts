@@ -43,4 +43,23 @@ export function shouldWaitForDrain(input: DrainGateInput): DrainGateResult {
     return { wait: true, expired: false };
 }
 
-export default { shouldWaitForDrain };
+/**
+ * May a rebuild inherit the previous scene's ledger?
+ *
+ * Inheriting is what keeps a nudged/rotated preview clean: the cells it already drew stay tracked,
+ * so the next diff clears the ones that left the footprint instead of forgetting them. It is only
+ * valid for the SAME player in the SAME dimension - otherwise those cells must be restored, because
+ * nothing about the new scene can clear them.
+ */
+export function canInheritLedger(
+    previous: { playerName: string; dimid: number } | null | undefined,
+    next: { playerName: string; dimid: number }
+): boolean {
+    if (previous == null) return false;
+    const a = String(previous.playerName ?? "");
+    const b = String(next?.playerName ?? "");
+    if (a === "" || b === "" || a !== b) return false;
+    return Number(previous.dimid ?? 0) === Number(next?.dimid ?? 0);
+}
+
+export default { shouldWaitForDrain, canInheritLedger };
