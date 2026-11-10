@@ -265,3 +265,11 @@ test('posf bindings are migrated on the first click, not only when a binding is 
         'every click must check it - a ${posf} binding resolves fine and keeps selecting the face plane');
     assert.ok(op.includes('migratePosfBindings(caPlayer.settings)'), 'it must rewrite the stored bindings');
 });
+
+test('the per-burst preview log is debug-only', () => {
+    const scene = read('core/src/structure/PreviewScene.ts');
+    const log = scene.slice(scene.indexOf('logBurst(scene: Scene)'), scene.indexOf('logBurst(scene: Scene)') + 900);
+    assert.ok(log.includes('debugMod'), 'the burst counter must be gated on debugMod');
+    assert.ok(log.indexOf('debugMod') < log.indexOf('logger.info'),
+        'the gate has to be checked BEFORE writing the line');
+});

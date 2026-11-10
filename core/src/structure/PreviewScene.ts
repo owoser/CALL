@@ -732,11 +732,26 @@ export const PreviewScene = {
         if (kept < ops.length) scene.batchFallbacks++;
     },
 
-    /** One INFO line per drained burst (never per tick), for evidence in the log. */
+    /**
+     * Per-burst counter line - `debugMod` only.
+     *
+     * It was unconditional and a normal preview session prints one per second, which is noise on a
+     * production console. The counters are still kept (they drive nothing else) and the line appears
+     * as soon as `debugMod` is on, which is when somebody actually wants them.
+     */
     logBurst(scene: Scene): void {
         const now = Date.now();
         if (scene.batches === 0 || now - scene.batchLogAt < 1000) return;
         scene.batchLogAt = now;
+        try {
+            if (Config.get(Config.GLOBAL, "debugMod", false) !== true) {
+                scene.logBatches = scene.batches;
+                scene.logCells = scene.batchCells;
+                return;
+            }
+        } catch {
+            return;
+        }
         const batches = scene.batches - scene.logBatches;
         const cells = scene.batchCells - scene.logCells;
         scene.logBatches = scene.batches;

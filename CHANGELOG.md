@@ -13,6 +13,11 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Changed (3.9.5-beta1, build 36)
+
+- The per-burst `[CALL][preview] +N 批 / +M 格` line is `debugMod`-only. It printed about once per
+  second during a normal preview session, which is noise on a production console; the counters are
+  still kept and the line comes back the moment `debugMod` is on.
 ### Fixed (3.9.5-beta1, build 35)
 
 - **`/ca area a|b` with no coordinates now selects the block UNDER the feet.** It used
