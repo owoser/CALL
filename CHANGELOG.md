@@ -13,6 +13,12 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Added (3.9.5-beta1, build 33)
+
+- `ca.areaSetFromCommand` (live): the area handler is fed the exact args the command parser
+  produces (`IntPos(1376,179,-44)` / `IntPos(1377,179,-45)`) and the stored corners are asserted to
+  be verbatim. Together with the click log and the geometric correction this closes the whole
+  chain: event block -> clicked block -> `${block.pos}` -> command -> stored area.
 ### Fixed (3.9.5-beta1, build 32)
 
 - **The point is derived from the HIT POINT when the event block disagrees.** A click on a face

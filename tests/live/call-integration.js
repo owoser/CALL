@@ -1447,6 +1447,25 @@ async function runSuite() {
         return "box(10,20,30)-(12,21,32) location=" + JSON.stringify(loc)
             + (corner ? " => CORNER anchor" : centre ? " => CENTRE anchor" : " => ?");
     });
+    // --- the area command stores exactly the coordinates it is given --------
+    await checkAsync("ca.areaSetFromCommand", async () => {
+        const Players = require(path.join(M.root, "core", "src", "user", "Players.js")).default;
+        const AreaOperation = require(path.join(M.root, "core", "src", "structure", "AreaOperation.js")).default;
+        const cap = fakePlayer(sim);              // has $ + settings, like every other harness case
+        cap.settings.area = {
+            start: { x: null, y: null, z: null, dimid: null },
+            end: { x: null, y: null, z: null, dimid: null },
+        };
+        const out = { success() { }, error(m) { throw new Error(String(m)); } };
+        // this is exactly what /ca area a|b receives from the command parser
+        AreaOperation.start(out, cap, { enum_1: "a", IntPos: new IntPos(1376, 179, -44, DIM) });
+        AreaOperation.start(out, cap, { enum_1: "b", IntPos: new IntPos(1377, 179, -45, DIM) });
+        const area = cap.settings.area;
+        assert(area.start.z === -44, "A must be stored verbatim, got " + JSON.stringify(area.start));
+        assert(area.end.z === -45 && area.end.y === 179,
+            "B must be stored verbatim, got " + JSON.stringify(area.end));
+        return "area a 1376 179 -44 / b 1377 179 -45 -> stored verbatim";
+    });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;
         const t = spot(19);
