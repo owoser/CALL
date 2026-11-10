@@ -5,7 +5,7 @@
 .gitignore[FC5T]: F:忽略 node_modules、dist 产物、CALL-CLI 的 bin/obj 与本地草稿日志，并注明 types/lse 是刻意入库 | R:code:package.json | A:- | S:types/lse 虽是 fetch-types 生成却必须入库，忽略它会同时破坏 typecheck 与类型契约
 .prettierrc[FC3T]: F:Prettier 格式约定：双引号、分号、4 空格缩进、80 列 | R:- | A:- | S:只有格式约定无强制 lint；改 tabWidth 会波及全仓 TS 缩进，应单独提交
 AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库导出面闸门与状态串规则、发版门禁、提交闸门）加 AOCI 托管区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md,code:core/src/holo/HoloCompat.ts | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:aoci 区块由 init 维护不可手改；能力判定已改为按导出面，勿再加入发布号门槛
-CHANGELOG.md[SC8L]: F:版本史：逐版本记录移植修复，含 SNBT 自写序列化、旋转状态重映射与取消清理（计划即记账、清除不等于确认） | R:code:README.md | A:顶部 3.9.5-beta1 下的 Added/Fixed/Changed/Docs 段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
+CHANGELOG.md[SC8L]: F:版本史：逐版本记录移植修复，含 SNBT 自写序列化、取消清理时序与"打包格式装不下的格子"补发 | R:code:README.md | A:顶部 3.9.5-beta1 下的 Added/Fixed/Changed/Docs 段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
 LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
 README.md[SC8M]: F:对外说明：fork 缘由、版本矩阵（含可选 HologramLib）、内置工具、构建与真机测试、参考链接 | R:code:CHANGELOG.md,code:docs/user/install.md | A:Why this fork exists、References | S:版本矩阵与发版门禁口径须与 docs/ 一致，改一处两处同步
 build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
@@ -128,7 +128,7 @@ SafeArgs.ts[RS8M]: F:出站参数校验：血条颜色/百分比、消息类型�
 ===E:/code/LL3/Plugins/CALL/core/src/holo/===
 BlockView.ts[IM8M]: F:客户端方块覆盖桥：blockFakeSet 状态串、blockFakeSetNbt 按 SNBT 铺块、方块实体推送，viewBlock 仅旧库回退 | R:code:holo/HoloCompat.ts,code:holo/PasteSync.ts | A:backend/statesExact/set/setBlockNbt/setBlockEntity | S:绝不再用 viewBlockById 写持久注册表；一次预览只能用一个覆盖族
 BossBar.ts[IM6M]: F:血条封装：创建、改标题、改进度、移除，只操作自己创建的 id | R:code:core/src/holo/Holo.ts | A:BossBar.add/remove | S:绝不调用 bossBarRemoveAll，那会清掉其他插件的血条
-FakeBlocks.ts[IR8M]: F:假方块批量适配：打包下发、按真实方块还原（restore/restoreDetailed 含 selfTest 探针）、状态串键去引号与库计数解析（含 dropped/bad） | R:code:holo/Holo.ts,code:structure/BatchSender.ts | A:set、restore、restoreDetailed、selfTest、unquoteStateKeys、parseStats | S:库的队列无容量上限，只会因 findPlayer 失败或包体编码为空而丢包；还原串必须用裸键，否则整条被拒
+FakeBlocks.ts[IR8M]: F:假方块批量适配：打包下发、按真实方块还原（restoreDetailed 返回实际还原/不可打包/不可读三类）、状态串键去引号与库计数解析 | R:code:holo/Holo.ts,code:structure/BatchSender.ts | A:set、restore、restoreDetailed、isPackableId、unquoteStateKeys、parseStats | S:packCells 会跳过含分号或非整数坐标的条目；忽略 skipped 就会"报已还原但没发包"，必然残留
 Holo.ts[IR8S]: F:HologramLib 防御式桥接：一次性 ll.import 绑定，库缺失或缺 lrca 时所有调用为 no-op | R:code:core/src/holo/HoloCompat.ts | A:Holo.available/bind | S:函数必须绑定一次复用，禁止在 tick 内 ll.import；库缺失应降级而不是报错
 HoloCompat.ts[IR8M]: F:库能力闸门：按导出面探测 swing、状态串、批量、方块实体与 SNBT，版本串仅用于日志 | R:code:core/src/holo/Holo.ts,code:core/src/holo/BlockView.ts | A:status()、caps、probe()、removeReliable() | S:442 与 450 导出都自称 ABI 1.37.0，禁止用发布号判能力
 ItemDisplay.ts[IM5S]: F:用 item display 做假方块预览：固定姿态参数并走无缝创建接口 | R:code:core/src/holo/Holo.ts | A:BLOCK_MODE、itemDisplayCreateSeamless | S:先创建再 SetMode 会重生显示并错位；坐标是底部中心，y 取整、x/z 取 +0.5
@@ -188,7 +188,7 @@ PreviewHud.ts[DU6S]: F:预览 HUD 纯函数：倒计时文案与样式、手势�
 PreviewHudLock.ts[DU5T]: F:动作条占用锁：预览倒计时期间占位，选区提示让出，避免每秒互相覆盖 | R:code:core/src/structure/AreaDisplayerService.ts | A:hold/release | S:锁短时且须成对释放，泄漏会让选区提示长期不显示
 PreviewOperation.ts[AU9L]: F:预览总控：锚点与枢轴、旋转镜像、倒计时、手势与 HUD、超时清理与场景重建 | R:code:core/src/structure/PreviewScene.ts,code:core/src/structure/PreviewPlan.ts | A:PreviewState、anchorOf | S:旋转四次必须零下发靠 diff；重建不得清掉即将重画的格子
 PreviewPlan.ts[DU8M]: F:纯规划：格子到世界坐标的映射与差量，并按真实角度重算带状态方块的 id 与 SNBT | R:code:structure/StateRemap.ts,code:structure/SurfaceExtract.ts | A:planCells、diffPlacement | S:提取恒 0°，状态重映射必须在这里做；每个 palette 条目每角度只算一次
-PreviewScene.ts[AU9L]: F:预览场景：三模式构建、批量与逐格下发、计划即记账、重建继承账本、取消先停喂再等排空并双次还原，并打印库丢包/坏项与载荷自检 | R:code:structure/PreviewPlan.ts,code:structure/CleanupGate.ts,code:holo/FakeBlocks.ts | A:build、enqueue、detachScene、clear、drainCleanup、teardownReport | S:取消必须按"计划过且清除过"的格子还原；还原日志的三个数字决定残留属于库侧还是客户端侧
+PreviewScene.ts[AU9L]: F:预览场景：三模式构建、批量与逐格下发、计划即记账、重建继承账本、取消先停喂再等排空并双次还原，并对不可打包格子单格补发 | R:code:structure/PreviewPlan.ts,code:structure/CleanupGate.ts,code:holo/FakeBlocks.ts | A:build、enqueue、detachScene、clear、drainCleanup、teardownReport | S:取消必须覆盖"计划过、清除过、可还原"三类格子；还原日志的 changes/bad 与单格补发数决定残留归属
 Rotate.ts[KD8M]: F:旋转与镜像数学：偏移变换、枢轴平移与旋转后的目标脚印 | R:code:core/src/structure/Clipboard.ts | A:rotateOffset、rotatedUnion | S:锚点固定在目标盒最小角，旋转只转盒内图案，不翻到反侧
 StructureOperation.ts[AD9L]: F:/ca structure 总命令：保存/载入/删除/列表、撤销重做与跨玩家共享 | R:code:core/src/structure/StructureService.ts,code:core/src/structure/StructureStore.ts | A:子命令分发 | S:结构名解析要同时接受 id 与显示名，旧数据里两者都可能出现
 StructurePlacement.ts[DD9L]: F:结构放置：镜像旋转映射、占用区计算、逐块写入并回读校验，方块实体经 SNBT 往返后写入并触发客户端重画 | R:code:io/NbtCodec.ts,code:holo/PasteSync.ts | A:coveredArea、placeNbtAsync、flushBlockEntities、blockEntityPayload | S:setStructure 会段错误；setNbt 会返回 true 却留空，必须回读校验；BE 载荷优先 NBT.parseSNBT(snbtOf())
@@ -264,7 +264,7 @@ index.html[SV5T]: F:文档站外壳：本地化 docsify 资源与初始化配置
 architecture.md[SG8S]: F:平台坑机制：七条铁律、坐标语义、预览选型与实测，含 SNBT 自写序列化、取消清理时序与批量排队覆盖即时写 | R:code:docs/dev/pitfalls.md,code:docs/ARCHITECTURE.md | A:第 9 节坐标、第 10 节预览与实测表 | S:与 AGENTS.md 和 docs/ARCHITECTURE.md 重叠，改一处须三处同步
 plugin.md[SG6M]: F:形状包开发须知：文件结构、必须导出的定义、参数与命令生成流程 | R:code:docs/dev/shape.md | A:形状包开发 | S:包必须含一个 js 入口定义包名与形状数组，缺任一字段即不会被加载
 shape.md[SG6L]: F:形状包 API：export_cmd 生成函数与表单函数的签名、参数与示例 | R:code:docs/dev/plugin.md | A:导出函数 | S:签名与 Plugin.ts 的 IPlugin 契约绑定，参数顺序变更属破坏性改动
-pitfalls.md[SG8T]: F:真机台账：A–G 分类症状到根因到验证，含 C20 重建丢失旧足迹、C21 漏记与 C22 清除≠确认 | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式，否则下次仍靠肉眼猜
+pitfalls.md[SG8T]: F:真机台账：A–G 分类症状到根因到验证，含 C22 清除≠确认与 C23 打包格式静默丢弃导致取消残留 | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式，否则下次仍靠肉眼猜
 release.md[SG7T]: F:发版规范：触发授权、前置闸门清单（含 check:version）、版本策略、产物约定、单次发布步骤、事故恢复与禁止项 | R:code:scripts/check-version.mjs,code:CHANGELOG.md | A:第 3 节前置清单、第 5 节发布动作、第 8 节禁止项 | S:未获维护者明确指令不得发版；发布包不入库；变更日志顶部段落须等于当前版本
 
 ===E:/code/LL3/Plugins/CALL/docs/other/===

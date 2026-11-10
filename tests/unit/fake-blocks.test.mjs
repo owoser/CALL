@@ -97,6 +97,24 @@ test('a descriptor the packed format cannot carry is reported, not silently drop
     assert.equal(packed.segments[0], '0 0 0 minecraft:stone');
 });
 
+test('no packed segment exceeds the measured string limit', () => {
+    const { packCells, PACK_MAX_BYTES } = load();
+    // 16 KB is where LSE truncates the argument; anything above it is silently lost.
+    assert.ok(PACK_MAX_BYTES <= 16 * 1024, 'the segment budget must stay under the ~16 KB FFI limit');
+    const cells = [];
+    for (let i = 0; i < 5000; i++) {
+        cells.push({ x: i % 100, y: 64, z: Math.floor(i / 100), id: 'minecraft:oak_stairs[weirdo_direction=2,upside_down_bit=false]' });
+    }
+    const packed = packCells(cells);
+    assert.equal(packed.skipped, 0);
+    assert.ok(packed.segments.length > 1, 'a big payload must be split, not sent as one truncated string');
+    for (const segment of packed.segments) {
+        assert.ok(segment.length <= PACK_MAX_BYTES, 'segment of ' + segment.length + ' bytes exceeds the budget');
+    }
+    const total = packed.segments.reduce((n, s) => n + s.split(';').length, 0);
+    assert.equal(total, 5000, 'every cell must survive the split: ' + total);
+});
+
 test('without the library the adapter reports itself unavailable', () => {
     const { FakeBlocks } = load();
     FakeBlocks.setSource({ set: null, clear: null });

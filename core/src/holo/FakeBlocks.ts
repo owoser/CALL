@@ -29,10 +29,20 @@ export interface PackResult {
     skipped: number;
 }
 
-/** One packed string is kept well below the library limit; a segment is one or more packets. */
-export const PACK_MAX_BYTES = 512 * 1024;
-/** Cells per `blockBatchClear` call (the library splits the packets itself). */
-export const CLEAR_CHUNK = 4096;
+/**
+ * Bytes per packed string - measured, not guessed.
+ *
+ * LSE truncates the string it passes to `ll.import` at ~16 KB. Everything past that point never
+ * reaches the library, and NOTHING reports an error: `blockBatchSelfTest` shows it as fewer
+ * `changes` than we packed (measured 1295 of 5981 at 84 KB, 1192 of 1516 at 21 KB, while a 14-cell
+ * preview parsed all 14). That truncation was the real cause of both the "preview has a hole" and
+ * the "cancel leaves most of the structure behind" reports.
+ *
+ * 12 KB keeps every segment a safe margin below the limit; the cost is more, smaller batches.
+ */
+export const PACK_MAX_BYTES = 12 * 1024;
+/** Cells per `blockBatchClear` call - the same ~16 KB string limit applies to its positions. */
+export const CLEAR_CHUNK = 1024;
 
 function isInt(n: unknown): boolean {
     return typeof n === "number" && Number.isFinite(n) && Math.floor(n) === n;

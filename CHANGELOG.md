@@ -25,6 +25,18 @@ fixes are based on.
 - **`/ca tools debug`** now prints the HologramLib capability matrix and resolves a sample stair
   through both resolvers, which is what told us the string resolver is name-only.
 
+### Fixed (3.9.5-beta1, the 16 KB packed-string truncation)
+
+- **This is the root cause of both the preview holes and the cancel residue.** LSE truncates the
+  string it hands to `ll.import` at roughly 16 KB, and `PACK_MAX_BYTES` was 512 KB, so any batch
+  bigger than that lost everything past the cut - silently, on both the draw and the restore path.
+  Measured with `blockBatchSelfTest` against our own payload: 1295 changes out of 5981 packed,
+  1192 of 1516, while a 14-cell preview parsed all 14. The gap grows with the structure, which is
+  exactly what was reported ("small builds are clean, big ones leave almost everything behind").
+- `PACK_MAX_BYTES` is now 12 KB (a 25% margin), so a large payload is split into several verified
+  segments; `CLEAR_CHUNK` drops to 1024 for the same reason. A unit test pins the budget below the
+  measured limit and asserts every cell survives the split.
+
 ### Fixed (3.9.5-beta1, cells the packed format cannot carry)
 
 - **Restore now reports (and repairs) entries the batch format refuses.** `packCells()` silently
