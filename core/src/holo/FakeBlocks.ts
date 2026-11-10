@@ -261,10 +261,16 @@ export const FakeBlocks = {
         probe?: string[];
         /** Entries the library did NOT see in a segment we packed (the 16 KB truncation tripwire). */
         truncated?: number;
+        /** Cells whose chunk the server does not have loaded in THAT dimension. */
+        unloaded?: number;
+        /** Cells whose block could not be turned into a descriptor (exception). */
+        failed?: number;
     } {
         const entries: FakeCell[] = [];
         const skipped: Array<[number, number, number]> = [];
         const direct: FakeCell[] = [];
+        let unloaded = 0;
+        let failed = 0;
         for (const [x, y, z] of cells) {
             let id = "";
             try {
@@ -279,10 +285,14 @@ export const FakeBlocks = {
                 }
             } catch {
                 id = "";
+                failed++;
             }
             if (isPackableId(id)) entries.push({ x, y, z, id });
             else if (id !== "") direct.push({ x, y, z, id });
-            else skipped.push([x, y, z]);
+            else {
+                skipped.push([x, y, z]);
+                if (id === "") unloaded++;
+            }
         }
         if (entries.length === 0) return { restored: [], skipped, direct };
 
@@ -329,8 +339,8 @@ export const FakeBlocks = {
         }
         const restored = entries.map((e) => [e.x, e.y, e.z] as [number, number, number]);
         return probe.length > 0
-            ? { restored, skipped, direct, probe, truncated }
-            : { restored, skipped, direct };
+            ? { restored, skipped, direct, probe, truncated, unloaded, failed }
+            : { restored, skipped, direct, unloaded, failed };
     },
 
     /**

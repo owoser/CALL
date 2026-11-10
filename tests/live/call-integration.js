@@ -742,6 +742,15 @@ async function runSuite() {
 
         const before = Number((/累计 (\d+) 次/.exec(PreviewScene.teardownReport()) || [])[1] || 0);
         PreviewOperation.set(out, cap, new M.Pos3(where.x, where.y + 5, where.z, DIM));
+
+        // The scene must live in the PLAYER's dimension (pos.dimid). A Player has no dimid field, so
+        // reading it off the player silently pinned everything to the Overworld and the Nether/End
+        // teardown restored nothing (可读=0 for every cell).
+        const sceneInfo = PreviewScene.activeScene(cap.xuid);
+        assert(sceneInfo != null, "the preview did not register a scene");
+        assert(sceneInfo.dimid === Number(cap.$.pos.dimid),
+            "the scene must use the PLAYER's dimension (pos.dimid), got " + sceneInfo.dimid);
+
         // Let a few ticks of the build run so the scene has cells on the client, then cancel while
         // it is STILL pumping: that is the case that used to leave a half structure behind.
         await new Promise((r) => setTimeout(r, 400));

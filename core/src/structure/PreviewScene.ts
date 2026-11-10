@@ -36,6 +36,7 @@ import HoloCompat from "../holo/HoloCompat";
 import { FakeBlocks, packCells } from "../holo/FakeBlocks";
 import BatchSender, { TICK_MS } from "./BatchSender";
 import { canInheritLedger, shouldWaitForDrain } from "./CleanupGate";
+import { dimensionOf } from "../common/Dimension";
 import { GhostLedger, markCleared, markOwed, markSet, resetLedger, takeOwed, teardownCells } from "./GhostLedger";
 import { MsgType, online, tell } from "../util/Msg";
 import StrFactory from "../util/StrFactory";
@@ -499,7 +500,8 @@ export const PreviewScene = {
     ): BuildResult {
         const xuid = caPlayer.xuid;
         const realName = String(caPlayer.$?.realName ?? "");
-        const dimid = Number((caPlayer.$ as any)?.dimid ?? 0);
+        // Player objects carry NO dimid (only IntPos/FloatPos do) - see common/Dimension.ts.
+        const dimid = dimensionOf(caPlayer);
 
         // A rebuild INHERITS the previous scene's ledger instead of tearing it down.
         //
@@ -554,7 +556,7 @@ export const PreviewScene = {
             mirror,
             pivot,
             playerName: realName,
-            dimid: Number((caPlayer.$ as any)?.dimid ?? 0),
+            dimid,
             cancelled: false,
             mode: "full",
             blocks: [],
@@ -716,7 +718,7 @@ export const PreviewScene = {
      * windows are skipped so a 200k-cell scene cannot flush itself every few seconds.
      */
     maybeResend(scene: Scene, center: { x: number; y: number; z: number }, player: any): void {
-        const chunk = Math.floor(center.x / 16) + "," + Math.floor(center.z / 16) + "," + String(player?.dimid ?? 0);
+        const chunk = Math.floor(center.x / 16) + "," + Math.floor(center.z / 16) + "," + String(scene.dimid);
         const changed = scene.lastChunk != null && scene.lastChunk !== chunk;
         scene.lastChunk = chunk;
 
@@ -1335,6 +1337,14 @@ export const PreviewScene = {
                 if (result.skipped.length > 0) {
                     // The chunk is gone / the block cannot be read: nothing left to restore there.
                     teardownStats.skipped += result.skipped.length;
+                    if (result.restored.length === 0 && task.cells.length > 0) {
+                        // NOTHING could be read: almost always the wrong DIMENSION (a Player has no
+                        // dimid; only positions do) or an unloaded chunk. Say it out loud.
+                        const sample = result.skipped.slice(0, 3).map((c) => c.join(",")).join(" / ");
+                        logger.error("[CALL][preview] 还原一格都没读到: 维度=" + task.dimid +
+                            " 请求=" + task.cells.length + " 未加载=" + (result.unloaded ?? 0) +
+                            " 解析失败=" + (result.failed ?? 0) + " 样例=" + sample);
+                    }
                 }
                 // A full restore still can be followed by a packet that was already in flight:
                 // one extra pass on a later tick closes that window (idempotent - it re-sends the
@@ -1375,6 +1385,13 @@ export const PreviewScene = {
             teardownStats.failed + " 格 · 单格补发 " + teardownStats.direct + " 格 · 不可读 " +
             teardownStats.skipped + " 格 · 继承 " + teardownStats.carried + " 格" +
             (BatchSender.pending() > 0 ? " · 发送队列 " + BatchSender.pending() : "");
+    },
+
+    /** Dimension/mode of the live scene (tests: the scene must use the player's real dimension). */
+    activeScene(xuid: string): { dimid: number; mode: SceneMode; applied: number } | null {
+        const scene = scenes.get(xuid);
+        if (scene == null) return null;
+        return { dimid: scene.dimid, mode: scene.mode, applied: scene.applied.size };
     },
 
     /** Pending teardown tasks (tests: a cancel must end with zero). */

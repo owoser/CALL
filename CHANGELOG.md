@@ -25,6 +25,19 @@ fixes are based on.
 - **`/ca tools debug`** now prints the HologramLib capability matrix and resolves a sample stair
   through both resolvers, which is what told us the string resolver is name-only.
 
+### Fixed (3.9.5-beta1, the Nether / End residues)
+
+- **The dimension was read from the wrong object.** LSE exposes `dimid` on `IntPos`/`FloatPos`
+  only - a `Player` has no such field - so `Number(player.$.dimid ?? 0)` silently pinned every
+  preview to the Overworld. That is invisible there and fatal elsewhere: the teardown asked the
+  Overworld for Nether/End coordinates, got `null` for every cell and restored nothing
+  (measured: `还原: 请求=1471 可读=0 不可读=1471`, so the previews stayed on screen).
+  `common/Dimension.dimensionOf()` now takes it from `pos.dimid` (falling back to the selection
+  area, treating LSE's `-1` as unknown) and is used by the scene, the chunk-change key and the
+  paste repaint.
+- A restore that cannot read a SINGLE cell now logs an error with the dimension, the counts and
+  three sample coordinates instead of quietly doing nothing.
+
 ### Fixed (3.9.5-beta1, pasting right after adjusting the preview)
 
 - **A paste no longer races the preview teardown.** Restore packets carry the block the world had

@@ -36,6 +36,7 @@
 6. Boss 条颜色枚举只有 0..7；越界会让**客户端断连而服务端存活**。
 7. `Player` 句柄不能缓存，每次 `mc.getPlayer(xuid)` 现取。
 8. 加载区块用 `tickingarea` 租约，不传送玩家；`mc.getBlock` 能读到 ≠ `/fill` 能执行。
+9. **维度只在坐标对象上**：`IntPos`/`FloatPos` 有 `dimid`，`Player` **没有**（取到 `undefined`）。一律用 `common/Dimension.dimensionOf()`，`?? 0` 会把地狱/末地当成主世界，且不报错——表现是"还原一格都没读到"。
 
 > 机制与实测数据见 `docs/dev/architecture.md`。
 
