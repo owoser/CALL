@@ -186,7 +186,22 @@ export const FakeBlocks = {
      * skipped so the caller can keep them owed.
      */
     restore(playerName: string, cells: Array<[number, number, number]>, dimid = 0): number {
+        return FakeBlocks.restoreDetailed(playerName, cells, dimid).restored.length;
+    },
+
+    /**
+     * Restore and report WHICH cells were restored.
+     *
+     * Returning only a count was wrong: cells whose block could not be read are skipped, so the
+     * caller's `slice(count)` removed the wrong positions and left the skipped ones behind while
+     * claiming they were done - a residue source that looks like "cleanup reported 0 failures".
+     */
+    restoreDetailed(playerName: string, cells: Array<[number, number, number]>, dimid = 0): {
+        restored: Array<[number, number, number]>;
+        skipped: Array<[number, number, number]>;
+    } {
         const entries: FakeCell[] = [];
+        const skipped: Array<[number, number, number]> = [];
         for (const [x, y, z] of cells) {
             let id = "";
             try {
@@ -200,15 +215,18 @@ export const FakeBlocks = {
                 id = "";
             }
             if (id !== "") entries.push({ x, y, z, id });
+            else skipped.push([x, y, z]);
         }
-        if (entries.length === 0) return 0;
+        if (entries.length === 0) return { restored: [], skipped };
 
         const packed = packCells(entries);
-        if (packed.segments.length === 0) return 0;
+        if (packed.segments.length === 0) return { restored: [], skipped: [...skipped, ...entries.map((e) => [e.x, e.y, e.z] as [number, number, number])] };
         for (const segment of packed.segments) {
-            if (FakeBlocks.set(playerName, segment, false) < 0) return 0;
+            if (FakeBlocks.set(playerName, segment, false) < 0) {
+                return { restored: [], skipped: [...skipped, ...entries.map((e) => [e.x, e.y, e.z] as [number, number, number])] };
+            }
         }
-        return entries.length;
+        return { restored: entries.map((e) => [e.x, e.y, e.z] as [number, number, number]), skipped };
     },
 
     /**

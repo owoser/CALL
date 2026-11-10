@@ -25,6 +25,22 @@ fixes are based on.
 - **`/ca tools debug`** now prints the HologramLib capability matrix and resolves a sample stair
   through both resolvers, which is what told us the string resolver is name-only.
 
+### Fixed (3.9.5-beta1, cancel covers the whole plan)
+
+- **A cancel now restores every cell the plan asked for**, not only the cells whose packet was
+  confirmed. The ledger only recorded successful draws, so any draw path that missed its mark (the
+  per-cell block-entity path, which grew a lot once banners serialised correctly) left fake blocks
+  that no teardown knew about - the residue appeared exactly after that change even though the
+  cancel code itself was untouched. `enqueue()` now registers every desired cell in
+  `everApplied`, and the teardown restores that superset (re-sending a real block is a no-op).
+  Measured in the headless suite: the same cancel reports 572 cells instead of 0.
+- `FakeBlocks.restoreDetailed()` reports WHICH cells were restored; cleanup removes exactly those
+  instead of slicing by count (cells whose block cannot be read used to shift the slice and drop
+  the wrong positions while reporting success). Unreadable cells are counted separately
+  (`不可读 N 格`) so it cannot retry forever.
+- `debugMod` adds `[preview] 取消: applied/stale/ever/清理/队列` so the next report shows whether
+  the ledger and the plan agree.
+
 ### Fixed (3.9.5-beta1, residue after moving or rotating the preview)
 
 - **A rebuild inherits the previous ledger instead of clearing it.** Every nudge/rotate rebuilt the

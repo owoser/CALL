@@ -191,8 +191,10 @@ test('the preview sends through the batch API', () => {
         'a chunk must be one library call');
     // Teardown moved into drainCleanup(), which waits for the library queue and repeats the
     // restore once - a queued batch landing after the restore is what left a half structure.
-    assert.ok(scene.includes('FakeBlocks.restore(task.playerName, task.cells, task.dimid)'),
-        'teardown must restore the real blocks in one batch');
+    assert.ok(scene.includes('FakeBlocks.restoreDetailed(task.playerName, task.cells, task.dimid)'),
+        'teardown must restore the real blocks and know WHICH cells went out');
+    assert.ok(scene.includes('scene.everApplied.set('),
+        'the plan itself must register every desired cell (a missed mark becomes a ghost)');
     assert.ok(scene.includes('cancelOwner('), 'a cancel must stop feeding the library queue first');
     assert.ok(scene.includes('waitForDrain'), 'teardown must wait for the library queue to drain');
     assert.ok(scene.includes('passes'), 'teardown must repeat the restore once');

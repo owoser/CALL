@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-10T05:51:09Z",
-  "updated_at": "2026-11-10T12:10:03Z",
+  "updated_at": "2026-11-10T12:29:15Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -53,9 +53,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "9a2349409e33cdec852d8af194150e1eca8f7f4d969decee57a97bdb5ad4cc65",
-      "size": 91915,
-      "normalized_sha256": "9a2349409e33cdec852d8af194150e1eca8f7f4d969decee57a97bdb5ad4cc65"
+      "sha256": "fabebad1978a54c64a6d14255c664f0a7ff9b4f9e4c14698a07f1fbff7c7dac7",
+      "size": 92804,
+      "normalized_sha256": "fabebad1978a54c64a6d14255c664f0a7ff9b4f9e4c14698a07f1fbff7c7dac7"
     },
     "LICENSE": {
       "role": "index",
@@ -71,9 +71,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "61eab0807f2bf4af9bc3783c45c31646176f5594ecfd11c91bf3846390a83db1",
-      "size": 67057,
-      "normalized_sha256": "61eab0807f2bf4af9bc3783c45c31646176f5594ecfd11c91bf3846390a83db1"
+      "sha256": "4e88fb22ea3cd4dedb1020a9fff11c3e3a67af964926d6cf113d785846967b5e",
+      "size": 67126,
+      "normalized_sha256": "4e88fb22ea3cd4dedb1020a9fff11c3e3a67af964926d6cf113d785846967b5e"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -790,9 +790,9 @@
     },
     "core/src/structure/CleanupGate.ts": {
       "role": "index",
-      "sha256": "2d9a6e2bc7b715eb3e0607d4a8b33711a61842ac6dc927e0eeda6d6743493dd9",
-      "size": 1752,
-      "normalized_sha256": "2d9a6e2bc7b715eb3e0607d4a8b33711a61842ac6dc927e0eeda6d6743493dd9"
+      "sha256": "f6d2ea273707541d5a2ec280369b825c31925052b7ad3d1635729e7e78dee922",
+      "size": 2611,
+      "normalized_sha256": "f6d2ea273707541d5a2ec280369b825c31925052b7ad3d1635729e7e78dee922"
     },
     "core/src/structure/Clipboard.ts": {
       "role": "index",
@@ -850,9 +850,9 @@
     },
     "core/src/structure/PreviewScene.ts": {
       "role": "index",
-      "sha256": "90dfc3884372fc1d8c1b14d227e5d539cae06f988b3b7660b4cbfe7f9db01f69",
-      "size": 57044,
-      "normalized_sha256": "90dfc3884372fc1d8c1b14d227e5d539cae06f988b3b7660b4cbfe7f9db01f69"
+      "sha256": "76afbd40c79048036c60f5987b457653fdb7e1f65687b22105089c40c7b594db",
+      "size": 60393,
+      "normalized_sha256": "76afbd40c79048036c60f5987b457653fdb7e1f65687b22105089c40c7b594db"
     },
     "core/src/structure/Rotate.ts": {
       "role": "index",
@@ -1203,9 +1203,9 @@
     },
     "docs/dev/pitfalls.md": {
       "role": "index",
-      "sha256": "2cb67f527cb992a996effa69b15d050cc765d607d59c5e391b1a112f5a539d82",
-      "size": 14766,
-      "normalized_sha256": "2cb67f527cb992a996effa69b15d050cc765d607d59c5e391b1a112f5a539d82"
+      "sha256": "bd015b03c1a4086b9df8db3764dc3245322313649732625a487490e6ee0a7b81",
+      "size": 15414,
+      "normalized_sha256": "bd015b03c1a4086b9df8db3764dc3245322313649732625a487490e6ee0a7b81"
     },
     "docs/dev/plugin.md": {
       "role": "index",
@@ -1566,9 +1566,9 @@
     },
     "tests/unit/cleanup-gate.test.mjs": {
       "role": "observe",
-      "sha256": "1ab94d1cbe63488076f9a9d4528900caa780fecf16e963cb86288a3af7ea6c43",
-      "size": 2257,
-      "normalized_sha256": "1ab94d1cbe63488076f9a9d4528900caa780fecf16e963cb86288a3af7ea6c43"
+      "sha256": "4c1b7927fc2bab5cce54288d1edac1a2dc13283580880df010002b7ae514b4da",
+      "size": 2890,
+      "normalized_sha256": "4c1b7927fc2bab5cce54288d1edac1a2dc13283580880df010002b7ae514b4da"
     },
     "tests/unit/click-routing.test.mjs": {
       "role": "observe",
@@ -1758,9 +1758,9 @@
     },
     "tests/unit/wiring.test.mjs": {
       "role": "observe",
-      "sha256": "3046fe1af10dd3aac74f22a106346aaa321520641e7acc04f2db99d61d47117e",
-      "size": 16157,
-      "normalized_sha256": "3046fe1af10dd3aac74f22a106346aaa321520641e7acc04f2db99d61d47117e"
+      "sha256": "653fcc4647dc3db61ee13cb119d40d59343065a50535169f940b2e8347c55f03",
+      "size": 16553,
+      "normalized_sha256": "653fcc4647dc3db61ee13cb119d40d59343065a50535169f940b2e8347c55f03"
     },
     "tooth.json": {
       "role": "index",

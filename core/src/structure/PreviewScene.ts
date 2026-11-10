@@ -163,6 +163,13 @@ const batchMode = () => String(Config.get(Config.GLOBAL, "previewBatchMode", "au
 const batchCells = () => Math.floor(num("previewBatchCells", 1024, 128, 4096));
 const batchImmediate = () => Math.floor(num("previewBatchImmediate", 256, 0, 1024));
 const batchTimeout = () => Math.floor(num("previewBatchTimeoutMs", 5000, 1000, 15000));
+const debugEnabled = () => {
+    try {
+        return Config.get(Config.GLOBAL, "debugMod", false) === true;
+    } catch {
+        return false;
+    }
+};
 const batchPerTick = () => Math.floor(num("previewBatchPerTick", 6, 2, 8));
 const resendSeconds = () => Math.floor(num("previewResendSeconds", 45, 0, 120));
 const queueMax = () => Math.floor(num("previewBatchQueueMax", 24, 0, 128));
@@ -283,7 +290,7 @@ interface CleanupTask {
 const cleanups: CleanupTask[] = [];
 
 /** Counters for /ca tools debug: how the last cancels actually went. */
-const teardownStats = { tasks: 0, cells: 0, waited: 0, passes: 0, deadlineHits: 0, failed: 0, carried: 0 };
+const teardownStats = { tasks: 0, cells: 0, waited: 0, passes: 0, deadlineHits: 0, failed: 0, carried: 0, skipped: 0 };
 
 /** How long a cancel may wait for the library queue to drain before restoring anyway. */
 const DRAIN_WAIT_MS = 3000;
@@ -734,6 +741,15 @@ export const PreviewScene = {
     enqueue(xuid: string, desired: Map<string, PlannedCell>): void {
         const scene = scenes.get(xuid);
         if (scene == null) return;
+        // SAFETY NET: every cell this plan wants on screen goes into `everApplied`, whether or not
+        // its packet is later confirmed. Teardown restores that union, so a cell that some draw
+        // path forgot to mark can never become a permanent ghost - restoring a cell that already
+        // shows the real block is a no-op packet.
+        for (const [key, cell] of desired) {
+            if (String(cell.id ?? "") === "") continue;
+            scene.everApplied.set(key, [cell.x, cell.y, cell.z]);
+        }
+
         const ops = diffPlacement(scene.applied, desired);
 
         // Additive re-send: the same cells again (idempotent), leaving `applied` correct.
@@ -1202,6 +1218,11 @@ export const PreviewScene = {
         if (detached == null) return;
         const ledger = detached.ledger;
         const cells = teardownCells(ledger);
+        if (debugEnabled()) {
+            logger.info("[CALL][preview] 取消: applied=" + ledger.applied.size + " stale=" + ledger.stale.size +
+                " ever=" + ledger.everApplied.size + " 清理=" + cells.length + " 队列=" +
+                (BatchSender.pendingOf("preview:" + xuid)) + " 库队列=" + (FakeBlocks.stats()?.queue ?? -1));
+        }
         resetLedger(ledger as any);
 
         // Restore through the deferred path: it waits for the library's own queue to drain and
@@ -1241,12 +1262,20 @@ export const PreviewScene = {
             // Fake blocks are restored with the SAME mechanism that drew them (a client-side
             // block update), not with viewClearBlock - that only reverts viewBlock overrides.
             if (batchingAvailable()) {
-                const restored = FakeBlocks.restore(task.playerName, task.cells, task.dimid);
-                if (restored < task.cells.length) {
-                    task.cells = task.cells.slice(restored);
+                // Exact positions, not a count: cells whose block cannot be read are skipped, and
+                // the old slice(count) then dropped the WRONG cells while reporting success - a
+                // residue that looked like a clean teardown.
+                const result = FakeBlocks.restoreDetailed(task.playerName, task.cells, task.dimid);
+                if (result.restored.length + result.skipped.length < task.cells.length) {
+                    const done = new Set(result.restored.concat(result.skipped as any).map((c: any) => c[0] + "," + c[1] + "," + c[2]));
+                    task.cells = task.cells.filter((c) => !done.has(c[0] + "," + c[1] + "," + c[2]));
                     teardownStats.failed += task.cells.length;
                     work--;
                     continue;
+                }
+                if (result.skipped.length > 0) {
+                    // The chunk is gone / the block cannot be read: nothing left to restore there.
+                    teardownStats.skipped += result.skipped.length;
                 }
                 // A full restore still can be followed by a packet that was already in flight:
                 // one extra pass on a later tick closes that window (idempotent - it re-sends the
@@ -1284,7 +1313,8 @@ export const PreviewScene = {
         return "取消清理: 待处理 " + cleanups.length + " 条 · 累计 " + teardownStats.tasks + " 次/" +
             teardownStats.cells + " 格 · 等队列 " + teardownStats.waited + " 次 · 二次还原 " +
             teardownStats.passes + " 次 · 超时放行 " + teardownStats.deadlineHits + " · 失败 " +
-            teardownStats.failed + " 格 · 继承 " + teardownStats.carried + " 格" +
+            teardownStats.failed + " 格 · 不可读 " + teardownStats.skipped + " 格 · 继承 " +
+            teardownStats.carried + " 格" +
             (BatchSender.pending() > 0 ? " · 发送队列 " + BatchSender.pending() : "");
     },
 
