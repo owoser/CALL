@@ -25,6 +25,16 @@ fixes are based on.
 - **`/ca tools debug`** now prints the HologramLib capability matrix and resolves a sample stair
   through both resolvers, which is what told us the string resolver is name-only.
 
+### Fixed (3.9.5-beta1, pasting right after adjusting the preview)
+
+- **A paste no longer races the preview teardown.** Restore packets carry the block the world had
+  when they were built - i.e. BEFORE the paste - so a paste that starts while they are still queued
+  lands them on top of freshly pasted cells and the structure looks torn until a relog reloads the
+  chunk. Both paste entry points (the preview wand and `/ca paste`) now cancel the preview and
+  await `PreviewScene.flushCleanup()`, which waits for the deferred tasks AND the library queue
+  (4 s cap, then it proceeds and logs a warning). `/ca tools debug`-style log line:
+  `粘贴前等待清理完成 Nms`.
+
 ### Fixed (3.9.5-beta1, the 16 KB packed-string truncation)
 
 - **This is the root cause of both the preview holes and the cancel residue.** LSE truncates the

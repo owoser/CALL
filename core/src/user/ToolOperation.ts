@@ -364,7 +364,7 @@ export class ToolOperation {
             },
         };
         try {
-            PreviewOperation.confirm(output as any, caPlayer);
+            void PreviewOperation.confirm(output as any, caPlayer);
         } catch (e) {
             output.error("粘贴失败: " + describeError(e));
         }

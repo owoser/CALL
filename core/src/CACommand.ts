@@ -7,6 +7,7 @@ import ChunkOperation from "./structure/ChunkOperation";
 import EnableOperation from "./user/EnableOperation";
 import ExportOperation from "./io/ExportOperation";
 import PreviewOperation from "./structure/PreviewOperation";
+import PreviewScene from "./structure/PreviewScene";
 import { ToolItems } from "./user/ToolItems";
 import FillOperation from "./structure/FillOperation";
 import HelpOperation from "./user/HelpOperation";
@@ -618,7 +619,7 @@ export default class CACommand {
                         return;
                     case "confirm":
                     case "ok":
-                        PreviewOperation.confirm(output, caPlayer);
+                        void PreviewOperation.confirm(output, caPlayer);
                         return;
                     case "cancel":
                     case "cc":
@@ -758,9 +759,19 @@ export default class CACommand {
                 StructureOperation.copy(output, caPlayer);
                 return;
             case "paste":
-            case "pa":
-                StructureOperation.paste(output, caPlayer, res);
+            case "pa": {
+                // Same race as the wand path: teardown packets carry the pre-paste blocks, so a
+                // paste that starts while they are queued ends up half overwritten on the client.
+                PreviewOperation.cancelFor(caPlayer.xuid);
+                void PreviewScene.flushCleanup(4000).then(() => {
+                    try {
+                        StructureOperation.paste(output, caPlayer, res);
+                    } catch (e) {
+                        output.error("粘贴失败: " + String((e as any)?.message ?? e));
+                    }
+                });
                 return;
+            }
             case "save":
             case "sa":
                 StructureOperation.save(output, caPlayer, res);

@@ -645,8 +645,15 @@ export default class PreviewOperation {
         PreviewOperation.nudge(output, caPlayer, delta[0] * sign, delta[1] * sign, delta[2] * sign);
     }
 
-    /** Paste for real, using the previewed position and transform. */
-    public static confirm(output: any, caPlayer: CAPlayer): void {
+    /**
+     * Paste for real, using the previewed position and transform.
+     *
+     * ASYNC on purpose: the preview's fake blocks are removed with restore packets that carry the
+     * block the world had BEFORE the paste. If the paste starts while those are queued, they land on
+     * top of the freshly pasted cells and the structure looks torn (a relog fixes it). So the
+     * teardown is finished first - both our deferred tasks and the library's queue.
+     */
+    public static async confirm(output: any, caPlayer: CAPlayer): Promise<void> {
         const st = states.get(caPlayer.xuid);
         if (st == null) {
             output.error("还没有预览：先用预览魔杖右键点一个方块");
@@ -657,6 +664,21 @@ export default class PreviewOperation {
         const degrees = st.degrees;
         const pivot = st.pivot;
         PreviewOperation.cancelFor(caPlayer.xuid);
+
+        let waited = 0;
+        try {
+            const flushed = await PreviewScene.flushCleanup(4000);
+            waited = flushed.waitedMs;
+            if (!flushed.ok) {
+                logger.warn("[CALL][preview] 粘贴前清理未完全结束（等 " + flushed.waitedMs + "ms，剩 " +
+                    flushed.tasks + " 任务 / 库队列 " + flushed.queue + " 包），继续粘贴");
+            }
+        } catch {
+            // the wait is best effort: never block a paste on it
+        }
+        if (waited >= 50) {
+            logger.info("[CALL][preview] 粘贴前等待清理完成 " + waited + "ms");
+        }
 
         try {
             StructureOperation.pasteTransformed(output, caPlayer, pos, mirror, degrees, pivot);

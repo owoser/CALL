@@ -1382,6 +1382,33 @@ export const PreviewScene = {
         return cleanups.length;
     },
 
+    /**
+     * Resolve once the preview's cleanup has actually reached the client.
+     *
+     * A paste that starts while the teardown packets are still in flight is a race the client
+     * loses: the restore carries the block the WORLD had when it was read (pre-paste), so it lands
+     * on top of freshly pasted cells and the structure looks half-missing until a relog reloads the
+     * chunk. Both the deferred tasks AND the library queue have to be empty for the window to be
+     * closed, which is why this waits on both.
+     */
+    flushCleanup(timeoutMs = 5000): Promise<{ ok: boolean; waitedMs: number; tasks: number; queue: number }> {
+        const startedAt = Date.now();
+        const deadline = startedAt + Math.max(0, timeoutMs);
+        return new Promise((resolve) => {
+            const step = () => {
+                const stats = FakeBlocks.stats();
+                const queue = stats == null ? 0 : Number(stats.queue ?? 0);
+                const tasks = cleanups.length;
+                if ((tasks === 0 && queue === 0) || Date.now() >= deadline) {
+                    resolve({ ok: tasks === 0 && queue === 0, waitedMs: Date.now() - startedAt, tasks, queue });
+                    return;
+                }
+                setTimeout(step, TICK_MS);
+            };
+            step();
+        });
+    },
+
     /** Hook for player join: retries overrides that could not be cleared while offline. */
     retryCleanup(): void {
         if (cleanups.length > 0) scheduleCleanup();

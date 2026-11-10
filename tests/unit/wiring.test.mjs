@@ -197,6 +197,11 @@ test('the preview sends through the batch API', () => {
         'the draw path must respect the packed segment budget');
     assert.ok(scene.includes('预览载荷被截断'),
         'a truncated payload must be reported, not silently half-drawn');
+    assert.ok(scene.includes('flushCleanup('),
+        'a paste must be able to wait for the preview teardown (restore packets carry pre-paste blocks)');
+    const op = read('core/src/structure/PreviewOperation.ts');
+    assert.ok(/public static async confirm\(/.test(op), 'confirm() must await the teardown before pasting');
+    assert.ok(op.includes('flushCleanup('), 'confirm() must use the teardown wait');
     assert.ok(scene.includes('库丢包+') && scene.includes('selfTest:'),
         'the restore must log the library\'s dropped/bad delta and a selfTest of the payload');
     assert.ok(scene.includes('scene.everApplied.set('),

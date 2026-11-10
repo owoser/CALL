@@ -754,6 +754,10 @@ async function runSuite() {
             await new Promise((r) => setTimeout(r, 50));
         }
 
+        // Paste waits on this: it must resolve (not hang) and report clean state.
+        const flushed = await PreviewScene.flushCleanup(2000);
+        assert(flushed.ok === true, "flushCleanup reported work left: " + JSON.stringify(flushed));
+        assert(flushed.waitedMs < 2000, "flushCleanup took too long: " + flushed.waitedMs + "ms");
         const report = PreviewScene.teardownReport();
         try {
             // What a headless server CAN prove: the cancel stops feeding the library, its own
