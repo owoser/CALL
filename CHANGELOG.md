@@ -25,6 +25,18 @@ fixes are based on.
 - **`/ca tools debug`** now prints the HologramLib capability matrix and resolves a sample stair
   through both resolvers, which is what told us the string resolver is name-only.
 
+### Fixed (3.9.5-beta1, cancel left half a preview behind)
+
+- **Cancelling during a build no longer leaves fake blocks on the client.** A batch larger than
+  `previewBatchImmediate` is queued inside HologramLib and drains over several ticks; the old
+  teardown restored immediately, so those queued batches landed afterwards and drew the preview
+  back. Cancel now stops feeding first (`BatchSender.cancelOwner("preview:<xuid>")`), the restore
+  waits for the library queue to drain (3 s cap, `CleanupGate`) and is sent twice so a packet
+  already in flight cannot survive.
+- Teardown bookkeeping is visible: `/ca tools debug` prints `取消清理: 待处理 / 累计 / 等队列 /
+  二次还原 / 超时放行 / 失败`, which is what makes a future residue report diagnosable.
+- Cleanup also restores in the scene's own dimension now (it silently defaulted to dimension 0).
+
 ### Fixed (3.9.5-beta1, block entity payloads: banners, signs, chests)
 
 - **Banners keep their colour and patterns.** `snbtOf()` converted the parsed tag tree through

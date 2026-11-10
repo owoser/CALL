@@ -5,7 +5,7 @@
 .gitignore[FC5T]: F:忽略 node_modules、dist 产物、CALL-CLI 的 bin/obj 与本地草稿日志，并注明 types/lse 是刻意入库 | R:code:package.json | A:- | S:types/lse 虽是 fetch-types 生成却必须入库，忽略它会同时破坏 typecheck 与类型契约
 .prettierrc[FC3T]: F:Prettier 格式约定：双引号、分号、4 空格缩进、80 列 | R:- | A:- | S:只有格式约定无强制 lint；改 tabWidth 会波及全仓 TS 缩进，应单独提交
 AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库导出面闸门与状态串规则、发版门禁、提交闸门）加 AOCI 托管区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md,code:core/src/holo/HoloCompat.ts | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:aoci 区块由 init 维护不可手改；能力判定已改为按导出面，勿再加入发布号门槛
-CHANGELOG.md[SC8L]: F:版本史：逐版本记录移植修复，含旋转状态重映射、批量与即时写冲突、玩家枚举修正、构建戳与方块实体写入校验 | R:code:README.md | A:顶部 3.9.5-beta1 下的 Added/Fixed/Changed/Docs 段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
+CHANGELOG.md[SC8L]: F:版本史：逐版本记录移植修复，含旋转状态重映射、批量与即时写冲突、SNBT 自写序列化与方块实体写入校验 | R:code:README.md | A:顶部 3.9.5-beta1 下的 Added/Fixed/Changed/Docs 段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
 LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
 README.md[SC8M]: F:对外说明：fork 缘由、版本矩阵（含可选 HologramLib）、内置工具、构建与真机测试、参考链接 | R:code:CHANGELOG.md,code:docs/user/install.md | A:Why this fork exists、References | S:版本矩阵与发版门禁口径须与 docs/ 一致，改一处两处同步
 build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
@@ -133,14 +133,14 @@ Holo.ts[IR8S]: F:HologramLib 防御式桥接：一次性 ll.import 绑定，库�
 HoloCompat.ts[IR8M]: F:库能力闸门：按导出面探测 swing、状态串、批量、方块实体与 SNBT，版本串仅用于日志 | R:code:core/src/holo/Holo.ts,code:core/src/holo/BlockView.ts | A:status()、caps、probe()、removeReliable() | S:442 与 450 导出都自称 ABI 1.37.0，禁止用发布号判能力
 ItemDisplay.ts[IM5S]: F:用 item display 做假方块预览：固定姿态参数并走无缝创建接口 | R:code:core/src/holo/Holo.ts | A:BLOCK_MODE、itemDisplayCreateSeamless | S:先创建再 SetMode 会重生显示并错位；坐标是底部中心，y 取整、x/z 取 +0.5
 Wireframe.ts[IU8M]: F:选区与预览线框：在客户端画 DebugShape，尺寸不变时用移动而非重建 | R:code:core/src/holo/HoloCompat.ts | A:Box、COLOR、PARK_DISTANCE | S:不要给形状设时长，旧实现在客户端留下过幽灵计时实体；标签总是原地改写
-PasteSync.ts[IR7S]: F:粘贴后客户端重画：枚举在线玩家，对半径内玩家先 blockFakeSetNbt 再 blockFakeSetBlockEntity，并分开统计在线/同维度/半径内/推送/失败 | R:code:holo/BlockView.ts,code:structure/StructurePlacement.ts | A:afterBlockEntity、stats | S:玩家枚举必须用 mc.getOnlinePlayers（mc.getPlayers 不存在，防御写法会静默成空数组）
+PasteSync.ts[IR7S]: F:粘贴后客户端重画：优先从 Players.dataMap 枚举在线玩家，对半径内玩家先 blockFakeSetNbt 再 blockFakeSetBlockEntity，并分开统计在线/同维度/半径内/推送/失败 | R:code:holo/BlockView.ts,code:user/Players.ts | A:afterBlockEntity、stats | S:枚举优先用自家注册表（全局 getOnlinePlayers 曾返回 0），行尾标注 via=registry|api
 
 ===E:/code/LL3/Plugins/CALL/core/src/io/===
 ExportOperation.ts[AD5S]: F:导出命令的交互编排：进度条、结构查找、按配置调用 CLI 或内部导出 | R:code:core/src/io/ExportService.ts | A:oldStart 与新入口 | S:旧入口标了 deprecated 但仍被引用，改签名须同时清理调用点
 ExportService.ts[DD7M]: F:把区域写成结构：按 xuid 查私有结构、公开结构查找、NBT 组装与落盘 | R:code:core/src/io/StructureNBT.ts,code:core/src/common/Structure.ts | A:checkStructure | S:结构名与 xuid 作用域绑定，跨玩家取结构必须走公开列表
 ImportOperation.ts[AD5M]: F:导入命令编排：进度条、路径解析、按 chunk 调 CLI 或内部导入 | R:code:core/src/io/ImportService.ts | A:oldStart | S:大结构曾因字节序判断失败而解析不了，导入链必须共用同一 NBT 转码
 ImportService.ts[DD7M]: F:结构导入与粘贴：xuid/名称解析、占用区域规划、NBT 校验与写入世界 | R:code:core/src/io/ImportOperation.ts,code:core/src/structure/StructureService.ts | A:findXuidByName | S:本平台 setStructure 会崩服，粘贴走分段填充而非结构原语
-NbtCodec.ts[PD9L]: F:.mcstructure 字节序转码与布局解析（含 block_position_data），导出 snbtOf，并在 transformLayout 里重映射方向性状态 | R:code:structure/StateRemap.ts,code:structure/SurfaceExtract.ts | A:parseStructureLayout、toLseTag、snbtOf、transformLayout | S:字节序判断不能依赖尺寸；只转索引不转状态会让旋转后的朝向错乱
+NbtCodec.ts[PD9L]: F:.mcstructure 解析与 SNBT 自写序列化（snbtWrite），并重映射旋转期的方向性状态 | R:code:structure/StateRemap.ts,code:structure/SurfaceExtract.ts | A:parseStructureLayout、toLseTag、snbtOf、snbtWrite、transformLayout | S:不能依赖 toLseTag().toSNBT()：含复合标签列表（旗帜 Patterns）时返回空串；SNBT 键不加引号
 StructureNBT.ts[PD6T]: F:.mcstructure 的 NbtCompound 构造器：format_version、size、block_indices、palette、实体与原点 | R:code:core/src/io/NbtCodec.ts | A:构造函数字段 | S:字段名与嵌套层级照规范，缺少 structure 一层就解析不出方块数据
 StructureOrder.ts[PD8T]: F:Bedrock 结构文件线性索引与坐标互转（ZYX 序，Z 变化最快） | R:code:core/src/io/StructureNBT.ts | A:cellIndex/cellCoords | S:索引公式是文件格式规范而非约定；用 Y 最快会把每个结构转置
 Utils.ts[RD6T]: F:结构转换助手 CALL-CLI.exe 的绝对路径导出 | R:code:assets/bin/CALL-CLI.exe,code:core/src/common/Config.ts | A:CLI_EXE_PATH | S:BIN_PATH 自 3.0 起已是绝对路径，别再拼 process.cwd()，否则换工作目录即失踪
@@ -188,10 +188,10 @@ PreviewHud.ts[DU6S]: F:预览 HUD 纯函数：倒计时文案与样式、手势�
 PreviewHudLock.ts[DU5T]: F:动作条占用锁：预览倒计时期间占位，选区提示让出，避免每秒互相覆盖 | R:code:core/src/structure/AreaDisplayerService.ts | A:hold/release | S:锁短时且须成对释放，泄漏会让选区提示长期不显示
 PreviewOperation.ts[AU9L]: F:预览总控：锚点与枢轴、旋转镜像、倒计时、手势与 HUD、超时清理与场景重建 | R:code:core/src/structure/PreviewScene.ts,code:core/src/structure/PreviewPlan.ts | A:PreviewState、anchorOf | S:旋转四次必须零下发靠 diff；重建不得清掉即将重画的格子
 PreviewPlan.ts[DU8M]: F:纯规划：格子到世界坐标的映射与差量，并按真实角度重算带状态方块的 id 与 SNBT | R:code:structure/StateRemap.ts,code:structure/SurfaceExtract.ts | A:planCells、diffPlacement | S:提取恒 0°，状态重映射必须在这里做；每个 palette 条目每角度只算一次
-PreviewScene.ts[AU9L]: F:预览场景：full/window/lazy 三模式、批量下发、带状态与方块实体格子走逐格路径，并给出丢弃计数与实体载荷探针 | R:code:structure/PreviewPlan.ts,code:holo/BlockView.ts | A:submitSets、drawCells、pushEntities、diagnostics、sampleEntitySnbt | S:超过 previewBatchImmediate 的批量排队下发，即时逐格写必须写不同格子；提取恒 0°
+PreviewScene.ts[AU9L]: F:预览场景：full/window/lazy 三模式、批量下发、带状态与方块实体格子走逐格路径，并给出方块实体普查与丢弃计数 | R:code:structure/PreviewPlan.ts,code:holo/BlockView.ts | A:submitSets、drawCells、pushEntities、diagnostics、sampleBlockEntity | S:批量超过 previewBatchImmediate 会排队下发，即时逐格写必须写不同格子；提取恒 0°，状态重映射在 planCells
 Rotate.ts[KD8M]: F:旋转与镜像数学：偏移变换、枢轴平移与旋转后的目标脚印 | R:code:core/src/structure/Clipboard.ts | A:rotateOffset、rotatedUnion | S:锚点固定在目标盒最小角，旋转只转盒内图案，不翻到反侧
 StructureOperation.ts[AD9L]: F:/ca structure 总命令：保存/载入/删除/列表、撤销重做与跨玩家共享 | R:code:core/src/structure/StructureService.ts,code:core/src/structure/StructureStore.ts | A:子命令分发 | S:结构名解析要同时接受 id 与显示名，旧数据里两者都可能出现
-StructurePlacement.ts[DD9L]: F:结构放置：镜像旋转映射、占用区计算、逐块写入并验证结果，方块实体数据在批次后落盘并触发客户端重画 | R:code:io/NbtCodec.ts,code:holo/PasteSync.ts | A:coveredArea、placeNbtAsync、flushBlockEntities | S:setStructure 会段错误；setNbt 会返回 true 却留空，必须回读校验才计入 written
+StructurePlacement.ts[DD9L]: F:结构放置：镜像旋转映射、占用区计算、逐块写入并回读校验，方块实体经 SNBT 往返后写入并触发客户端重画 | R:code:io/NbtCodec.ts,code:holo/PasteSync.ts | A:coveredArea、placeNbtAsync、flushBlockEntities、blockEntityPayload | S:setStructure 会段错误；setNbt 会返回 true 却留空，必须回读校验；BE 载荷优先 NBT.parseSNBT(snbtOf())
 StructureService.ts[DD9L]: F:结构服务：保存列表、私有与公开作用域、撤销重做栈与载入调度 | R:code:core/src/structure/StructureStore.ts,code:core/src/structure/StructureOperation.ts | A:getPrivate、clearUndoList | S:撤销重做受 settings.saveUndo 控制，关闭后玩家销毁会清空历史
 StructureStore.ts[PD8L]: F:结构磁盘布局：按玩家/名称/类型分目录，切片文件名编码 x_z 偏移 | R:code:core/src/common/Paths.ts | A:sliceFileName、folderPath、sanitizeFolder | S:旧版是 data/nbt 平铺，目录结构与 structures.json 必须同时迁移
 SurfaceExtract.ts[KD8M]: F:表面提取：内部剔除与预算截断，产出 descriptorOf 状态串、blockSnbtOf 的 SNBT、方块实体载荷，并保留 palette 条目引用供旋转期重算 | R:code:io/NbtCodec.ts,code:structure/PreviewPlan.ts | A:extractSurface、descriptorOf、blockSnbtOf | S:这里不做状态重映射（调用方恒 0°），重算归 planCells
@@ -217,7 +217,7 @@ PlayerManager.ts[RU4T]: F:区块刷新：刷新单个玩家或同维度附近玩
 Players.ts[DD8S]: F:玩家数据总表：xuid 到 CAPlayer 映射、数据加载保存与按名字查 xuid | R:code:core/src/user/CAPlayer.ts | A:dataMap、createCAPlayer | S:只缓存在线玩家，离线玩家数据必须走文件而不是 dataMap
 SettingsOperation.ts[EU7T]: F:/ca setting：读写玩家设置，禁止修改 enable、displayPos、area 三个受保护键 | R:code:core/src/temp/Data.ts | A:forbidModifyKeys | S:受保护键是防呆设计，放开会让启用开关与选区状态被脚本覆盖
 SwingWatcher.ts[IU8M]: F:左键检测（含对空挥动）：轮询 HologramLib 的 swingCount 并去重成点击事件 | R:code:core/src/holo/HoloCompat.ts | A:DEDUPE_MS、SwingWatcher | S:库缺失时该能力整体消失且只提示一次；去重窗口 100ms 防一次挥动触发两次
-ToolItems.ts[AU9L]: F:工具物品判定与诊断：/ca tools debug 打印构建戳、库能力矩阵、预览状态与实体载荷探针、粘贴同步与预览计数 | R:code:addon/AddonInstaller.ts,code:holo/HoloCompat.ts | A:TOOL_SPECS、debug() | S:identifier 必须与 assets/addon 下 items/*.json 一致，改名会认不出工具
+ToolItems.ts[AU9L]: F:工具物品判定与诊断：/ca tools debug 打印构建戳、库能力矩阵、方块实体普查、状态样例与粘贴同步计数 | R:code:addon/AddonInstaller.ts,code:holo/HoloCompat.ts | A:TOOL_SPECS、debug() | S:identifier 必须与 assets/addon 下 items/*.json 一致，改名会认不出工具
 ToolOperation.ts[AU9L]: F:绑定执行引擎：把玩家绑定解析成命令或 JS 片段，变量替换后经 acorn 解析求值 | R:code:core/src/user/Bindings.ts | A:变量表与 matcher | S:替换后必须重新解析再执行；直接 eval 会撞上未定义变量并抛错
 
 ===E:/code/LL3/Plugins/CALL/core/src/util/===
@@ -260,10 +260,10 @@ _sidebar.md[SG4T]: F:docsify 侧边栏：用户手册、功能介绍、开发者
 index.html[SV5T]: F:文档站外壳：本地化 docsify 资源与初始化配置，不依赖 CDN | R:code:docs/_sidebar.md | A:docsify 初始化配置 | S:必须保持全本地化，改回 CDN 会让国内访问白屏
 
 ===E:/code/LL3/Plugins/CALL/docs/dev/===
-architecture.md[SG8S]: F:平台坑机制：七条铁律、坐标语义、预览选型与实测，含批量排队会覆盖即时写、旋转必须重映射状态、两族覆盖不可混用 | R:code:docs/dev/pitfalls.md,code:docs/ARCHITECTURE.md | A:第 9 节坐标、第 10 节预览与实测表 | S:与 AGENTS.md 和 docs/ARCHITECTURE.md 重叠，改一处须三处同步
+architecture.md[SG8S]: F:平台坑机制：七条铁律、坐标语义、预览选型与实测，含 SNBT 必须自写序列化、批量排队覆盖即时写、旋转必须重映射状态 | R:code:docs/dev/pitfalls.md,code:docs/ARCHITECTURE.md | A:第 9 节坐标、第 10 节预览与实测表 | S:与 AGENTS.md 和 docs/ARCHITECTURE.md 重叠，改一处须三处同步
 plugin.md[SG6M]: F:形状包开发须知：文件结构、必须导出的定义、参数与命令生成流程 | R:code:docs/dev/shape.md | A:形状包开发 | S:包必须含一个 js 入口定义包名与形状数组，缺任一字段即不会被加载
 shape.md[SG6L]: F:形状包 API：export_cmd 生成函数与表单函数的签名、参数与示例 | R:code:docs/dev/plugin.md | A:导出函数 | S:签名与 Plugin.ts 的 IPlugin 契约绑定，参数顺序变更属破坏性改动
-pitfalls.md[SG8T]: F:真机台账：A–G 分类症状到根因到验证，含 C14 批量排队覆盖即时写、C15 玩家枚举 API、C16 旋转角度错位与 C17 方块实体写入 | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式，否则下次仍靠肉眼猜
+pitfalls.md[SG8T]: F:真机台账：A–G 分类症状到根因到验证，含 C14 批量排队、C16 旋转角度、C17 方块实体写入与 C18 SNBT 复合列表 | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式，否则下次仍靠肉眼猜
 release.md[SG7T]: F:发版规范：触发授权、前置闸门清单（含 check:version）、版本策略、产物约定、单次发布步骤、事故恢复与禁止项 | R:code:scripts/check-version.mjs,code:CHANGELOG.md | A:第 3 节前置清单、第 5 节发布动作、第 8 节禁止项 | S:未获维护者明确指令不得发版；发布包不入库；变更日志顶部段落须等于当前版本
 
 ===E:/code/LL3/Plugins/CALL/docs/other/===

@@ -185,8 +185,13 @@ test('the preview sends through the batch API', () => {
     assert.ok(scene.includes('pumpLegacy('), 'the per-cell path must stay as the fallback');
     assert.ok(scene.includes('FakeBlocks.set(scene.playerName, segment, immediate)'),
         'a chunk must be one library call');
-    assert.ok(scene.includes('FakeBlocks.restore(scene.playerName, cells, scene.dimid)'),
+    // Teardown moved into drainCleanup(), which waits for the library queue and repeats the
+    // restore once - a queued batch landing after the restore is what left a half structure.
+    assert.ok(scene.includes('FakeBlocks.restore(task.playerName, task.cells, task.dimid)'),
         'teardown must restore the real blocks in one batch');
+    assert.ok(scene.includes('cancelOwner('), 'a cancel must stop feeding the library queue first');
+    assert.ok(scene.includes('waitForDrain'), 'teardown must wait for the library queue to drain');
+    assert.ok(scene.includes('passes'), 'teardown must repeat the restore once');
     assert.ok(scene.includes('maybeResend('), 'a client chunk reload must trigger a re-send');
 
     const cfg = read('assets/configs.default.jsonc');

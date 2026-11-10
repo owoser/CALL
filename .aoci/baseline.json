@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-10T05:51:09Z",
-  "updated_at": "2026-11-10T09:24:46Z",
+  "updated_at": "2026-11-10T11:00:05Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -53,9 +53,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "bc8e7e32f157e6a3631164c51bbd53b45c107d72c9b298b0194d80ead302d95f",
-      "size": 90065,
-      "normalized_sha256": "bc8e7e32f157e6a3631164c51bbd53b45c107d72c9b298b0194d80ead302d95f"
+      "sha256": "881007b09751400b1f66d36793d2debdea2eb2f53daf84762f5bfab6bec2c476",
+      "size": 91037,
+      "normalized_sha256": "881007b09751400b1f66d36793d2debdea2eb2f53daf84762f5bfab6bec2c476"
     },
     "LICENSE": {
       "role": "index",
@@ -71,9 +71,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "5842ab6be86f9e8e8e85de74789e137902fb6eb939adc97d84649db0d0c0eab3",
-      "size": 66727,
-      "normalized_sha256": "5842ab6be86f9e8e8e85de74789e137902fb6eb939adc97d84649db0d0c0eab3"
+      "sha256": "cc10b5e5d6500db86e940804240341ec05fbada34c263833756c5dc2158d2698",
+      "size": 66769,
+      "normalized_sha256": "cc10b5e5d6500db86e940804240341ec05fbada34c263833756c5dc2158d2698"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -556,9 +556,9 @@
     },
     "core/src/holo/PasteSync.ts": {
       "role": "index",
-      "sha256": "a66864d1c5706f5c362b6e5481fd8146c0ad895423d7097ff0542a88d2da70a7",
-      "size": 4796,
-      "normalized_sha256": "a66864d1c5706f5c362b6e5481fd8146c0ad895423d7097ff0542a88d2da70a7"
+      "sha256": "ef91e7abaabf27c64ca368558fe50b79acaf3fbdcc8eccaecdf513039ef62dfa",
+      "size": 5483,
+      "normalized_sha256": "ef91e7abaabf27c64ca368558fe50b79acaf3fbdcc8eccaecdf513039ef62dfa"
     },
     "core/src/holo/Wireframe.ts": {
       "role": "index",
@@ -592,9 +592,9 @@
     },
     "core/src/io/NbtCodec.ts": {
       "role": "index",
-      "sha256": "fdddfc48426b55c8079196ccf7b30f25e43bedb63f7599500e45d5d2f6f779ed",
-      "size": 26924,
-      "normalized_sha256": "fdddfc48426b55c8079196ccf7b30f25e43bedb63f7599500e45d5d2f6f779ed"
+      "sha256": "c5868f7e8c52b9c30e3658294bf108f0ddc4d736661d7ce57b1cb6d1bdd36eb7",
+      "size": 29918,
+      "normalized_sha256": "c5868f7e8c52b9c30e3658294bf108f0ddc4d736661d7ce57b1cb6d1bdd36eb7"
     },
     "core/src/io/StructureNBT.ts": {
       "role": "index",
@@ -844,9 +844,9 @@
     },
     "core/src/structure/PreviewScene.ts": {
       "role": "index",
-      "sha256": "a3f9c7292839b3516742bd87355c664c994392cb865cf009d6cd78771cf93df2",
-      "size": 52117,
-      "normalized_sha256": "a3f9c7292839b3516742bd87355c664c994392cb865cf009d6cd78771cf93df2"
+      "sha256": "a5a0d2468abb14fecd4f7483e29fd7d19b63be847d8677c415e834506e274ca1",
+      "size": 53093,
+      "normalized_sha256": "a5a0d2468abb14fecd4f7483e29fd7d19b63be847d8677c415e834506e274ca1"
     },
     "core/src/structure/Rotate.ts": {
       "role": "index",
@@ -868,9 +868,9 @@
     },
     "core/src/structure/StructurePlacement.ts": {
       "role": "index",
-      "sha256": "544c0e8646bc89780e1093164eefc52beae73823c80c8c00ab908efc3455853a",
-      "size": 18976,
-      "normalized_sha256": "544c0e8646bc89780e1093164eefc52beae73823c80c8c00ab908efc3455853a"
+      "sha256": "cd48df6c330f87ff9c47e434545393531765276eb269461dfa48ee0b7af6c318",
+      "size": 20324,
+      "normalized_sha256": "cd48df6c330f87ff9c47e434545393531765276eb269461dfa48ee0b7af6c318"
     },
     "core/src/structure/StructureService.ts": {
       "role": "index",
@@ -994,9 +994,9 @@
     },
     "core/src/user/ToolItems.ts": {
       "role": "index",
-      "sha256": "837d45423497fb3f0be9dab3cc6da357e986d7248b6688d819084bbbc7ebe7ab",
-      "size": 20531,
-      "normalized_sha256": "837d45423497fb3f0be9dab3cc6da357e986d7248b6688d819084bbbc7ebe7ab"
+      "sha256": "4b731a8e542cf9641d01a842fb9b33172eb854c656e4446e390a8fe20e8f3851",
+      "size": 20829,
+      "normalized_sha256": "4b731a8e542cf9641d01a842fb9b33172eb854c656e4446e390a8fe20e8f3851"
     },
     "core/src/user/ToolOperation.ts": {
       "role": "index",
@@ -1191,15 +1191,15 @@
     },
     "docs/dev/architecture.md": {
       "role": "index",
-      "sha256": "b4c8cb9a53f582a3e20ffd3aba1ade737518b4df34bd8f8232d73e035d876838",
-      "size": 11957,
-      "normalized_sha256": "b4c8cb9a53f582a3e20ffd3aba1ade737518b4df34bd8f8232d73e035d876838"
+      "sha256": "454353ef03a4bc8a82eceef0cf2653d20979fc4032431e83fe3f1f1c8456c0e5",
+      "size": 12342,
+      "normalized_sha256": "454353ef03a4bc8a82eceef0cf2653d20979fc4032431e83fe3f1f1c8456c0e5"
     },
     "docs/dev/pitfalls.md": {
       "role": "index",
-      "sha256": "b3c8791548253175703b54baf44cbe79a8e8601fbf2661ee45c952860cfcda6f",
-      "size": 13550,
-      "normalized_sha256": "b3c8791548253175703b54baf44cbe79a8e8601fbf2661ee45c952860cfcda6f"
+      "sha256": "7dbd1472cc026052f20d8bb4ec101a48fd147fdfdd86094e1fb8b97b574817fc",
+      "size": 14224,
+      "normalized_sha256": "7dbd1472cc026052f20d8bb4ec101a48fd147fdfdd86094e1fb8b97b574817fc"
     },
     "docs/dev/plugin.md": {
       "role": "index",
@@ -1512,9 +1512,9 @@
     },
     "tests/live/call-integration.js": {
       "role": "observe",
-      "sha256": "aa9305b7fcb438e4f17ca65663a4644bec2188a29e9bb11105052e8da3eb3862",
-      "size": 99022,
-      "normalized_sha256": "c8ac24cec27a109221449ac6482037c71891833546e969b7424ba68a0403448e"
+      "sha256": "1976408852e34b386386084bd2b7af7872e135ebcba145e9b367f19950195010",
+      "size": 102160,
+      "normalized_sha256": "eb22a699dc6da21e96bbb119e6d28f848ba7fbd973c6d0fb22df22d6653cd8fb"
     },
     "tests/live/manifest.json": {
       "role": "observe",
@@ -1689,6 +1689,12 @@
       "sha256": "9e61c77947268bffa7a3db6c7394dc398bb4a8c47941894b9284e2bc690d7f1a",
       "size": 3223,
       "normalized_sha256": "9e61c77947268bffa7a3db6c7394dc398bb4a8c47941894b9284e2bc690d7f1a"
+    },
+    "tests/unit/snbt-writer.test.mjs": {
+      "role": "observe",
+      "sha256": "9106da0dcb0ad2ddf426bc681e056a46ee4db9998717bbeb388dee016414bca2",
+      "size": 2655,
+      "normalized_sha256": "9106da0dcb0ad2ddf426bc681e056a46ee4db9998717bbeb388dee016414bca2"
     },
     "tests/unit/state-remap.test.mjs": {
       "role": "observe",

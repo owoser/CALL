@@ -701,6 +701,75 @@ async function runSuite() {
         return "banner round-tripped with patterns: " + pastedSnbt.slice(0, 90);
     });
 
+    // --- cancel during a build must converge, not leave residue -------------
+    await checkAsync("ca.cancelNoResidue", async () => {
+        const PreviewOperation = require(path.join(M.root, "core", "src", "structure", "PreviewOperation.js")).default;
+        const PreviewScene = require(path.join(M.root, "core", "src", "structure", "PreviewScene.js")).default;
+        const BatchSender = require(path.join(M.root, "core", "src", "structure", "BatchSender.js")).default;
+
+        const StructureOperation = require(path.join(M.root, "core", "src", "structure", "StructureOperation.js")).default;
+        const Config = require(path.join(M.root, "core", "src", "common", "Config.js")).default;
+        // A real scene only exists in "ghost" mode; "wireframe" deliberately clears it.
+        const previousMode = Config.get(Config.GLOBAL, "previewMode", "ghost");
+        Config.set(Config.GLOBAL, "previewMode", "ghost");
+
+        const cap = fakePlayer(sim);
+        const where = spot(53);
+        // Stairs on purpose: stateful cells take the per-cell path, so the preview keeps drawing
+        // across several ticks while we cancel.
+        fillBox(where.x, where.y, where.z, 16, 3, 16, "minecraft:stone_stairs");
+        cap.settings.area = {
+            start: { x: where.x, y: where.y, z: where.z, dimid: DIM },
+            end: { x: where.x + 15, y: where.y + 2, z: where.z + 15, dimid: DIM },
+        };
+        // hasArea() gates on this flag, not on the coordinates.
+        cap.hasSetArea = true;
+
+        const messages = [];
+        const out = {
+            success(m) { messages.push("ok:" + String(m)); },
+            error(m) { messages.push("err:" + String(m)); throw new Error(String(m)); },
+        };
+        // A real copy: the preview reads real slice files, so a hand-made clipboard cannot be used.
+        StructureOperation.copy(out, cap);
+        let data = M.StructureService.getData(cap.xuid);
+        const copyDeadline = Date.now() + 20000;
+        while (Date.now() < copyDeadline && Object.keys((data && data.copy) || {}).length === 0) {
+            await new Promise((r) => setTimeout(r, 100));
+            data = M.StructureService.getData(cap.xuid);
+        }
+        assert(Object.keys((data && data.copy) || {}).length > 0, "the copy produced no clipboard");
+
+        const before = Number((/累计 (\d+) 次/.exec(PreviewScene.teardownReport()) || [])[1] || 0);
+        PreviewOperation.set(out, cap, new M.Pos3(where.x, where.y + 5, where.z, DIM));
+        // Let a few ticks of the build run so the scene has cells on the client, then cancel while
+        // it is STILL pumping: that is the case that used to leave a half structure behind.
+        await new Promise((r) => setTimeout(r, 400));
+        assert(BatchSender.pendingOf("preview:" + cap.xuid) >= 0, "sender bookkeeping");
+        PreviewOperation.cancelFor(cap.xuid);
+
+        const deadline = Date.now() + 8000;
+        while (Date.now() < deadline) {
+            if (PreviewScene.pendingTeardowns() === 0 && BatchSender.pendingOf("preview:" + cap.xuid) === 0) break;
+            await new Promise((r) => setTimeout(r, 50));
+        }
+
+        const report = PreviewScene.teardownReport();
+        try {
+            // What a headless server CAN prove: the cancel stops feeding the library, its own
+            // queue is empty, and nothing is left pending. The client-visible residue needs a real
+            // client, so that part is verified in game (the mechanism is covered by the
+            // CleanupGate unit tests).
+            assert(BatchSender.pendingOf("preview:" + cap.xuid) === 0,
+                "the cancelled preview still has queued pump jobs: " + report);
+            assert(PreviewScene.pendingTeardowns() === 0, "teardown did not finish: " + report);
+            assert(/取消清理:/.test(report), "the debug report lost its teardown line: " + report);
+            return "plumbing clean: " + report + " | " + messages.join(" / ");
+        } finally {
+            Config.set(Config.GLOBAL, "previewMode", previousMode);
+        }
+    });
+
     // --- AUDIT: does the CAPTURE keep block entity data at all? -------------
     await checkAsync("ca.bannerCopyAudit", async () => {
         const t = spot(34);

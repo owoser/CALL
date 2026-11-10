@@ -34,7 +34,8 @@ import { Structure } from "../common/Structure";
 import BlockView from "../holo/BlockView";
 import HoloCompat from "../holo/HoloCompat";
 import { FakeBlocks, packCells } from "../holo/FakeBlocks";
-import BatchSender from "./BatchSender";
+import BatchSender, { TICK_MS } from "./BatchSender";
+import { shouldWaitForDrain } from "./CleanupGate";
 import { GhostLedger, markCleared, markOwed, markSet, resetLedger, takeOwed, teardownCells } from "./GhostLedger";
 import { MsgType, online, tell } from "../util/Msg";
 import StrFactory from "../util/StrFactory";
@@ -263,8 +264,29 @@ function tip(xuid: string, text: string, error = false): void {
 }
 
 // ---------------------------------------------------------------- deferred cleanup
-interface CleanupTask { playerName: string; cells: Array<[number, number, number]>; dimid: number; }
+interface CleanupTask {
+    playerName: string;
+    cells: Array<[number, number, number]>;
+    dimid: number;
+    /**
+     * Wait for HologramLib's own batch queue to drain before restoring.
+     *
+     * A cancelled preview can still have queued batches; restoring first and letting those land
+     * afterwards draws the fake blocks straight back - the "cancel left half a structure" report.
+     */
+    waitForDrain?: boolean;
+    /** 0 = first restore, 1 = the follow-up pass that catches an already in-flight packet. */
+    passes?: number;
+    /** Wall-clock limit for the drain wait (a stuck queue must not block cancelling forever). */
+    deadline?: number;
+}
 const cleanups: CleanupTask[] = [];
+
+/** Counters for /ca tools debug: how the last cancels actually went. */
+const teardownStats = { tasks: 0, cells: 0, waited: 0, passes: 0, deadlineHits: 0, failed: 0 };
+
+/** How long a cancel may wait for the library queue to drain before restoring anyway. */
+const DRAIN_WAIT_MS = 3000;
 let cleanupTimer: ReturnType<typeof setTimeout> | null = null;
 
 function scheduleCleanup(): void {
@@ -275,9 +297,21 @@ function scheduleCleanup(): void {
     }, 0);
 }
 
-function enqueueCleanup(playerName: string, cells: Array<[number, number, number]>, dimid = 0): void {
+function enqueueCleanup(
+    playerName: string,
+    cells: Array<[number, number, number]>,
+    dimid = 0,
+    options: { waitForDrain?: boolean } = {}
+): void {
     if (cells.length === 0) return;
-    cleanups.push({ playerName, cells, dimid });
+    const task: CleanupTask = { playerName, cells, dimid, passes: 0 };
+    if (options.waitForDrain === true) {
+        task.waitForDrain = true;
+        task.deadline = Date.now() + DRAIN_WAIT_MS;
+    }
+    cleanups.push(task);
+    teardownStats.tasks++;
+    teardownStats.cells += cells.length;
     scheduleCleanup();
 }
 
@@ -682,7 +716,7 @@ export const PreviewScene = {
             }));
             PreviewScene.submitClears(scene, owed);
             BatchSender.configure(batchPerTick());
-            BatchSender.request(() => PreviewScene.pump(xuid));
+            BatchSender.request(() => PreviewScene.pump(xuid), "preview:" + xuid);
             return;
         }
 
@@ -697,7 +731,7 @@ export const PreviewScene = {
         const maxQueue = queueMax();
         if (stats != null && maxQueue > 0 && stats.queue > maxQueue) {
             BatchSender.configure(batchPerTick());
-            BatchSender.request(() => PreviewScene.pump(xuid));
+            BatchSender.request(() => PreviewScene.pump(xuid), "preview:" + xuid);
             return;
         }
 
@@ -718,7 +752,7 @@ export const PreviewScene = {
 
         if (scene.queue.length > 0) {
             BatchSender.configure(batchPerTick());
-            BatchSender.request(() => PreviewScene.pump(xuid));
+            BatchSender.request(() => PreviewScene.pump(xuid), "preview:" + xuid);
             return;
         }
         scene.building = false;
@@ -1100,12 +1134,17 @@ export const PreviewScene = {
         const cells = teardownCells(scene);
         resetLedger(scene);
 
-        if (cells.length > 0 && batchingAvailable() && FakeBlocks.restore(scene.playerName, cells, scene.dimid) >= cells.length) {
-            scene.batches++;
-            scene.batchCells += cells.length;
-            return;
+        // Stop feeding FIRST: a queued pump job that runs after the restore would draw the fake
+        // blocks right back.
+        try {
+            BatchSender.cancelOwner("preview:" + xuid);
+        } catch {
+            // the sender is best-effort
         }
-        enqueueCleanup(scene.playerName, cells);
+
+        // Then restore through the deferred path, which waits for the library's own queue to
+        // drain and repeats the restore once, so a packet already in flight cannot survive.
+        enqueueCleanup(scene.playerName, cells, scene.dimid, { waitForDrain: true });
     },
 
     /**
@@ -1120,16 +1159,52 @@ export const PreviewScene = {
             const task = cleanups[0];
             if (!playerOnline(task.playerName)) return;
 
+            // Do not restore while the library still has batches queued: those would land after
+            // our restore and put the fake blocks back on screen.
+            if (task.waitForDrain === true) {
+                const stats = FakeBlocks.stats();
+                const gate = shouldWaitForDrain({
+                    queued: stats == null ? 0 : Number(stats.queue ?? 0),
+                    deadline: task.deadline ?? null,
+                    now: Date.now(),
+                });
+                if (gate.wait) {
+                    teardownStats.waited++;
+                    scheduleCleanup();
+                    return;
+                }
+                if (gate.expired) teardownStats.deadlineHits++;
+            }
+
             // Fake blocks are restored with the SAME mechanism that drew them (a client-side
             // block update), not with viewClearBlock - that only reverts viewBlock overrides.
             if (batchingAvailable()) {
                 const restored = FakeBlocks.restore(task.playerName, task.cells, task.dimid);
-                if (restored >= task.cells.length) {
-                    cleanups.shift();
+                if (restored < task.cells.length) {
+                    task.cells = task.cells.slice(restored);
+                    teardownStats.failed += task.cells.length;
+                    work--;
                     continue;
                 }
-                task.cells = task.cells.slice(restored);
-                work--;
+                // A full restore still can be followed by a packet that was already in flight:
+                // one extra pass on a later tick closes that window (idempotent - it re-sends the
+                // real blocks).
+                if (task.waitForDrain === true && (task.passes ?? 0) === 0) {
+                    task.passes = 1;
+                    teardownStats.passes++;
+                    cleanups.shift();
+                    cleanups.push(task);
+                    if (cleanupTimer != null) {
+                        clearTimeout(cleanupTimer);
+                        cleanupTimer = null;
+                    }
+                    cleanupTimer = setTimeout(() => {
+                        cleanupTimer = null;
+                        PreviewScene.drainCleanup();
+                    }, TICK_MS * 2);
+                    return;
+                }
+                cleanups.shift();
                 continue;
             }
             while (task.cells.length > 0 && work > 0) {
@@ -1140,6 +1215,20 @@ export const PreviewScene = {
             if (task.cells.length === 0) cleanups.shift();
         }
         if (cleanups.length > 0) scheduleCleanup();
+    },
+
+    /** Teardown bookkeeping for /ca tools debug (how many cancels had to wait / repeat). */
+    teardownReport(): string {
+        return "取消清理: 待处理 " + cleanups.length + " 条 · 累计 " + teardownStats.tasks + " 次/" +
+            teardownStats.cells + " 格 · 等队列 " + teardownStats.waited + " 次 · 二次还原 " +
+            teardownStats.passes + " 次 · 超时放行 " + teardownStats.deadlineHits + " · 失败 " +
+            teardownStats.failed + " 格" +
+            (BatchSender.pending() > 0 ? " · 发送队列 " + BatchSender.pending() : "");
+    },
+
+    /** Pending teardown tasks (tests: a cancel must end with zero). */
+    pendingTeardowns(): number {
+        return cleanups.length;
     },
 
     /** Hook for player join: retries overrides that could not be cleared while offline. */

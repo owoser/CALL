@@ -10,7 +10,12 @@
  * preview still appears instantly; only the follow-up chunks go through the tick queue.
  */
 
-type Job = () => void;
+/** One queued submission, tagged with the feature that asked for it. */
+interface Job {
+    run: () => void;
+    /** e.g. "preview:<xuid>" - cancelOwner() drops exactly this owner's jobs. */
+    owner: string;
+}
 
 const queue: Job[] = [];
 let timer: ReturnType<typeof setTimeout> | null = null;
@@ -38,7 +43,7 @@ function drain(): void {
         const job = queue.shift() as Job;
         budget--;
         try {
-            job();
+            job.run();
         } catch (e) {
             try {
                 logger.warn("[CALL][batch] " + (e && (e as any).message ? (e as any).message : e));
@@ -60,15 +65,45 @@ export const BatchSender = {
         return perTick;
     },
 
-    /** Queue one submission for the next tick. */
-    request(job: Job): void {
-        if (typeof job !== "function") return;
-        queue.push(job);
+    /** Queue one submission for the next tick, optionally tagged with an owner. */
+    request(job: (() => void) | Job, owner = ""): void {
+        if (typeof job === "function") {
+            queue.push({ run: job, owner });
+        } else if (job != null && typeof job.run === "function") {
+            queue.push({ run: job.run, owner: job.owner ?? owner });
+        } else {
+            return;
+        }
         schedule();
+    },
+
+    /**
+     * Drop every queued job of one owner.
+     *
+     * A cancelled preview must stop feeding the library BEFORE its cells are restored: a job that
+     * runs after the restore draws the fake blocks straight back, which is the "cancel left a half
+     * structure on screen" report.
+     */
+    cancelOwner(owner: string): number {
+        const key = String(owner ?? "");
+        if (key === "") return 0;
+        const before = queue.length;
+        for (let i = queue.length - 1; i >= 0; i--) {
+            if (queue[i].owner === key) queue.splice(i, 1);
+        }
+        return before - queue.length;
     },
 
     pending(): number {
         return queue.length;
+    },
+
+    /** Queued jobs of one owner (diagnostics / tests). */
+    pendingOf(owner: string): number {
+        const key = String(owner ?? "");
+        let n = 0;
+        for (const job of queue) if (job.owner === key) n++;
+        return n;
     },
 
     /** Tests only: run the queue now, ignoring the tick wait. */

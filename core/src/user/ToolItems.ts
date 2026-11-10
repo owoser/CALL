@@ -403,6 +403,11 @@ export class ToolItems {
             // diagnostics only
         }
         try {
+            lines.push(PreviewScene.teardownReport());
+        } catch {
+            // diagnostics only
+        }
+        try {
             // Block entity payload: the banner/sign case. Whether it carries Patterns/Base decides
             // if the black banner is a data problem or a rendering problem.
             const be = PreviewScene.sampleBlockEntity(caPlayer.xuid);
