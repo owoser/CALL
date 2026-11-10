@@ -185,6 +185,10 @@ CALL 的做法（~`~core/src/CACommand.ts~`~ 的 ~`~normalisePositions~`~）：
 紧跟着的 ~`~blockFakeSetNbt~`~/~`~blockFakeSetBlockEntity~`~ 是立即发包，会被后到的**基态**方块覆盖（表现为"状态发送成功但朝向不对""实体数据发送成功但旗帜黑"）。
 所以带状态、带方块实体的格子**不参与批量**，由逐格路径一次写对。
 
+**SNBT 必须自己序列化**：LSE 的 `toLseTag().toSNBT()` 在"列表里套复合标签"（旗帜 `Patterns`）时返回**空串**，
+箱子那种空列表却正常——这条曾被误读成"复制没抓到方块实体"。现在由 ~`~NbtCodec.snbtWrite()~`~ 直接产出 SNBT（键不加引号），
+粘贴写入用 ~`~NBT.parseSNBT(snbtOf(...))~`~，`toLseTag` 只做兜底。
+
 **两族覆盖接口不可混用**：~`~blockFake*~`~ 发的是普通方块更新包（teardown 重发真实方块即可清除），
 ~`~view*~`~ 写的是**按玩家持久注册表**（区块重载、重登后仍生效，只能 ~`~viewClearBlock~`~/~`~viewClearAll~`~ 删）。
 同一次预览混用两族，就会出现"取消后残留半截、重登才干净"。CALL 现在全程只用 ~`~blockFake*~`~。

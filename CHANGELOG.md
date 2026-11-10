@@ -25,6 +25,19 @@ fixes are based on.
 - **`/ca tools debug`** now prints the HologramLib capability matrix and resolves a sample stair
   through both resolvers, which is what told us the string resolver is name-only.
 
+### Fixed (3.9.5-beta1, block entity payloads: banners, signs, chests)
+
+- **Banners keep their colour and patterns.** `snbtOf()` converted the parsed tag tree through
+  LSE (`toLseTag(...).toSNBT()`) and came back with an EMPTY string whenever the payload contained
+  a list of compounds - which is exactly what a banner's `Patterns` is. The caller treated the
+  empty string as "no payload" and dropped it, so the copy looked like it had lost the banner data
+  (a chest, whose `Items` is an empty list, converted fine and hid the pattern). Measurement:
+  banner payload 0 characters, chest 84, from the same capture. SNBT is now written by
+  `NbtCodec.snbtWrite()` from our own tree (98 characters for the same banner), and the paste path
+  writes payloads via `NBT.parseSNBT(snbtOf(tag))`.
+- A pasted banner is no longer lost: with the payload writable, the block survives and keeps
+  `Base` + `Patterns` (new live gates `ca.bannerCopyAudit` and `ca.bannerRoundTrip`).
+
 ### Fixed (3.9.5-beta1, rotation of the preview and block-entity blocks)
 
 - **The preview now rotates the block STATES, not just the cells.** Both extraction call sites pass

@@ -690,14 +690,69 @@ async function runSuite() {
             ? String(pastedBe.getNbt().toSNBT()) : "";
         M.NBTService.del("calltest_banner");
 
-        // Diagnostic, not a gate: the synthetic fixture (a fresh standing banner on grass) does not
-        // behave like a player-decorated one, so this reports what it measured instead of failing
-        // the suite. The real verdict comes from /ca tools debug on a real banner.
+        // Hard gate now that the payload path is fixed: a pasted banner must keep both its states
+        // and its block entity contents (Base + Patterns). This is the black-banner regression.
         const detail = "written=" + written + " src=" + placed.type + placed.states +
             " dstType=" + String(pasted.type ?? "") + " dstStates=" + pastedStates +
-            " dstBE=" + (pastedSnbt === "" ? "<none>" : pastedSnbt.slice(0, 120));
-        const ok = String(pasted.type ?? "") === String(placed.type ?? "");
-        return (ok ? "OK " : "DIAG ") + detail;
+            " dstBE=" + (pastedSnbt === "" ? "<none>" : pastedSnbt.slice(0, 160));
+        assert(String(pasted.type ?? "") === String(placed.type ?? ""), "the pasted cell is not a banner (" + detail + ")");
+        assert(/Patterns/.test(pastedSnbt), "banner Patterns lost on paste (" + detail + ")");
+        assert(/Base/.test(pastedSnbt), "banner Base lost on paste (" + detail + ")");
+        return "banner round-tripped with patterns: " + pastedSnbt.slice(0, 90);
+    });
+
+    // --- AUDIT: does the CAPTURE keep block entity data at all? -------------
+    await checkAsync("ca.bannerCopyAudit", async () => {
+        const t = spot(34);
+        fillBox(t.x, t.y, t.z, 3, 1, 1, "minecraft:air");
+
+        const banner = placePlain(t.x, t.y, t.z, "minecraft:standing_banner");
+        const bannerBe = mc.getBlock(t.x, t.y, t.z, DIM).getBlockEntity();
+        assert(bannerBe != null, "banner has no block entity");
+        const patterns = new NbtList();
+        patterns.addTag(new NbtCompound({ Pattern: new NbtString("hh"), Color: new NbtInt(9) }));
+        const seeded = new NbtCompound({
+            id: new NbtString("Banner"),
+            Base: new NbtInt(9),
+            Patterns: patterns,
+        });
+        bannerBe.setNbt(seeded);
+        const beforeCapture = String(bannerBe.getNbt().toSNBT());
+        assert(/Patterns/.test(beforeCapture), "the seeded banner has no Patterns: " + beforeCapture.slice(0, 120));
+
+        placePlain(t.x + 1, t.y, t.z, "minecraft:chest");
+
+        const area = new M.Area3(new M.Pos3(t.x, t.y, t.z, DIM), new M.Pos3(t.x + 1, t.y, t.z, DIM));
+        M.NBTService.save("calltest_audit", area);
+
+        const bytes = M.NBTService.readBytes("calltest_audit");
+        const raw = bytes.toString("latin1");
+        const hasPositions = raw.indexOf("block_position_data") >= 0;
+        const hasBanner = raw.indexOf("Banner") >= 0;
+
+        const NbtCodec = require(path.join(M.root, "core", "src", "io", "NbtCodec.js"));
+        const layout = NbtCodec.parseStructureLayout(bytes);
+        const entities = layout.blockEntities == null ? 0 : layout.blockEntities.size;
+        const samples = [];
+        if (layout.blockEntities != null) {
+            for (const [index, tag] of layout.blockEntities) {
+                let snbt = "";
+                try { snbt = NbtCodec.snbtOf(tag); } catch (e) { snbt = "THROW " + (e && e.message); }
+                samples.push(index + ":len=" + snbt.length + ":" + snbt.slice(0, 90));
+            }
+        }
+        M.NBTService.del("calltest_audit");
+
+        const detail = "banner=" + banner.states + " bytes=" + bytes.length +
+            " block_position_data=" + hasPositions + " BannerInBytes=" + hasBanner +
+            " parsedEntities=" + entities + " >>> " + samples.join(" || ");
+        // The decisive number is snbtOf(): an empty string means the payload exists but our
+        // conversion drops it, which is exactly "captured but never sent to the client".
+        const anySnbt = samples.some((s) => !/:len=0:/.test(s));
+        assert(anySnbt, "no block entity payload survived snbtOf(): " + detail);
+        // The banner cell is the one that used to come back as "" (list of compounds).
+        assert(!/0:len=0:/.test(detail), "the banner payload serialised to an empty string: " + detail);
+        return "capture keeps both payloads: " + detail.slice(0, 120);
     });
 
     // --- paste sync needs the REAL player enumeration API ------------------

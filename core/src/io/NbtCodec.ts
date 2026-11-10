@@ -494,15 +494,84 @@ function parseBlockEntities(structureTag: Extract<NbtTag, { type: 10 }>): Map<nu
  * Only needed for block entity payloads, which are stored as a tag tree rather than the plain
  * `{ name, states }` shape the palette uses.
  */
-/** SNBT text for one parsed tag tree - what HologramLib's `blockFakeSetBlockEntity` expects. */
+/**
+ * SNBT text for one parsed tag tree - what HologramLib's `blockFakeSetBlockEntity` expects.
+ *
+ * SERIALISED HERE, NOT THROUGH LSE's `toSNBT()`.
+ *
+ * Measured: a banner's payload (a `Patterns` list of compounds) converted to LSE tags and then
+ * `toSNBT()` produced an EMPTY string, while a chest (`Items:[]`, an empty list) produced 84
+ * characters. The empty string was then dropped by the caller, so banners were captured, stored,
+ * parsed - and never sent. Writing the text from our own parsed tree removes LSE from the path
+ * entirely, including the nested-list case that broke it.
+ */
 export function snbtOf(tag: any): string {
     try {
-        const lse: any = toLseTag(tag);
-        if (lse != null && typeof lse.toSNBT === "function") return String(lse.toSNBT());
+        return snbtWrite(tag);
     } catch {
         // a malformed/unknown tag must not take the preview down
+        return "";
     }
-    return "";
+}
+
+/** SNBT string literal (quoted, with the two escapes SNBT defines). */
+function snbtString(text: string): string {
+    return '"' + String(text).replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+}
+
+/** SNBT float/double literal: `1.0f` rather than `1f` (the parser rejects the latter). */
+function snbtReal(value: any, suffix: string): string {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return "0.0" + suffix;
+    const text = String(n);
+    return (text.indexOf(".") >= 0 || text.indexOf("e") >= 0 ? text : text + ".0") + suffix;
+}
+
+/** One parsed tag -> SNBT. Mirrors the tag ids in `toLseTag`. */
+export function snbtWrite(tag: any): string {
+    if (tag == null) return '""';
+    switch (Number(tag.type)) {
+        case 1: return String(Number(tag.value) | 0) + "b";
+        case 2: return String(Number(tag.value) | 0) + "s";
+        case 3: return String(Number(tag.value) | 0);
+        case 4: return String(Math.trunc(Number(tag.value))) + "L";
+        case 5: return snbtReal(tag.value, "f");
+        case 6: return snbtReal(tag.value, "d");
+        case 7: {
+            const bytes: ArrayLike<number> = tag.value ?? [];
+            const list: string[] = [];
+            for (let i = 0; i < bytes.length; i++) list.push(String(Number(bytes[i]) | 0) + "b");
+            return "[B;" + list.join(",") + "]";
+        }
+        case 8: return snbtString(String(tag.value ?? ""));
+        case 9: {
+            const items: any[] = tag.items ?? [];
+            return "[" + items.map((item) => snbtWrite(item)).join(",") + "]";
+        }
+        case 10: {
+            const entries: any[] = tag.entries ?? [];
+            const parts: string[] = [];
+            for (const entry of entries) {
+                const key = String(entry.name ?? "");
+                const safe = /^[A-Za-z0-9_.+\-]+$/.test(key) ? key : snbtString(key);
+                parts.push(safe + ":" + snbtWrite(entry.tag));
+            }
+            return "{" + parts.join(",") + "}";
+        }
+        case 11: {
+            const ints: ArrayLike<number> = tag.value ?? [];
+            const list: string[] = [];
+            for (let i = 0; i < ints.length; i++) list.push(String(Number(ints[i]) | 0));
+            return "[I;" + list.join(",") + "]";
+        }
+        case 12: {
+            const longs: ArrayLike<number> = tag.value ?? [];
+            const list: string[] = [];
+            for (let i = 0; i < longs.length; i++) list.push(String(Math.trunc(Number(longs[i]))) + "L");
+            return "[L;" + list.join(",") + "]";
+        }
+        default: return '""';
+    }
 }
 
 export function toLseTag(tag: NbtTag): any {

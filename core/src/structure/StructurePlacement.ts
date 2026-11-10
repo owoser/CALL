@@ -93,7 +93,7 @@ export function coveredArea(pos: Pos3, size: Vec3Tuple): Area3 {
     );
 }
 
-import { StructureLayout, NbtTypedValue, parseStructureLayout, toLseTag, transformLayout, TransformOptions } from "../io/NbtCodec";
+import { StructureLayout, NbtTypedValue, parseStructureLayout, snbtOf, toLseTag, transformLayout, TransformOptions } from "../io/NbtCodec";
 import { describeError, logFailure } from "../util/Safe";
 
 // --------------------------------------------------- per-block placement (bytes)
@@ -183,6 +183,31 @@ function blockNbtOf(entry: StructureLayout["palette"][number]): NbtCompound {
 }
 
 /**
+ * NBT payload for `BlockEntity.setNbt`, preferring an SNBT round-trip.
+ *
+ * `toLseTag()` builds LSE tag objects directly, which fails on a list of compounds (the banner
+ * `Patterns` case): the resulting tree serialises to "" and `setNbt` leaves an empty block entity,
+ * i.e. a black banner. `NBT.parseSNBT()` on our own writer handles the nested shape, and toLseTag
+ * stays as the fallback for anything the writer cannot express.
+ */
+function blockEntityPayload(entityTag: any): any {
+    try {
+        const snbt = snbtOf(entityTag);
+        if (snbt !== "" && typeof NBT !== "undefined" && typeof (NBT as any).parseSNBT === "function") {
+            const parsed = (NBT as any).parseSNBT(snbt);
+            if (parsed != null) return parsed;
+        }
+    } catch {
+        // fall back to the direct conversion
+    }
+    try {
+        return toLseTag(entityTag);
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Apply queued block entity payloads, one `setNbt` per cell.
  *
  * `Block.setNbt` only accepts `name`/`states` (extra keys are dropped), so banner patterns,
@@ -203,9 +228,14 @@ function flushBlockEntities(
             const entity = block != null && typeof (block as any).getBlockEntity === "function"
                 ? (block as any).getBlockEntity()
                 : null;
-            const payload = entity != null && typeof entity.setNbt === "function"
-                ? toLseTag(entityTag)
-                : null;
+            // Go through SNBT when possible: the direct toLseTag() conversion does not survive a
+            // block entity that contains a LIST OF COMPOUNDS (banner Patterns) - measured: the
+            // converted tree produced an empty SNBT, and setNbt() then silently kept an empty
+            // banner. NBT.parseSNBT() of our own text builds proper tags for the nested case.
+            let payload: any = null;
+            if (entity != null && typeof entity.setNbt === "function") {
+                payload = blockEntityPayload(entityTag);
+            }
             if (payload == null || entity.setNbt(payload) !== true) {
                 pending.push([x, y, z, entityTag]);
                 failed++;
