@@ -52,12 +52,12 @@ export default class CACommand {
         cmd.mandatory("block", ParamType.Block, "", "block_man");
         cmd.mandatory("key", ParamType.String, "", "key_man");
         cmd.mandatory("item", ParamType.Item, "", "item_man");
-        cmd.mandatory("intPos", ParamType.BlockPos, "", "intPos_man");
+        cmd.mandatory("intPos", ParamType.Vec3, "", "intPos_man");
         cmd.mandatory("nbt", ParamType.JsonValue, "", "nbt_man");
         cmd.mandatory("xuid", ParamType.String, "", "xuid_man");
         cmd.optional("States", ParamType.String, "", "states_opt");
-        cmd.optional("IntPos", ParamType.BlockPos, "", "intPos_opt");
-        cmd.optional("AxisPos", ParamType.BlockPos, "", "axisPos_opt");
+        cmd.optional("IntPos", ParamType.Vec3, "", "intPos_opt");
+        cmd.optional("AxisPos", ParamType.Vec3, "", "axisPos_opt");
         cmd.optional("Name", ParamType.String, "", "name_opt");
         // Numbers (including negatives like -0.25) must be a real numeric parameter: a String
         // parameter makes the vanilla parser treat a leading "-" as an option flag.
@@ -456,6 +456,7 @@ export default class CACommand {
                 res: any
             ) => {
                 try {
+                    CACommand.normalisePositions(res);
                     CACommand.command_callback(cmd, ori, output, res);
                 } catch (e) {
                     const text = e.message;
@@ -489,6 +490,27 @@ export default class CACommand {
                 "[CALL][command] /call could NOT be registered. " +
                 "Another plugin may already own the name, or the server was not fully started."
             );
+        }
+    }
+
+    /**
+     * Turn parsed coordinates into integer block positions.
+     *
+     * LSE hands a position argument back as the block CENTRE (`x + 0.5`); `BlockPos` truncates
+     * that toward zero, so `-44` came back as `-43` and `-0.5` as `0` - every negative coordinate
+     * was one block off ("all wands are one block off"). The arguments are declared as `Vec3` now
+     * and floored here, which maps the centre back to its cell for both signs.
+     */
+    public static normalisePositions(res: any): void {
+        if (res == null || typeof res !== "object") return;
+        for (const key of ["intPos", "IntPos", "AxisPos"]) {
+            const value = res[key];
+            if (value == null || typeof value !== "object") continue;
+            const x = Number(value.x);
+            const y = Number(value.y);
+            const z = Number(value.z);
+            if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue;
+            res[key] = { x: Math.floor(x), y: Math.floor(y), z: Math.floor(z), dimid: value.dimid };
         }
     }
 

@@ -1457,14 +1457,48 @@ async function runSuite() {
             end: { x: null, y: null, z: null, dimid: null },
         };
         const out = { success() { }, error(m) { throw new Error(String(m)); } };
-        // this is exactly what /ca area a|b receives from the command parser
-        AreaOperation.start(out, cap, { enum_1: "a", IntPos: new IntPos(1376, 179, -44, DIM) });
-        AreaOperation.start(out, cap, { enum_1: "b", IntPos: new IntPos(1377, 179, -45, DIM) });
+        const CACommand = require(path.join(M.root, "core", "src", "CACommand.js")).default;
+        // the parser hands back the block CENTRE (measured: -44 -> -43.5); normalisePositions
+        // must floor it back to -44 before the handler sees it
+        const resA = { enum_1: "a", IntPos: { x: 1376.5, y: 179, z: -43.5, dimid: DIM } };
+        const resB = { enum_1: "b", IntPos: { x: 1377.6, y: 180, z: -44.7, dimid: DIM } };
+        CACommand.normalisePositions(resA);
+        CACommand.normalisePositions(resB);
+        assert(resA.IntPos.z === -44 && resA.IntPos.x === 1376, "A was not floored: " + JSON.stringify(resA.IntPos));
+        assert(resB.IntPos.z === -45 && resB.IntPos.y === 180, "B was not floored: " + JSON.stringify(resB.IntPos));
+        AreaOperation.start(out, cap, resA);
+        AreaOperation.start(out, cap, resB);
         const area = cap.settings.area;
         assert(area.start.z === -44, "A must be stored verbatim, got " + JSON.stringify(area.start));
-        assert(area.end.z === -45 && area.end.y === 179,
+        assert(area.end.z === -45 && area.end.y === 180,
             "B must be stored verbatim, got " + JSON.stringify(area.end));
-        return "area a 1376 179 -44 / b 1377 179 -45 -> stored verbatim";
+        return "parse centre -> floor -> store: A " + JSON.stringify(area.start)
+            + " / B " + JSON.stringify(area.end);
+    });
+    // --- how does LSE parse negative position arguments? -------------------
+    await checkAsync("ca.blockPosParsing", async () => {
+        const seen = { block: [], vec: [] };
+        const mk = (name, type, key) => {
+            const cmd = mc.newCommand(name, "probe", PermType.GameMasters);
+            cmd.mandatory("p", type);
+            cmd.overload(["p"]);
+            cmd.setCallback((_c, _o, _r, res) => {
+                const v = res && res.p;
+                if (v != null) seen[key].push([v.x, v.y, v.z]);
+            });
+            cmd.setup();
+        };
+        mk("callprobeblock", ParamType.BlockPos, "block");
+        mk("callprobevec", ParamType.Vec3, "vec");
+        const inputs = [[1376, 179, -44], [10, 64, 44], [10, 64, -1], [10, 64, 0], [10, 64, -100]];
+        for (const [x, y, z] of inputs) {
+            mc.runcmdEx(`/callprobeblock ${x} ${y} ${z}`);
+            mc.runcmdEx(`/callprobevec ${x} ${y} ${z}`);
+            await new Promise((r) => setTimeout(r, 80));
+        }
+        const fmt = (list) => list.map((v) => v.join(",")).join("  ");
+        return "in: " + inputs.map((v) => v.join(",")).join("  ")
+            + " || BlockPos: " + fmt(seen.block) + " || Vec3: " + fmt(seen.vec);
     });
     await checkAsync("ca.clearRegion", async () => {
         const FillOperation = require(path.join(M.root, "core", "src", "structure", "FillOperation.js")).default;

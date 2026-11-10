@@ -13,6 +13,18 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Fixed (3.9.5-beta1, build 34)
+
+- **Every wand was one block off for NEGATIVE coordinates.** Measured with a probe command: LSE
+  returns a position argument as the block CENTRE (`x + 0.5`), and `ParamType.BlockPos` truncates
+  that toward zero - so `-44` arrived as `-43`, `-0.5` as `0`, `-99.5` as `-99`, while positive
+  coordinates were fine. That is the whole "points are one block off" report: the world is at
+  negative Z, so every tool that takes coordinates (selection, preview, paste, fill, ...) moved by
+  one block. All position arguments are now `ParamType.Vec3` and the centre is FLOORED back to its
+  cell (`CACommand.normalisePositions`), which is correct for both signs.
+  Measured: `1376 179 -44` -> `1376.5 179 -43.5` -> floor -> `1376 179 -44`.
+- Dropped the experimental "correct the block from the hit point" step: it turned left clicks (where
+  the hit point IS the block position and the face is stale) into `y - 1`.
 ### Added (3.9.5-beta1, build 33)
 
 - `ca.areaSetFromCommand` (live): the area handler is fed the exact args the command parser
