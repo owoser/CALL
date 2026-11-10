@@ -652,6 +652,38 @@ async function runSuite() {
         return "round-tripped with states: " + stairs.states + " / " + log.states;
     });
 
+    // --- rotation must turn the block states, not only the cells ------------
+    await checkAsync("ca.rotateStateful", async () => {
+        const src = spot(30);
+        const dst = spot(31);
+        fillBox(src.x, src.y, src.z, 2, 1, 1, "minecraft:air");
+        const stairs = placePlain(src.x, src.y, src.z, "minecraft:oak_stairs");
+        const log = placePlain(src.x + 1, src.y, src.z, "minecraft:oak_log");
+        assert(stairs.states !== "[]" && log.states !== "[]", "fixture has no states");
+
+        const dirOf = (s) => Number((/weirdo_direction"=(-?\d+)/.exec(s) || [])[1]);
+        const axisOf = (s) => String((/pillar_axis"=([a-z]+)/.exec(s) || [])[1] || "");
+        assert([0, 1, 2, 3].includes(dirOf(stairs.states)), "stairs fixture has no weirdo_direction: " + stairs.states);
+
+        M.NBTService.save("calltest_rotstate", new M.Area3(
+            new M.Pos3(src.x, src.y, src.z, DIM), new M.Pos3(src.x + 1, src.y, src.z, DIM)));
+        fillBox(dst.x - 1, dst.y - 1, dst.z - 1, 6, 3, 6, "minecraft:air");
+        const written = await M.NBTService.loadAsync(fakePlayer(sim), "calltest_rotstate",
+            new M.Pos3(dst.x, dst.y, dst.z, DIM), "none", 90);
+        assert(written > 0, "nothing written");
+
+        const gotDir = dirOf(statesOf(mc.getBlock(dst.x, dst.y, dst.z, DIM)));
+        const gotAxis = axisOf(statesOf(mc.getBlock(dst.x, dst.y, dst.z + 1, DIM)));
+        const expectedDir = { 0: 2, 2: 1, 1: 3, 3: 0 }[dirOf(stairs.states)];
+        assert(gotDir === expectedDir,
+            "stairs facing did not rotate: " + dirOf(stairs.states) + " -> " + gotDir + " (want " + expectedDir + ")");
+        if (axisOf(log.states) === "x") {
+            assert(gotAxis === "z", "log axis did not rotate: x -> " + gotAxis);
+        }
+        M.NBTService.del("calltest_rotstate");
+        return "rotate 90 turned states: stairs " + dirOf(stairs.states) + "->" + gotDir + ", log " + axisOf(log.states) + "->" + gotAxis;
+    });
+
     await checkAsync("ca.undoStateful", async () => {
         const FillService = require(path.join(M.root, "core", "src", "structure", "FillService.js")).default;
         const BT2 = require(path.join(M.root, "core", "src", "common", "BlockType.js")).default;

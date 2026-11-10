@@ -18,6 +18,7 @@
  */
 
 import { cellIndex } from "./StructureOrder";
+import { remapStates } from "../structure/StateRemap";
 
 type NbtTag =
     | { type: 1; value: number }
@@ -716,5 +717,24 @@ export function transformLayout(layout: StructureLayout, options: TransformOptio
         }
     }
 
-    return { size: outSize, indices: outIndices, palette: layout.palette, blockEntities };
+    // The cells moved, so every DIRECTIONAL state has to move with them: a rotated staircase
+    // that keeps its facing is the "stairs are scrambled" report. Palette entries are shared
+    // between cells, so each distinct entry is remapped once.
+    let palette = layout.palette;
+    if (palette != null && palette.length > 0) {
+        const remapped = new Map<number, any>();
+        let changed = false;
+        const next = palette.map((entry: any, index: number) => {
+            if (entry == null || entry.states == null) return entry;
+            const states = remapStates(entry.states, rotation as any, mirror as any);
+            if (states === entry.states) return entry;
+            changed = true;
+            const updated = { ...entry, states };
+            remapped.set(index, updated);
+            return updated;
+        });
+        if (changed) palette = next;
+    }
+
+    return { size: outSize, indices: outIndices, palette, blockEntities };
 }

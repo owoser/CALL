@@ -176,6 +176,15 @@ CALL 的做法（~`~core/src/CACommand.ts~`~ 的 ~`~normalisePositions~`~）：
 2. **状态叠加**：palette 里带状态的格子用 `blockFakeResolveNbt` 求出 network id，再用
    `viewBlockById` 覆盖一次（每个预览上限 2048 格，超出部分保留基态并在计数里体现）。
 
+**旋转必须重映射状态**：`transformLayout()` 只重排索引网格，palette 原样带走，所以早期版本"形状转了、楼梯朝向没转"。
+现在由 ~`~StateRemap.remapStates()~`~ 统一处理方向性状态（~`~weirdo_direction~`~ / ~`~cardinal_direction~`~ /
+~`~facing_direction~`~ / ~`~torch_facing_direction~`~ / ~`~pillar_axis~`~ / ~`~ground_sign_direction~`~），粘贴与预览共用同一张表；
+表里没有的键（如 ~`~direction~`~）**保持原值**，确认语义后再加，不猜。
+
+**两族覆盖接口不可混用**：~`~blockFake*~`~ 发的是普通方块更新包（teardown 重发真实方块即可清除），
+~`~view*~`~ 写的是**按玩家持久注册表**（区块重载、重登后仍生效，只能 ~`~viewClearBlock~`~/~`~viewClearAll~`~ 删）。
+同一次预览混用两族，就会出现"取消后残留半截、重登才干净"。CALL 现在全程只用 ~`~blockFake*~`~。
+
 另外两个坑：状态串的**键不能加引号**（库只给值去引号，`["k"=v]` 整条被拒）；`blockFakeSet`
 要求**真实在线玩家**（`level->getPlayer`），所以无头测试只能断言解析结果，不能断言"发送成功"。
 

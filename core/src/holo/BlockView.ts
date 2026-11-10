@@ -111,38 +111,6 @@ export const BlockView = {
     },
 
     /**
-     * Resolve a block SNBT (`{name,states,version}`) to its network id.
-     *
-     * This is the ONLY resolver that honours block states: HologramLib's state-STRING resolver
-     * returns the base id (measured on 26.60.8 — `weirdo_direction=2` and `=0` give the same
-     * number), because it looks the block up by name. -1 when unavailable or unparsable.
-     */
-    resolveId(blockSnbt: string): number {
-        const text = String(blockSnbt ?? "");
-        if (text === "") return -1;
-        const fn = Holo.bind("blockFakeResolveNbt");
-        if (fn == null) return -1;
-        try {
-            const n = fn(text);
-            return typeof n === "number" && isFinite(n) && n >= 0 ? n : -1;
-        } catch {
-            return -1;
-        }
-    },
-
-    /** Override one cell by NETWORK ID (`viewBlockById`, 450-export builds): states included. */
-    setById(playerName: string, x: number, y: number, z: number, networkId: number): boolean {
-        if (!Holo.available() || !(networkId >= 0)) return false;
-        const fn = Holo.bind("viewBlockById");
-        if (fn == null) return false;
-        try {
-            return fn(playerName, x, y, z, networkId) === true;
-        } catch {
-            return false;
-        }
-    },
-
-    /**
      * Draw one cell from a block's own NBT (`blockFakeSetNbt`, 450-export builds).
      *
      * Unlike `set`, this takes `block.getNbt().toSNBT()` - name, states and version - so the

@@ -1,6 +1,7 @@
 import Activity from "./Activity";
 import Config from "./common/Config";
 import Paths from "./common/Paths";
+import BuildStamp from "./common/BuildStamp";
 import Players from "./user/Players";
 import AreaDisplayerService from "./structure/AreaDisplayerService";
 import EnableOperation from "./user/EnableOperation";
@@ -460,6 +461,9 @@ function init(): boolean {
         ListenerHandler.init(); //init listener
         CACommand.register(); //register command
         logger.info("[CALL] " + Config.PLUGIN_VERSION.toString() + " ready (root: " + Paths.toPosix(Paths.ROOT) + ")");
+        // Which build is this? A screenshot without the commit is unattributable, and we already
+        // lost a round to "is this the new build or the old one?".
+        logger.info("[CALL] " + BuildStamp.describe());
         // Print the locations: the upstream docs point at a config path that never existed, and
         // since 3.1 the layout is assets/ (read-only) + config/ + data/.
         logger.info("[CALL] config: " + Paths.toPosix(Config.GLOBAL_FILE));

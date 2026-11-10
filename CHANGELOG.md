@@ -25,6 +25,23 @@ fixes are based on.
 - **`/ca tools debug`** now prints the HologramLib capability matrix and resolves a sample stair
   through both resolvers, which is what told us the string resolver is name-only.
 
+### Fixed (3.9.5-beta1, rotated pastes)
+
+- **Rotating or mirroring a structure now turns its block states.** `transformLayout()` only
+  permuted the cell indices and carried the palette as-is, so a rotated staircase kept its original
+  facing while the shape turned - the "stairs are scrambled after a rotated paste" report. A
+  shared table (`StateRemap`) remaps `weirdo_direction`, `cardinal_direction`,
+  `facing_direction`, `torch_facing_direction`, `pillar_axis`/`axis` and
+  `ground_sign_direction` for both the paste and the preview; unknown keys are left alone.
+- **Preview overrides stay in one family.** The state overlay used `viewBlockById`, which writes a
+  PERSISTENT per-player override (survives chunk reloads and re-joins, only `viewClearBlock` /
+  `viewClearAll` remove it) - the teardown only sent `blockFakeClear`, so those cells became ghosts
+  the user had to relog to clear. State cells now go through `blockFakeSetNbt` (packet family, same
+  as the rest of the preview), and `viewBlockById` is no longer bound at all.
+- **The startup log prints the build**: `build <version> (<git sha>) <built-at>`, also shown by
+  `/ca tools debug`. Screenshots can finally be attributed to a commit (this round started with two
+  screenshots from an older deploy).
+
 ### Fixed (3.9.5-beta1, HologramLib 450)
 
 - **Stairs, fences, logs, waterlogged blocks keep their state in the preview.** Measured on

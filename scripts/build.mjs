@@ -326,6 +326,21 @@ async function main() {
   await emitManifests(pkg);
   await emitTooth(pkg);
 
+  // Which commit produced this folder? Without it a screenshot cannot be attributed to code,
+  // which already cost one round of "is this the new build or the old one?".
+  let gitSha = 'unknown';
+  try {
+    gitSha = execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
+  } catch {
+    // not a git checkout
+  }
+  await writeFile(
+    join(OUT, 'build-stamp.json'),
+    JSON.stringify({ version: pkg.version, builtAt: new Date().toISOString(), gitSha }, null, 2) + '\n',
+    'utf8',
+  );
+  log('build stamp: ' + pkg.version + ' (' + gitSha + ')');
+
   // Lean package first: node_modules is deliberately NOT shipped - LSE runs
   // `npm install --omit=dev` on the first start (verified on LL 26.51.x).
   if (!has('--no-zip')) await pack(pkg);

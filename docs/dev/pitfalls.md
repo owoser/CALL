@@ -69,6 +69,8 @@
 
 | # | 症状 | 根因 | 修法 | 怎么验证 | 代码位置 |
 |---|---|---|---|---|---|
+| C12 | 旋转/镜像后粘贴出来的楼梯、原木、门"错乱"（形状转了、朝向没转） | `transformLayout()` 只重排索引，palette 的状态原样带走；预览侧也只转坐标 | 用 `StateRemap.remapStates()` 就地重映射方向性状态（stairs/cardinal/facing/torch/axis/sign），粘贴与预览共用同一张表 | 单测钉代数（4×90°=恒等、镜像两次=恒等）；live 逐格比对**服务端** states | `core/src/structure/StateRemap.ts`、`io/NbtCodec.ts` |
+| C13 | 预览取消/超时后客户端还留半截，重登才干净 | `view*`族写的是**按玩家持久注册表**（区块重载/重登仍生效），只有 `viewClearBlock/viewClearAll` 能删；`blockFake*`族是普通方块包，靠重发包还原 | **一次预览只用一族**：全部走 `blockFake*`（含状态用 `blockFakeSetNbt`），teardown 才覆盖得到；绝不用 `viewBlockById` 做叠加 | 取消后 `viewDescribe` 计数归零、重登前后一致 | `core/src/holo/BlockView.ts`、`PreviewScene.ts` |
 | G1 | 同一个"偏一格"改了七八轮还在偏 | 猜测—重启—试探，没有先验证输入层 | 先查文档/源码，再逐段验证命令链 | 一次定位到 `normalisePositions` | 见 `AGENTS.md` 第 0、1 节 |
 | G2 | `ll reload` 之后本插件指令失效 | 重载其他插件会打断命令注册 | 重启服务器，而不是热重载 | 重启后 `/ca` 恢复 | 本台账 |
 | G3 | 启动告警"内置工具物品尚未生效，请重启服务器"被当成故障 | 包启用需要世界重载 | 按提示重启一次即可 | 重启后 `/ca tools` 显示生效 | `core/src/addon/AddonInstaller.ts` |

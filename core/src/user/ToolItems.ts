@@ -3,7 +3,9 @@ import AreaDisplayerService from "../structure/AreaDisplayerService";
 import SwingWatcher from "./SwingWatcher";
 import { FakeBlocks } from "../holo/FakeBlocks";
 import * as HoloCompat from "../holo/HoloCompat";
+import PreviewScene from "../structure/PreviewScene";
 import PasteSync from "../holo/PasteSync";
+import BuildStamp from "../common/BuildStamp";
 import Wireframe from "../holo/Wireframe";
 import CAPlayer from "../user/CAPlayer";
 import { MsgType, tell } from "../util/Msg";
@@ -377,6 +379,11 @@ export class ToolItems {
             // the report must never break the command
         }
         try {
+            lines.push(BuildStamp.describe());
+        } catch {
+            // diagnostics only
+        }
+        try {
             for (const line of HoloCompat.probe()) lines.push(line);
         } catch {
             // version probe must never break the report
@@ -384,6 +391,11 @@ export class ToolItems {
         try {
             const sync = PasteSync.stats();
             lines.push("粘贴后客户端同步: 已推送 " + sync.pushed + " 格，跳过 " + sync.skipped);
+        } catch {
+            // diagnostics only
+        }
+        try {
+            lines.push(PreviewScene.diagnostics(caPlayer.xuid));
         } catch {
             // diagnostics only
         }

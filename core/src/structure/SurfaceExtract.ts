@@ -1,5 +1,6 @@
 import { StructureLayout, snbtOf } from "../io/NbtCodec";
 import { Degrees, MirrorMode, transformOffset } from "./Rotate";
+import { remapStates } from "./StateRemap";
 
 /**
  * Turns copied structure slices into the list of blocks a preview has to draw.
@@ -205,10 +206,16 @@ export function extractSurface(
                     if (!(pi >= 0)) continue;
                     const entry = palette[pi];
                     if (entry == null || AIR.has(entry.name)) continue;
+                    // The preview turns the cells with transformOffset below; the block's own
+                    // directional states have to turn the same way (a rotated staircase must not
+                    // keep facing its original direction).
+                    const turned = entry.states == null
+                        ? entry
+                        : { ...entry, states: remapStates(entry.states, degrees, mirror) };
                     const idx = rowBase + z * w * h;
                     if (occ[idx] === 0) solidCount++;
                     occ[idx] = 1;
-                    names[idx] = descriptorOf(entry);
+                    names[idx] = descriptorOf(turned);
 
                     const entityTag = layout.blockEntities?.get(i);
                     if (entityTag != null) {
@@ -217,7 +224,7 @@ export function extractSurface(
                     }
                     let stateSnbt = stateSnbtCache.get(pi);
                     if (stateSnbt === undefined) {
-                        stateSnbt = blockSnbtOf(entry);
+                        stateSnbt = blockSnbtOf(turned);
                         stateSnbtCache.set(pi, stateSnbt);
                     }
                     if (stateSnbt !== "") {

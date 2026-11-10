@@ -175,16 +175,6 @@ const queueMax = () => Math.floor(num("previewBatchQueueMax", 24, 0, 128));
  * past it the cells keep their default orientation and the count is reported.
  */
 const STATE_OVERLAY_MAX = 2048;
-/** blockSnbt -> network id (ids are global, so one cache is enough). */
-const stateIdCache = new Map<string, number>();
-
-function stateIdOf(blockSnbt: string): number {
-    const cached = stateIdCache.get(blockSnbt);
-    if (cached !== undefined) return cached;
-    const id = BlockView.resolveId(blockSnbt);
-    stateIdCache.set(blockSnbt, id);
-    return id;
-}
 
 /**
  * Re-draw the state-carrying cells of `ops` with their real network id.
@@ -194,15 +184,19 @@ function stateIdOf(blockSnbt: string): number {
  */
 function overlayStates(scene: Scene, ops: PlanOp[]): void {
     const caps = HoloCompat.status().caps;
-    if (!caps.viewById || !caps.snbt) return;
+    if (!caps.snbt) return;
     for (const op of ops) {
         if (op.op !== "set" || op.blockSnbt == null || op.blockSnbt === "") continue;
-        const id = stateIdOf(op.blockSnbt);
-        if (id < 0 || scene.statesPushed >= STATE_OVERLAY_MAX) {
+        if (scene.statesPushed >= STATE_OVERLAY_MAX) {
             scene.statesDropped++;
             continue;
         }
-        if (BlockView.setById(scene.playerName, op.x, op.y, op.z, id)) scene.statesPushed++;
+        // Packet family, on purpose: `blockFakeSetNbt` writes a normal block update, so the
+        // existing teardown (`blockFakeClear` / batched restore) removes it. The view* family
+        // registers a PERSISTENT per-player override that survives chunk reloads and re-joins and
+        // is only removed by viewClearBlock/viewClearAll - mixing the two families is what leaves
+        // ghosts the user has to relog to get rid of.
+        if (BlockView.setBlockNbt(scene.playerName, op.x, op.y, op.z, op.blockSnbt)) scene.statesPushed++;
         else scene.statesDropped++;
     }
 }
@@ -1204,6 +1198,18 @@ export const PreviewScene = {
             immediate: batchingAvailable(),
             libQueue: stats != null ? stats.queue : 0,
         };
+    },
+
+    /** Counters that make a "hole" or a leftover explainable: what the preview dropped and why. */
+    diagnostics(xuid: string): string {
+        const scene = scenes.get(xuid);
+        if (scene == null) return "预览: 无活动场景";
+        return "预览计数: mode=" + scene.mode +
+            " 批量=" + scene.batches + "/" + scene.batchCells + "格 回退=" + scene.batchFallbacks +
+            " 拒绝=" + scene.batchRejected + " 编码跳过=" + scene.batchSkipped +
+            " 状态叠加=" + scene.statesPushed + " 丢弃=" + scene.statesDropped +
+            " 实体=" + scene.entitiesSent + " 丢弃=" + scene.entitiesDropped +
+            " 失败=" + scene.failed;
     },
 
     /** Which renderer the preview uses (no entity fallback any more). */
