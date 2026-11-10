@@ -652,6 +652,19 @@ async function runSuite() {
         return "round-tripped with states: " + stairs.states + " / " + log.states;
     });
 
+    // --- paste sync needs the REAL player enumeration API ------------------
+    await checkAsync("ca.pasteSyncEnumeration", async () => {
+        // mc.getPlayers() does not exist; the first version of PasteSync used it and every paste
+        // reported "pushed 0" without an error. Pin the real name.
+        assert(typeof mc.getOnlinePlayers === "function",
+            "mc.getOnlinePlayers must exist (LSE Player API); PasteSync needs it");
+        const list = mc.getOnlinePlayers();
+        assert(Array.isArray(list), "mc.getOnlinePlayers must return an array");
+        const stats = require(path.join(M.root, "core", "src", "holo", "PasteSync.js")).default.stats();
+        assert(stats.unsupported !== true, "PasteSync reported the enumeration API as unsupported");
+        return "getOnlinePlayers returns " + list.length + " player(s)";
+    });
+
     // --- rotation must turn the block states, not only the cells ------------
     await checkAsync("ca.rotateStateful", async () => {
         const src = spot(30);

@@ -6,6 +6,7 @@ import * as HoloCompat from "../holo/HoloCompat";
 import PreviewScene from "../structure/PreviewScene";
 import PasteSync from "../holo/PasteSync";
 import BuildStamp from "../common/BuildStamp";
+import Holo from "../holo/Holo";
 import Wireframe from "../holo/Wireframe";
 import CAPlayer from "../user/CAPlayer";
 import { MsgType, tell } from "../util/Msg";
@@ -390,12 +391,30 @@ export class ToolItems {
         }
         try {
             const sync = PasteSync.stats();
-            lines.push("粘贴后客户端同步: 已推送 " + sync.pushed + " 格，跳过 " + sync.skipped);
+            lines.push("粘贴后客户端同步: 推送 " + sync.pushed + " 失败 " + sync.failed +
+                " · 在线 " + sync.seen + " 同维度 " + sync.inDim + " 半径内 " + sync.inRange +
+                (sync.unsupported ? " · API 不支持 getOnlinePlayers" : ""));
         } catch {
             // diagnostics only
         }
         try {
             lines.push(PreviewScene.diagnostics(caPlayer.xuid));
+        } catch {
+            // diagnostics only
+        }
+        try {
+            // Does the library actually READ the states out of the SNBT we generate?
+            const sample = PreviewScene.sampleStateSnbt(caPlayer.xuid);
+            if (sample != null) {
+                const resolveNbt = Holo.bind("blockFakeResolveNbt");
+                const resolveStr = Holo.bind("blockFakeResolve");
+                const name = (/"name"\s*:\s*"([^"]+)"/.exec(sample) || [])[1] ?? "";
+                const withStates = resolveNbt != null ? Number(resolveNbt(sample)) : -1;
+                const bare = resolveStr != null && name !== "" ? Number(resolveStr(name)) : -1;
+                lines.push("预览样例 SNBT: " + sample.slice(0, 120) +
+                    " -> resolveNbt=" + withStates + " 裸名=" + bare +
+                    (withStates > 0 && withStates !== bare ? " (状态被接受 ✓)" : " (状态未被接受 ✗)"));
+            }
         } catch {
             // diagnostics only
         }

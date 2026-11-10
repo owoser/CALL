@@ -71,6 +71,8 @@
 |---|---|---|---|---|---|
 | C12 | 旋转/镜像后粘贴出来的楼梯、原木、门"错乱"（形状转了、朝向没转） | `transformLayout()` 只重排索引，palette 的状态原样带走；预览侧也只转坐标 | 用 `StateRemap.remapStates()` 就地重映射方向性状态（stairs/cardinal/facing/torch/axis/sign），粘贴与预览共用同一张表 | 单测钉代数（4×90°=恒等、镜像两次=恒等）；live 逐格比对**服务端** states | `core/src/structure/StateRemap.ts`、`io/NbtCodec.ts` |
 | C13 | 预览取消/超时后客户端还留半截，重登才干净 | `view*`族写的是**按玩家持久注册表**（区块重载/重登仍生效），只有 `viewClearBlock/viewClearAll` 能删；`blockFake*`族是普通方块包，靠重发包还原 | **一次预览只用一族**：全部走 `blockFake*`（含状态用 `blockFakeSetNbt`），teardown 才覆盖得到；绝不用 `viewBlockById` 做叠加 | 取消后 `viewDescribe` 计数归零、重登前后一致 | `core/src/holo/BlockView.ts`、`PreviewScene.ts` |
+| C14 | 状态/方块实体"发送成功"但画面不变（楼梯仍基态、旗帜仍黑） | 超过 `previewBatchImmediate`（默认 256）的批量是**排队分帧**下发的；紧跟其后的即时逐格写会被后到的基态方块覆盖 | 带状态/带方块实体的格子**不进批量**，改由逐格路径一次写对（本体→实体数据），与批量写的是不同格子 | `/ca tools debug` 的"批量格数+逐格格数=结构格数"；画面朝向与图案 | `core/src/structure/PreviewScene.ts` |
+| C15 | 粘贴后客户端没有任何变化，且"推送 0 格"毫无报错 | `mc.getPlayers()` **不存在**，LSE 的真名是 `mc.getOnlinePlayers()`；防御性 `typeof` 判断把错名静默成了空数组 | 用 `mc.getOnlinePlayers()`，并把 `在线/同维度/半径内/推送/失败` 分开计数 | `/ca tools debug` 出现"在线 N"且 live 断言该函数存在 | `core/src/holo/PasteSync.ts` |
 | G1 | 同一个"偏一格"改了七八轮还在偏 | 猜测—重启—试探，没有先验证输入层 | 先查文档/源码，再逐段验证命令链 | 一次定位到 `normalisePositions` | 见 `AGENTS.md` 第 0、1 节 |
 | G2 | `ll reload` 之后本插件指令失效 | 重载其他插件会打断命令注册 | 重启服务器，而不是热重载 | 重启后 `/ca` 恢复 | 本台账 |
 | G3 | 启动告警"内置工具物品尚未生效，请重启服务器"被当成故障 | 包启用需要世界重载 | 按提示重启一次即可 | 重启后 `/ca tools` 显示生效 | `core/src/addon/AddonInstaller.ts` |

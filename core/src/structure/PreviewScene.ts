@@ -67,6 +67,8 @@ interface SliceRef {
 }
 
 interface Scene extends GhostLedger {
+    /** Owner, so the per-cell pump can be scheduled from inside submitSets. */
+    xuid: string;
     anchor: Pos3;
     size: [number, number, number];
     degrees: Degrees;
@@ -123,9 +125,8 @@ interface Scene extends GhostLedger {
     /** Block entity payloads accepted / refused-or-over-budget for this preview. */
     entitiesSent: number;
     entitiesDropped: number;
-    /** State overlays (network-id re-draws) accepted / over budget for this preview. */
-    statesPushed: number;
-    statesDropped: number;
+    /** State-carrying / block-entity cells taken out of the batch and drawn per cell. */
+    cellQueued: number;
     /** Last chunk boundary log (one INFO line per burst, not per tick). */
     batchLogAt: number;
     /** Counters as of the last log line, so the log shows this burst's delta. */
@@ -165,39 +166,31 @@ const batchPerTick = () => Math.floor(num("previewBatchPerTick", 6, 2, 8));
 const resendSeconds = () => Math.floor(num("previewResendSeconds", 45, 0, 120));
 const queueMax = () => Math.floor(num("previewBatchQueueMax", 24, 0, 128));
 /**
- * Cells per preview that may be re-drawn by network id to get their block states right.
+ * Draw the cells a batch cannot express: body first (SNBT when the entry has states, the state
+ * string otherwise), then the block entity payload. One write per cell.
  *
- * The batch path is the fast one but it can only carry a state STRING, and HologramLib resolves
- * that string by block NAME (measured: stairs at `weirdo_direction=2` and `=0` return the same
- * network id), so a batched stair always faces north. Cells whose palette entry has states are
- * therefore overlaid with `viewBlockById`, whose id comes from the SNBT resolver that DOES honour
- * states. The cap keeps a structure made entirely of stairs from turning into a packet storm:
- * past it the cells keep their default orientation and the count is reported.
+ * Why not let the batch draw them: the batch only carries a state STRING, which the library
+ * resolves by block NAME (base states), and a batch over `previewBatchImmediate` drains over
+ * several ticks - so an immediate correction sent right after it gets overwritten. Different
+ * cells means that race cannot happen at all.
  */
-const STATE_OVERLAY_MAX = 2048;
-
-/**
- * Re-draw the state-carrying cells of `ops` with their real network id.
- *
- * Runs AFTER the batch/per-cell set, so the client already has the block body; this only
- * corrects its state (facing, waterlogged, axis...).
- */
-function overlayStates(scene: Scene, ops: PlanOp[]): void {
-    const caps = HoloCompat.status().caps;
-    if (!caps.snbt) return;
+function drawCells(scene: Scene, ops: PlanOp[]): void {
     for (const op of ops) {
-        if (op.op !== "set" || op.blockSnbt == null || op.blockSnbt === "") continue;
-        if (scene.statesPushed >= STATE_OVERLAY_MAX) {
-            scene.statesDropped++;
+        if (op.op !== "set") continue;
+        const id = String((op as any).id ?? "");
+        const body = op.blockSnbt != null && op.blockSnbt !== ""
+            ? BlockView.setBlockNbt(scene.playerName, op.x, op.y, op.z, op.blockSnbt)
+            : BlockView.set(scene.playerName, op.x, op.y, op.z, id);
+        if (!body) {
+            scene.failed++;
             continue;
         }
-        // Packet family, on purpose: `blockFakeSetNbt` writes a normal block update, so the
-        // existing teardown (`blockFakeClear` / batched restore) removes it. The view* family
-        // registers a PERSISTENT per-player override that survives chunk reloads and re-joins and
-        // is only removed by viewClearBlock/viewClearAll - mixing the two families is what leaves
-        // ghosts the user has to relog to get rid of.
-        if (BlockView.setBlockNbt(scene.playerName, op.x, op.y, op.z, op.blockSnbt)) scene.statesPushed++;
-        else scene.statesDropped++;
+        markSet(scene, op.key, op.x, op.y, op.z, id);
+        scene.cellQueued++;
+        if (op.snbt != null && op.snbt !== "") {
+            if (BlockView.setBlockEntity(scene.playerName, op.x, op.y, op.z, op.snbt)) scene.entitiesSent++;
+            else scene.entitiesDropped++;
+        }
     }
 }
 
@@ -429,6 +422,7 @@ export const PreviewScene = {
         }
 
         const scene: Scene = {
+            xuid,
             anchor,
             size: info.size,
             degrees,
@@ -459,8 +453,7 @@ export const PreviewScene = {
             batchSkipped: 0,
             entitiesSent: 0,
             entitiesDropped: 0,
-            statesPushed: 0,
-            statesDropped: 0,
+            cellQueued: 0,
             batchLogAt: 0,
             logBatches: 0,
             logCells: 0,
@@ -732,9 +725,26 @@ export const PreviewScene = {
         PreviewScene.logBurst(scene);
     },
 
-    /** One batched set; falls back to per-cell viewBlock when the library refuses the payload. */
+    /**
+     * One batched set; falls back to per-cell drawing when the library refuses the payload.
+     *
+     * Cells that carry block STATES or a block entity are deliberately kept OUT of the batch:
+     *
+     *   - the batch can only carry a state string, and the library resolves that string by block
+     *     NAME (measured: stairs dir 2 and dir 0 return the same network id), so those cells would
+     *     be drawn with base states anyway;
+     *   - a queued batch (over `previewBatchImmediate`, default 256) drains over several ticks,
+     *     so an immediate `blockFakeSetNbt`/`blockFakeSetBlockEntity` sent right after it gets
+     *     OVERWRITTEN by the batch - that is exactly the "states accepted but still default
+     *     orientation" and "block entity payload accepted but still black" pair;
+     *   - per-cell drawing is not more expensive here: the cell is written once instead of twice.
+     */
     submitSets(scene: Scene, ops: PlanOp[], immediate: boolean): void {
-        const cells = ops.map((op) => ({ x: op.x, y: op.y, z: op.z, id: String((op as any).id ?? "") }));
+        const cellOps = ops.filter((op) => op.op === "set" && (op.blockSnbt != null || op.snbt != null));
+        if (cellOps.length > 0) drawCells(scene, cellOps);
+        const batchable = cellOps.length === 0 ? ops : ops.filter((op) => cellOps.indexOf(op) < 0);
+        if (batchable.length === 0) return;
+        const cells = batchable.map((op) => ({ x: op.x, y: op.y, z: op.z, id: String((op as any).id ?? "") }));
         const packed = packCells(cells);
         if (packed.skipped > 0) scene.batchSkipped += packed.skipped;
 
@@ -747,11 +757,9 @@ export const PreviewScene = {
         }
 
         if (accepted) {
-            for (const op of ops) markSet(scene, op.key, op.x, op.y, op.z, String((op as any).id ?? ""));
+            for (const op of batchable) markSet(scene, op.key, op.x, op.y, op.z, String((op as any).id ?? ""));
             scene.batches++;
-            scene.batchCells += ops.length;
-            overlayStates(scene, ops);
-            pushEntities(scene, ops);
+            scene.batchCells += batchable.length;
             return;
         }
 
@@ -760,18 +768,14 @@ export const PreviewScene = {
         if (packed.segments.length === 0) scene.batchSkipped += 0;
         else scene.batchRejected++;
         scene.batchFallbacks++;
-        const applied: PlanOp[] = [];
-        for (const op of ops) {
+        for (const op of batchable) {
             const id = String((op as any).id ?? "");
             if (BlockView.set(scene.playerName, op.x, op.y, op.z, id)) {
                 markSet(scene, op.key, op.x, op.y, op.z, id);
-                applied.push(op);
             } else {
                 scene.failed++;
             }
         }
-        overlayStates(scene, applied);
-        pushEntities(scene, applied);
     },
 
     /** One batched clear (restores the real blocks); per-cell fallback on refusal. */
@@ -868,7 +872,12 @@ export const PreviewScene = {
         while (scene.queue.length > 0 && done < per) {
             const op = scene.queue.shift() as PlanOp;
             if (op.op === "set") {
-                if (BlockView.set(scene.playerName, op.x, op.y, op.z, op.id)) {
+                // State-carrying cells are drawn from SNBT (the only resolver that honours states);
+                // the rest keep the state-string path. Both are one write per cell.
+                const ok = op.blockSnbt != null && op.blockSnbt !== ""
+                    ? BlockView.setBlockNbt(scene.playerName, op.x, op.y, op.z, op.blockSnbt)
+                    : BlockView.set(scene.playerName, op.x, op.y, op.z, op.id);
+                if (ok) {
                     scene.applied.set(op.key, op.id);
                     applied.push(op);
                 } else scene.failed++;
@@ -879,7 +888,6 @@ export const PreviewScene = {
             done++;
             if ((done & 31) === 0 && Date.now() >= deadline) break;
         }
-        overlayStates(scene, applied);
         pushEntities(scene, applied);
 
         if (scene.queue.length > 0) {
@@ -1200,6 +1208,22 @@ export const PreviewScene = {
         };
     },
 
+    /**
+     * One real `blockSnbt` from the live scene (null when the preview has none).
+     *
+     * This is the probe for "our SNBT formatter vs the library's resolver": if
+     * `blockFakeResolveNbt(sample)` equals the bare-name id, the states in OUR string are not being
+     * accepted (a type problem), and no amount of ordering fixes will help.
+     */
+    sampleStateSnbt(xuid: string): string | null {
+        const scene = scenes.get(xuid);
+        if (scene == null) return null;
+        for (const block of scene.blocks) {
+            if (block.blockSnbt != null && block.blockSnbt !== "") return block.blockSnbt;
+        }
+        return null;
+    },
+
     /** Counters that make a "hole" or a leftover explainable: what the preview dropped and why. */
     diagnostics(xuid: string): string {
         const scene = scenes.get(xuid);
@@ -1207,7 +1231,7 @@ export const PreviewScene = {
         return "预览计数: mode=" + scene.mode +
             " 批量=" + scene.batches + "/" + scene.batchCells + "格 回退=" + scene.batchFallbacks +
             " 拒绝=" + scene.batchRejected + " 编码跳过=" + scene.batchSkipped +
-            " 状态叠加=" + scene.statesPushed + " 丢弃=" + scene.statesDropped +
+            " 逐格=" + scene.cellQueued +
             " 实体=" + scene.entitiesSent + " 丢弃=" + scene.entitiesDropped +
             " 失败=" + scene.failed;
     },

@@ -181,6 +181,10 @@ CALL 的做法（~`~core/src/CACommand.ts~`~ 的 ~`~normalisePositions~`~）：
 ~`~facing_direction~`~ / ~`~torch_facing_direction~`~ / ~`~pillar_axis~`~ / ~`~ground_sign_direction~`~），粘贴与预览共用同一张表；
 表里没有的键（如 ~`~direction~`~）**保持原值**，确认语义后再加，不猜。
 
+**批量是排队的，即时写会被它覆盖**：一批超过 ~`~previewBatchImmediate~`~（默认 256）就会进库的队列、按 tick 分帧下发；
+紧跟着的 ~`~blockFakeSetNbt~`~/~`~blockFakeSetBlockEntity~`~ 是立即发包，会被后到的**基态**方块覆盖（表现为"状态发送成功但朝向不对""实体数据发送成功但旗帜黑"）。
+所以带状态、带方块实体的格子**不参与批量**，由逐格路径一次写对。
+
 **两族覆盖接口不可混用**：~`~blockFake*~`~ 发的是普通方块更新包（teardown 重发真实方块即可清除），
 ~`~view*~`~ 写的是**按玩家持久注册表**（区块重载、重登后仍生效，只能 ~`~viewClearBlock~`~/~`~viewClearAll~`~ 删）。
 同一次预览混用两族，就会出现"取消后残留半截、重登才干净"。CALL 现在全程只用 ~`~blockFake*~`~。

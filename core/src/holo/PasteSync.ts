@@ -36,22 +36,30 @@ function maxPerBatch(): number {
     return isFinite(raw) && raw >= 0 ? Math.min(4096, Math.floor(raw)) : 256;
 }
 
-/** Online players, defensively: a headless/older engine may not expose the helper. */
+/**
+ * Online players.
+ *
+ * LSE spells it `mc.getOnlinePlayers()` (types/lse/GameAPI/Player.d.ts). The first version of this
+ * file used `mc.getPlayers()`, which does not exist - the defensive guard turned that into an
+ * empty array and every paste silently reported "pushed 0" with no error anywhere.
+ */
 function onlinePlayers(): any[] {
     try {
         const g: any = typeof mc !== "undefined" ? (mc as any) : null;
-        if (g != null && typeof g.getPlayers === "function") {
-            const list = g.getPlayers();
+        if (g == null) return [];
+        if (typeof g.getOnlinePlayers === "function") {
+            const list = g.getOnlinePlayers();
+            push.seenUnsupported = false;
             return Array.isArray(list) ? list : [];
         }
+        push.seenUnsupported = true;
     } catch {
-        // fall through
+        push.seenUnsupported = true;
     }
     return [];
 }
 
-let pushed = 0;
-let skipped = 0;
+const push = { pushed: 0, skipped: 0, seen: 0, inDim: 0, inRange: 0, failed: 0, seenUnsupported: false };
 
 /**
  * Repaint one cell for every player near it.
@@ -62,9 +70,10 @@ let skipped = 0;
 export function afterBlockEntity(x: number, y: number, z: number, dimid: number, blockSnbt: string, beSnbt: string): void {
     if (!enabled() || String(beSnbt ?? "") === "") return;
     if (!HoloCompat.status().caps.fakeEntity) return;
-    if (skipped >= maxPerBatch()) return;
+    if (push.skipped >= maxPerBatch()) return;
 
     const list = onlinePlayers();
+    push.seen += list.length;
     if (list.length === 0) return;
     const r = radius();
     const r2 = r * r;
@@ -74,25 +83,38 @@ export function afterBlockEntity(x: number, y: number, z: number, dimid: number,
             if (player == null) continue;
             const pos = player.pos;
             if (pos == null || Number(pos.dimid ?? 0) !== dimid) continue;
+            push.inDim++;
             if (HOLE.has(String(player.realName ?? ""))) continue;
             const dx = Number(pos.x) - x;
             const dy = Number(pos.y) - y;
             const dz = Number(pos.z) - z;
             if (dx * dx + dy * dy + dz * dz > r2) continue;
+            push.inRange++;
 
             // Body first: the library ignores BlockActorData for a cell the client does not know.
             if (blockSnbt !== "") BlockView.setBlockNbt(player.realName, x, y, z, blockSnbt);
             BlockView.setBlockEntity(player.realName, x, y, z, beSnbt);
-            pushed++;
+            push.pushed++;
         } catch {
-            skipped++;
+            push.failed++;
         }
     }
 }
 
-/** Counters for /ca tools debug. */
-export function stats(): { pushed: number; skipped: number } {
-    return { pushed, skipped };
+/**
+ * Counters for /ca tools debug.
+ *
+ * `seen / inDim / inRange` are what makes "pushed 0" explainable: nobody online, nobody in this
+ * dimension, nobody inside the radius, or the enumeration API is missing (`unsupported`).
+ */
+export function stats(): {
+    pushed: number; skipped: number; seen: number; inDim: number; inRange: number;
+    failed: number; unsupported: boolean;
+} {
+    return {
+        pushed: push.pushed, skipped: push.skipped, seen: push.seen, inDim: push.inDim,
+        inRange: push.inRange, failed: push.failed, unsupported: push.seenUnsupported,
+    };
 }
 
 export default { afterBlockEntity, stats };

@@ -25,6 +25,23 @@ fixes are based on.
 - **`/ca tools debug`** now prints the HologramLib capability matrix and resolves a sample stair
   through both resolvers, which is what told us the string resolver is name-only.
 
+### Fixed (3.9.5-beta1, batched vs immediate writes)
+
+- **Block states and block entity contents finally reach the client.** A batch larger than
+  `previewBatchImmediate` (default 256) is QUEUED and drained over several ticks, so the immediate
+  `blockFakeSetNbt`/`blockFakeSetBlockEntity` corrections sent right after it were overwritten by
+  the incoming base-state blocks: the counters said "states 513 / entities 2 pushed" while the
+  stairs stayed default and the banners stayed black. Cells that carry states or a block entity are
+  now excluded from the batch and drawn per cell (body, then payload), which is also fewer writes
+  overall (one write per cell instead of two).
+- **Paste repaint uses the real player API.** `PasteSync` called `mc.getPlayers()`, which LSE does
+  not have - the defensive guard turned it into an empty array, so every paste reported
+  "pushed 0" with no error. It now uses `mc.getOnlinePlayers()` and reports
+  `在线 / 同维度 / 半径内 / 推送 / 失败` separately.
+- `/ca tools debug` adds a probe that resolves the FIRST real `blockSnbt` of the live preview
+  through `blockFakeResolveNbt` and compares it with the bare-name id, so "the states are in our
+  SNBT but the library ignores them" can be told apart from a timing problem.
+
 ### Fixed (3.9.5-beta1, rotated pastes)
 
 - **Rotating or mirroring a structure now turns its block states.** `transformLayout()` only
