@@ -50,6 +50,7 @@ See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 | LeviLamina | `>=26.51.9 <26.61.0` |
 | LegacyScriptEngine (nodejs) | `>=0.22.3 <0.24.0` (tested on 0.22.3 and 0.22.4) |
 | BDS | 1.26.51 or newer 1.26.x |
+| HologramLib (optional) | `>=26.51.9` / `>=26.60.5` — wireframe, fake-block preview and air left-click; everything else works without it |
 
 CALL **must** be installed as `plugins/CALL` (folder name == manifest name).
 The `ll reload` name is `CALL`.
@@ -186,9 +187,11 @@ plugins/CALL/
 ```bash
 npm ci
 npm run fetch-types     # re-vendor LSE declarations (only when bumping LSE)
-npm run build           # -> dist/CALL-2.0.0.zip
+npm run build           # -> dist/CALL-<version>.zip
 npm run typecheck
 npm run check:config
+npm run check:docs
+npm run check:version   # package.json / tooth.json / CHANGELOG must agree
 ```
 
 `npm run fetch-types` needs `--use-system-ca` on machines behind a TLS-inspecting proxy;
@@ -212,6 +215,21 @@ to that server, so `npm run deploy` moves them aside and puts them back instead 
 `npm run test:live` is the regression net for the placement work: it asserts slicing
 geometry, structure capture, `.mcstructure` round trips, shape placement and
 copy -> paste, all against a real LeviLamina process.
+
+## References
+
+| Topic | Source |
+|---|---|
+| LegacyScriptEngine API (events, parameter types) | <https://docs.levimc.org/LegacyScriptEngine/zh/apis/> |
+| HologramLib (fake blocks, wireframe, boss bar, swing) | <https://ieckseyr.github.io/HologramLib/levilamina/> |
+| Documentation site | <https://owoser.github.io/CALL/> |
+| Issue tracker | <https://github.com/owoser/CALL/issues> |
+
+Agent-facing rules and the incident log: [AGENTS.md](./AGENTS.md),
+[docs/dev/pitfalls.md](./docs/dev/pitfalls.md), [docs/dev/release.md](./docs/dev/release.md).
+
+> Release is gated: no version bump, tag, release or artefact upload happens without an
+> explicit maintainer instruction. One version is published once.
 
 ## Credits
 

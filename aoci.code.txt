@@ -1,0 +1,315 @@
+#AOCI-CODE-VOLUME: 1
+
+===E:/code/LL3/Plugins/CALL/===
+.gitattributes[FC2T]: F:强制全仓文本以 LF 检出（* text=auto eol=lf），保证 AOCI 基线字节跨平台一致 | R:- | A:- | S:改用 CRLF 检出会让 aoci 全树误判 Stale
+.gitignore[FC5T]: F:忽略 node_modules、dist 产物、CALL-CLI 的 bin/obj 与本地草稿日志，并注明 types/lse 是刻意入库 | R:code:package.json | A:- | S:types/lse 虽是 fetch-types 生成却必须入库，忽略它会同时破坏 typecheck 与类型契约
+.prettierrc[FC3T]: F:Prettier 格式约定：双引号、分号、4 空格缩进、80 列 | R:- | A:- | S:只有格式约定无强制 lint；改 tabWidth 会波及全仓 TS 缩进，应单独提交
+AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库导出面闸门与状态串规则、发版门禁、提交闸门）加 AOCI 托管区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md,code:core/src/holo/HoloCompat.ts | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:aoci 区块由 init 维护不可手改；能力判定已改为按导出面，勿再加入发布号门槛
+CHANGELOG.md[SC8L]: F:版本史：逐版本记录 LL3 移植修复，以及本次预览状态、方块实体、粘贴同步与库 450 导出闸门 | R:code:README.md,code:docs/MIGRATION-2.0.md | A:顶部 3.9.5-beta1 下的 Added/Fixed/Changed/Docs 段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
+LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
+README.md[SC8M]: F:对外说明：fork 缘由、版本矩阵（含可选 HologramLib）、内置工具、构建与真机测试、参考链接 | R:code:CHANGELOG.md,code:docs/user/install.md | A:Why this fork exists、References | S:版本矩阵与发版门禁口径须与 docs/ 一致，改一处两处同步
+build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
+package-lock.json[FV3L]: F:npm 依赖锁定树（lockfileVersion 2），固定 acorn、escodegen、estraverse 等运行时依赖的精确版本 | R:code:package.json | A:packages 与 dependencies 节点 | S:顶层 version 仍是 2.0.0 与 package.json 不一致，不能据此判断发行版本
+package.json[FV9T]: F:工程定义与脚本入口：类型检查、构建、部署、单测、活测，以及配置、文档、版本一致性与图标校验 | R:code:scripts/check-version.mjs,code:package-lock.json | A:scripts 与 dependencies | S:engines 要求 Node>=18；新增运行时依赖会显著增大安装包
+tooth.json[OV6T]: F:lip 包清单（当前 3.9.5-beta1）：tooth 标识、版本、作者、标签与文件映射 | R:code:tooth_template.json | A:version 与 files | S:由构建从模板生成，手改会被覆盖；version 必须与 package.json 对齐
+tooth_template.json[OV5T]: F:lip 包清单模板，version 处为 {{VERSION}} 占位，由构建脚本替换 | R:code:scripts/build.mjs | A:{{VERSION}} 占位 | S:占位符拼错会让发行清单里出现字面量版本号
+tsconfig.build.json[FV7T]: F:出包编译配置：在基础配置上开启 emit，输出 dist/call，去注释且无 sourcemap | R:code:tsconfig.json | A:outDir 与 removeComments | S:应与 tsconfig.json 只差 emit 相关项，否则 CI 与本地类型口径不一致
+tsconfig.json[FV8T]: F:基础 TS 配置：ES2020、CommonJS、Node 解析，供编辑器与 typecheck 使用且不产包 | R:code:tsconfig.build.json | A:compilerOptions 与 types/lse 引用 | S:只做类型检查，出包由 tsconfig.build.json 决定，改这里不改产物
+
+===E:/code/LL3/Plugins/CALL/.github/workflows/===
+ci.yml[OV7T]: F:GitHub Actions CI：Node 20 下依次跑 typecheck→check:config→check:version→check:docs→build:fast→test:unit | R:code:package.json,code:scripts/check-version.mjs | A:jobs.check.steps | S:必须先 build:fast 再 test:unit（单测依赖 tsc 产物）；版本一致性失败直接挡发布
+
+===E:/code/LL3/Plugins/CALL/.vscode/===
+launch.json[XC3T]: F:VS Code 调试入口：Start BDS 调用 startBDS.bat，另留一份旧 node 直跑配置 | R:- | A:configurations | S:依赖 f5anything 扩展与仓根 startBDS.bat（后者被 git 忽略）
+settings.json[XC2T]: F:编辑器搜索与文件树对本机 node_modules、VCS 元数据的排除偏好 | R:- | A:- | S:纯本地偏好，不参与 CI 与构建；不要在此放团队共享规则
+tasks.json[XV3T]: F:默认构建任务：按 tsconfig.json 以 tsc watch 方式监听编译 | R:code:tsconfig.json | A:tasks[0] | S:该任务只做 tsc --watch，不产出可部署包；发版一律走 npm run build
+
+===E:/code/LL3/Plugins/CALL/assets/addon/CALL_Tools_BP/items/===
+gear.json[FU5T]: F:菜单物品 call:gear 的定义（1 堆叠、手持、附光、不可破坏），点开建造菜单的入口，行为在脚本侧 | R:code:assets/addon/CALL_Tools_BP/texts/zh_CN.lang,code:assets/addon/CALL_Tools_RP/textures/item_texture.json | A:minecraft:item.description.identifier | S:identifier、RP 图集键与 lang 键三处必须同名，改名会静默变成缺失贴图
+wand_adjust.json[FU5T]: F:调整魔杖 call:wand_adjust 的物品定义，hover 文本用金色与其余魔杖区分 | R:code:assets/addon/CALL_Tools_BP/items/wand_select.json | A:minecraft:item.components.minecraft:hover_text_color | S:金色是刻意的视觉区分而非笔误；改名须同步 RP 贴图、图集键与两份 lang
+wand_copy.json[FU5T]: F:复制魔杖 call:wand_copy 的物品定义，点击复制当前选区 | R:code:assets/addon/CALL_Tools_BP/items/wand_select.json | A:minecraft:item.description.identifier | S:与其它魔杖结构完全同构，区别只在 identifier；复制粘贴新增魔杖时务必改 UUID 无关的三处引用
+wand_paste.json[FU5T]: F:粘贴魔杖 call:wand_paste 的物品定义，点击把剪贴板结构粘到目标点 | R:code:assets/addon/CALL_Tools_BP/items/wand_copy.json | A:minecraft:item.description.identifier | S:粘贴路径是对 setStructure 崩溃最敏感的操作，物品定义本身不含逻辑，别在此加兜底
+wand_preview.json[FU5T]: F:预览魔杖 call:wand_preview 的物品定义，点击以粒子预览待粘贴结构 | R:code:assets/addon/CALL_Tools_BP/items/wand_paste.json | A:minecraft:item.description.identifier | S:预览是纯客户端表现，物品定义无需携带渲染字段；表现参数在脚本配置里
+wand_select.json[FU5T]: F:选区魔杖 call:wand_select 的物品定义，两次点击确定区域两个角 | R:code:assets/addon/CALL_Tools_BP/items/gear.json | A:minecraft:item.description.identifier | S:点击坐标经 CACommand.normalisePositions 向下取整，改成 BlockPos 会重现负坐标偏移一格的老问题
+
+===E:/code/LL3/Plugins/CALL/assets/addon/CALL_Tools_BP/===
+manifest.json[FV6T]: F:行为包 manifest：name=CALL Tools、min_engine_version 1.26.0、data 模块，承载内置工具物品定义 | R:code:assets/addon/CALL_Tools_BP/items/gear.json | A:header.uuid 与 modules[0].uuid | S:name 必须与安装目录名一致否则被拒载；BP/RP 四个 UUID 各不同，复制文件时勿复用
+
+===E:/code/LL3/Plugins/CALL/assets/addon/CALL_Tools_BP/texts/===
+en_US.lang[FL4T]: F:六个内置工具的英文名（item.call:* 键） | R:code:assets/addon/CALL_Tools_RP/texts/en_US.lang | A:- | S:键名必须与 items/*.json 的 display_name.value 逐字一致，且 BP/RP 两份文件内容需同步
+languages.json[FL3T]: F:声明行为包只带 en_US 与 zh_CN 两种语言 | R:code:assets/addon/CALL_Tools_BP/texts/en_US.lang | A:- | S:新增语种必须在此登记，否则对应 lang 文件不会被加载，表现为空物品名
+zh_CN.lang[FL4T]: F:六个内置工具的中文名（建造助手·菜单、选区/复制/粘贴/预览/调整魔杖） | R:code:assets/addon/CALL_Tools_BP/texts/en_US.lang | A:- | S:中文名与英文名语义须对应；改 identifier 时两语文件与 RP 侧副本同时改
+
+===E:/code/LL3/Plugins/CALL/assets/addon/CALL_Tools_RP/===
+manifest.json[FV6T]: F:资源包 manifest：CALL Tools 贴图包（resources 模块，1.26.0），与行为包成对安装 | R:code:assets/addon/CALL_Tools_RP/textures/item_texture.json | A:header.uuid | S:与 BP 同名但 UUID 必须不同；只装 BP 不装 RP 会显示缺失贴图
+
+===E:/code/LL3/Plugins/CALL/assets/addon/CALL_Tools_RP/texts/===
+en_US.lang[FL4T]: F:资源包侧英文物品名副本（与行为包同名键重复，供 RP 单独加载） | R:code:assets/addon/CALL_Tools_BP/texts/en_US.lang | A:- | S:与 BP 同名文件内容必须逐字一致，只改一侧会出现部分物品名回退为标识符
+languages.json[FL3T]: F:声明资源包只带 en_US 与 zh_CN 两种语言 | R:code:assets/addon/CALL_Tools_RP/texts/zh_CN.lang | A:- | S:语种登记须与 BP 侧一致，否则两侧回退行为不同
+zh_CN.lang[FL4T]: F:资源包侧中文物品名副本 | R:code:assets/addon/CALL_Tools_BP/texts/zh_CN.lang | A:- | S:与 BP 中文名保持一致；改中文口径需两处同时改
+
+===E:/code/LL3/Plugins/CALL/assets/addon/CALL_Tools_RP/textures/===
+item_texture.json[FV5T]: F:物品图集映射：call:gear 与五个魔杖 identifier → textures/items/*.png | R:code:assets/addon/CALL_Tools_RP/textures/textures_list.json | A:texture_data | S:键是含 call: 前缀的 identifier，值不带 .png；漏登记即显示缺失贴图
+textures_list.json[FV3T]: F:资源包贴图清单（6 张物品图标），供打包与校验枚举 | R:code:assets/addon/CALL_Tools_RP/textures/item_texture.json | A:- | S:与 item_texture.json 一一对应；新增图标两处都要加，只加一处清单可过但图集缺失
+
+===E:/code/LL3/Plugins/CALL/assets/bin/===
+CALL-CLI.deps.json[FV3T]: F:.NET 9 win-x64 运行依赖清单：CALL-CLI 依赖 CommandLineParser 2.9.1 与 SharpNBT 1.3.1 | R:code:assets/bin/CALL-CLI.runtimeconfig.json | A:targets | S:由 dotnet publish 生成，须与同目录 DLL 完全对应；手改会让运行时报程序集找不到
+CALL-CLI.runtimeconfig.json[FV2T]: F:CALL-CLI 的 .NET 9 运行时配置（tfm net9.0，关闭二进制序列化与元数据更新） | R:code:assets/bin/CALL-CLI.deps.json | A:runtimeOptions | S:目标机必须装 .NET 9 运行时；升 TFM 需整组重新 publish 所有 bin 资产
+
+===E:/code/LL3/Plugins/CALL/assets/===
+check.jsonc[FC7M]: F:配置校验模式：逐键声明 type、enum values 与数值 min/max，已含 previewBlockEntity 与 pasteSync* 键，末尾 version 9 | R:code:assets/configs.default.jsonc | A:preview 与 pasteSync 键段、文末 version | S:新增配置键必须同时加 schema 并 bump version，否则老配置不会合并出新键
+configs.default.jsonc[FC8L]: F:921 行双语注释配置模板：预览批量与方块实体、粘贴同步、权限与自动更新等全部可调项 | R:code:assets/check.jsonc | A:version 与各键上方的 [解析] 注释块 | S:version 是合并开关，改键名或新增键必须 +1，否则老用户配置不会被补齐
+help.json[FC5T]: F:游戏内帮助目录的三级键位映射（help.cN 分类→条目→翻译键），只放引用不放正文 | R:code:assets/lang/zh_CN.lang | A:help.c0…help.c3 | S:值必须是 lang 中存在的 help.*.tN 键；改文案只动语言文件，不必动本文件
+icons.json[FC5T]: F:原版物品图标名白名单（apple、bed_*、chest_boat 等），供菜单与图形界面挑选图标 | R:code:assets/item_texture.json | A:顶层数组 | S:名称须与客户端贴图名一致；此处只是名字清单，缺项会让对应图标显示为空
+item_texture.json[FC5T]: F:原版物品名→textures/items/* 贴图路径映射，供建造菜单显示物品图标 | R:code:assets/icons.json | A:顶层键值 | S:值不带 .png 且指向原版贴图；补图标需同时登记 icons.json
+permission.default.json[FC3T]: F:权限默认模板，内容为空数组，表示 customize 模式下默认无人可用 | R:code:assets/configs.default.jsonc | A:- | S:部署时不得预填玩家，否则新装服会直接放开建造权限
+userlist.default.json[FC3T]: F:userlist.json 的默认模板（空 list），首启复制到 config/ 供 customize 权限判定 | R:code:assets/permission.default.json | A:list | S:运行时文件在 config/ 下；改模板只影响新装，老服已有 userlist 不会被覆盖
+
+===E:/code/LL3/Plugins/CALL/assets/lang/===
+en_US.lang[SL7L]: F:英文语言表：物品、方块、界面、命令与帮助文本全量条目（750 行） | R:code:assets/lang/zh_CN.lang | A:item.* / block.* / help.* 前缀键 | S:四套语言键集须对齐，缺键直接回退为原始键名而不是英文
+ru_RU.lang[SL6L]: F:俄文语言表（747 行），键集与中文表一一对应 | R:code:assets/lang/zh_CN.lang | A:item.* / block.* / help.* | S:行数比中文表少 2 行，新增键时四套都要补，否则该语言下显示键名
+zh_CN.lang[SL8L]: F:人工校对的中文语言表（749 行），物品名、命令回显与帮助正文的主口径 | R:code:assets/lang/en_US.lang | A:item.* / help.* / config.* | S:是其余语言的对照基准；新增键先落这里再补其它三套
+zh_TW.lang[SL6L]: F:繁体中文语言表（747 行），与简体表键集对应但用词按台服用语 | R:code:assets/lang/zh_CN.lang | A:item.* / block.* / help.* | S:术语不等于简体直转（如「設定」），批量替换成简体用词会失去本地化意义
+
+===E:/code/LL3/Plugins/CALL/cli/===
+CALL-CLI.sln[XV4T]: F:CALL-CLI 的 VS 解决方案：单项目 net9.0，Debug/Release Any CPU | R:code:cli/CALL-CLI/CALL-CLI.csproj | A:Project(...) = "CALL-CLI" | S:仅服务 IDE，构建与发版走 csproj 和 dotnet publish；移动项目文件要同步此路径
+CALL-CLI.sln.DotSettings.user[XC2T]: F:Rider 用户级本地设置：最近引用路径与代码检查排除名单 | R:code:cli/CALL-CLI.sln | A:- | S:属个人 IDE 状态且含作者本机路径，本不该入库；改它不影响任何构建
+
+===E:/code/LL3/Plugins/CALL/cli/CALL-CLI/===
+CALL-CLI.csproj[XV6T]: F:CLI 工程定义：net9.0 控制台、Nullable 开启、SharpNBT 用 lib 本地引用、CommandLineParser 2.9.1 | R:code:cli/CALL-CLI/Program.cs | A:TargetFramework 与 SharpNBT Reference | S:SharpNBT 走 HintPath 而非 NuGet 包，移动 lib 会编译失败；产物须与 assets/bin 同步
+McStructureTool.cs[XD7T]: F:import/export 动词编排层：设分块尺寸、校验路径、建输出目录、调切分或合并 | R:code:cli/CALL-CLI/util/McStructureSplitter.cs,code:cli/CALL-CLI/util/McStructureMerger.cs | A:Import()/Export() | S:分块尺寸来自 --chunk-size 并写入 TransfromUtil 全局状态，切与合必须同值
+Options.cs[EC5T]: F:命令行契约：import/export 两个 Verb 的位置参数与 -e/-c/-s 选项声明 | R:code:cli/CALL-CLI/Program.cs | A:ImportOptions/ExportOptions | S:import 是「mcstructure→分块目录」、export 是反向，方向易读反；-e 名为 entities 实为「包含实体」
+Program.cs[EG6T]: F:CLI 进程入口：用 CommandLine 解析 Verb 并分发到 McStructureTool 的 Import/Export，失败返回 1 | R:code:cli/CALL-CLI/McStructureTool.cs | A:Main | S:新增 Verb 必须在此注册 MapResult，否则解析成功也不会执行
+
+===E:/code/LL3/Plugins/CALL/cli/CALL-CLI/math/===
+AABB.cs[LG4T]: F:整数轴对齐包围盒 Aabb3/Aabb2 及闭区间包含判定 InBound | R:code:cli/CALL-CLI/math/Vec3.cs | A:InBound | S:判定是闭区间且块坐标与结构尺寸共用；边界值需显式测试
+Vec2.cs[LG4T]: F:整数二维向量：加减、Area、数组构造，用于分块尺寸与水平索引 | R:code:cli/CALL-CLI/util/TransfromUtil.cs | A:Area 与 operator+ | S:这里 X→水平X、Y→水平Z（不是三维的 Y 轴），勿按三维习惯理解
+Vec3.cs[LG4T]: F:整数三维向量与浮点 Vec3f，提供 Volume 与字符串化 | R:code:cli/CALL-CLI/math/Vec2.cs | A:Volume/ToString | S:Volume 是 int 连乘，超大结构会静默溢出
+
+===E:/code/LL3/Plugins/CALL/cli/CALL-CLI/util/===
+Console.cs[XG3T]: F:带 --LOG-- 前缀的 stdout 包装，供上层按前缀识别 CLI 日志行 | R:- | A:Log | S:该前缀是跨进程输出协议，改动会让日志解析静默失效
+McStructure.cs[XD6T]: F:.mcstructure 的 NBT 对象模型：size、structure、block_indices 主次索引与调色板的强类型访问 | R:code:cli/CALL-CLI/util/TagUtil.cs | A:Size / PrimaryIndices / SecondaryIndices | S:索引是 [主,次] 两层 ListTag，层级取错会静默读出空结构而非报错
+McStructureMerger.cs[XD7S]: F:把多个分块结构合并回完整结构：重建调色板、去重方块名、可选合并实体 | R:code:cli/CALL-CLI/util/McStructureSplitter.cs | A:构造函数与 _lv2GvDict | S:合并前须统一调色板顺序；实体用并发容器收集，其顺序不稳定且不构成语义
+McStructureSplitter.cs[XD7S]: F:按 X/Z 分块把完整结构切成多份并逐块并行处理，最后写回分块目录 | R:code:cli/CALL-CLI/util/TransfromUtil.cs | A:Split() | S:分块尺寸取自 TransfromUtil.SingleChunkSize，切分与合并必须同尺寸否则块对接错位
+Singleton.cs[LG3T]: F:泛型懒加载单例基类（Lazy<T> + new() 约束），供 TagUtil 与 TransfromUtil 复用 | R:code:cli/CALL-CLI/util/TagUtil.cs | A:Instance | S:构造函数在实例已创建时抛异常，派生类不得再暴露公开构造
+TagUtil.cs[LG3T]: F:IntTag 缓存池，按数值复用标签实例以降低 NBT 构建开销 | R:code:cli/CALL-CLI/util/McStructure.cs | A:IntTagBucket | S:返回的是共享实例，调用方不得就地修改数值；底层并发字典服务于并行切块
+TransfromUtil.cs[LG5T]: F:分块换算：全局尺寸→分块数、局部坐标→全局坐标、三维坐标→线性索引 | R:code:cli/CALL-CLI/util/McStructureSplitter.cs | A:PosToIndex / LocalPosToGlobalPos | S:SingleChunkSize 是全局可变状态，必须在任何切分或索引计算前设置
+
+===E:/code/LL3/Plugins/CALL/core/===
+index.ts[EG8T]: F:插件入口：注册 onServerStarted，服务器启动后调用 core/src/app 的 main() | R:code:core/src/app.ts | A:mc.listen("onServerStarted") | S:manifest 的 entry 是 index.js（require("./core")），本文件最终以 core/index.js 加载
+
+===E:/code/LL3/Plugins/CALL/core/src/===
+Activity.ts[AD7T]: F:玩家生命周期编排：创建/开始/停止/销毁时恢复选区显示、清定时器、释放高亮，并按设置决定是否保留撤销与剪贴板 | R:code:core/src/user/Players.ts,code:core/src/structure/AreaDisplayerService.ts | A:onDestroy | S:onDestroy 必须回收每玩家定时器与世界高亮，否则残留逻辑会对失效句柄持续运行
+CACommand.ts[EU9L]: F:命令总入口：注册 /ca 全部子命令（区域、填充、预览、导入导出、菜单、权限、设置、帮助）并把参数分发给对应 Operation | R:code:core/src/app.ts,code:core/src/structure/AreaOperation.ts | A:子命令注册表与 normalisePositions | S:坐标参数一律 ParamType.Vec3 后再向下取整；换回 BlockPos 会让负坐标整体偏移一格
+app.ts[AG9L]: F:插件装配总纲：初始化路径与配置、装包、注册命令与事件、打印启动能力日志（库导出面与真实预览渲染方式） | R:code:core/index.ts,code:core/src/holo/HoloCompat.ts | A:main()/init() 与启动日志段 | S:装配顺序是冻结基线；启动日志必须反映真实 backend，不要写死 viewBlock
+
+===E:/code/LL3/Plugins/CALL/core/src/addon/===
+AddonInstaller.ts[IE7M]: F:首次启动把内置 BP/RP 复制进服务器包目录，并用合并方式把包加入世界列表 | R:code:assets/addon/CALL_Tools_BP/manifest.json,code:assets/addon/CALL_Tools_RP/manifest.json | A:BP_UUID/RP_UUID、PACK_VERSION | S:启用包只在世界加载时生效，首次只能提示重启；包列表必须合并，覆盖会清掉管理员已有包
+
+===E:/code/LL3/Plugins/CALL/core/src/common/===
+Area3.ts[KG6T]: F:三维区域：两点归一化、整体平移、2D/3D 矩阵变换与包含判定 | R:code:core/src/common/Pos3.ts | A:normalize/transform2D | S:构造默认 normalize 会改写 start/end；需保留原始两角时必须传 normal=false
+BlockType.ts[DD6T]: F:方块标识规范化：空串表示「无方块」，裸名补 minecraft: 前缀并统一小写 | R:code:core/src/structure/FillOperation.ts | A:构造函数 | S:空串必须保持为空（填充语义依赖它），补前缀只对真实方块名生效
+Config.ts[FC9L]: F:配置与数据总闸：读 check.jsonc 校验、按模板合并 configs.jsonc、管理 all/op/customize/file/tag 权限模式与玩家数据路径 | R:code:assets/configs.default.jsonc,code:core/src/common/JsoncConfig.ts | A:PermissionsType 与 GLOBAL_PATH 等路径常量 | S:写入一律经 JsoncConfigFile 保留注释，直接 JSON.stringify 会抹掉模板说明
+JsoncConfig.ts[FC7S]: F:带注释的配置句柄：首启由模板生成，只改真正变化的值，未变内容不重写 | R:code:core/src/common/JsoncDoc.ts | A:JsoncConfigFile、migrateToTemplate | S:只有 dirty 时才落盘；改用 LSE 自带 JsonConfigFile 会丢掉全部注释
+JsoncDoc.ts[LC7S]: F:极简 JSONC 处理：分词、按点路径定位值、就地替换单个值，其余字节保持原样 | R:code:core/src/common/JsoncConfig.ts | A:tokenize、findValue、patchJsonc | S:必须正确处理字符串里的注释符；替换只碰目标区间，不许整体重排
+Layout.ts[RC6M]: F:旧布局一次性迁移：userdata/** 与旧 config/*.json 映射到 config/、data/，只读资产丢弃 | R:code:core/src/common/Paths.ts | A:planMigration 与 USERDATA_MAP | S:规划是纯函数、执行才动盘；执行前须判目标存在性，重复执行不得覆盖
+Paths.ts[RC9M]: F:定位插件自身目录并集中导出所有写入路径（assets/config/data/import/export），含服务器根识别 | R:code:core/src/common/Layout.ts | A:detectPluginRoot、ROOT | S:三级回退中 loader 实报路径必须优先；写死 ./plugins/call 在改名安装时全盘失效
+Pos3.ts[KG5T]: F:带维度的坐标类型：从 IntPos/FloatPos 转换、由方向角推远点、与矩阵互转 | R:code:core/src/common/Area3.ts | A:fromPos、directionToPosArr | S:必须保留 dimid，跨维度选区全靠它分流；丢维度会让选区落到主世界
+Semver.ts[LG4T]: F:点分版本比较 cmpVersion/atLeast，缺省段按 0 计，用于启动时校验原生 mod 版本 | R:code:core/src/holo/HoloCompat.ts | A:cmpVersion、atLeast | S:只比数字段且 "26.51"=="26.51.0"；预发布标记被忽略，不能用于严格排序
+Structure.ts[DD7S]: F:结构数据模型：Complex/Data 持久化形状、结构类型枚举、Structure 类与 NBT 类型别名 | R:code:core/src/io/StructureNBT.ts | A:Data、Structure | S:pid 槽位历史是数字现在是字符串，读取必须兼容两种类型
+ViewFace.ts[KG5T]: F:由视角 pitch/facing 推断点击面 id，供调整魔杖沿法线移动预览 | R:code:core/src/structure/PreviewOperation.ts | A:faceFromView | S:面 id 沿用 Bedrock 约定且须与 FACE_DELTA 对齐；pitch 阈值 45° 是行为契约
+
+===E:/code/LL3/Plugins/CALL/core/src/game/===
+Chunks.ts[RP8M]: F:操作前强制加载区块、结束后释放：tickingarea 租约、失败分类与分块调度 | R:code:core/src/game/Cmd.ts | A:ChunkLease、PREFIX | S:未加载区块会报「无法在世界外放置方块」，这是误导性错误，别误判成尺寸越界
+Cmd.ts[RW9S]: F:唯一命令执行层：用 execute 定位玩家、统一成功判定、记录失败输出，避免同步重入分发器 | R:code:core/src/game/SafeArgs.ts | A:run、runNow、runAs | S:不得在命令回调里同步重入分发器；玩家名要取实时句柄而非缓存位置
+SafeArgs.ts[RS8M]: F:出站参数校验：血条颜色/百分比、消息类型、维度夹取，以及 Y 范围与填充体积上限 | R:code:core/src/game/Cmd.ts | A:bossBarColor、MAX_FILL_VOLUME | S:颜色 11 越界曾导致客户端断连而服务器存活，所有枚举值必须夹进 0..7
+
+===E:/code/LL3/Plugins/CALL/core/src/holo/===
+BlockView.ts[IM8M]: F:客户端方块覆盖桥：blockFakeSet 状态串、viewBlock 回退、blockFakeResolveNbt 求 network id、viewBlockById 与方块实体推送 | R:code:core/src/holo/HoloCompat.ts,code:core/src/holo/PasteSync.ts | A:backend/statesExact/setById/resolveId/setBlockEntity | S:状态串的键必须裸写；viewBlock 只吃名字基态，不要再让它承担状态
+BossBar.ts[IM6M]: F:血条封装：创建、改标题、改进度、移除，只操作自己创建的 id | R:code:core/src/holo/Holo.ts | A:BossBar.add/remove | S:绝不调用 bossBarRemoveAll，那会清掉其他插件的血条
+FakeBlocks.ts[IP7M]: F:批量客户端方块：把预览窗口合并为 UpdateSubChunkBlocks（≤1024 变更/包、8 包/刻） | R:code:core/src/holo/BlockView.ts | A:packCells、PACK_MAX_BYTES | S:逐格发送曾产生上万包；库缺批量接口时 available() 为假，须回落单格路径
+Holo.ts[IR8S]: F:HologramLib 防御式桥接：一次性 ll.import 绑定，库缺失或缺 lrca 时所有调用为 no-op | R:code:core/src/holo/HoloCompat.ts | A:Holo.available/bind | S:函数必须绑定一次复用，禁止在 tick 内 ll.import；库缺失应降级而不是报错
+HoloCompat.ts[IR8M]: F:库能力闸门：按导出面探测 swing、状态串、批量、方块实体与 SNBT，版本串仅用于日志 | R:code:core/src/holo/Holo.ts,code:core/src/holo/BlockView.ts | A:status()、caps、probe()、removeReliable() | S:442 与 450 导出都自称 ABI 1.37.0，禁止用发布号判能力
+ItemDisplay.ts[IM5S]: F:用 item display 做假方块预览：固定姿态参数并走无缝创建接口 | R:code:core/src/holo/Holo.ts | A:BLOCK_MODE、itemDisplayCreateSeamless | S:先创建再 SetMode 会重生显示并错位；坐标是底部中心，y 取整、x/z 取 +0.5
+Wireframe.ts[IU8M]: F:选区与预览线框：在客户端画 DebugShape，尺寸不变时用移动而非重建 | R:code:core/src/holo/HoloCompat.ts | A:Box、COLOR、PARK_DISTANCE | S:不要给形状设时长，旧实现在客户端留下过幽灵计时实体；标签总是原地改写
+PasteSync.ts[IR7T]: F:粘贴后客户端重画：对半径内玩家先 blockFakeSetNbt 下发本体，再 blockFakeSetBlockEntity 补方块实体 | R:code:core/src/holo/BlockView.ts,code:core/src/structure/StructurePlacement.ts | A:afterBlockEntity、stats | S:服务端数据本来已写对，这里只补 BlockActorData；本体必须先于实体数据
+
+===E:/code/LL3/Plugins/CALL/core/src/io/===
+ExportOperation.ts[AD5S]: F:导出命令的交互编排：进度条、结构查找、按配置调用 CLI 或内部导出 | R:code:core/src/io/ExportService.ts | A:oldStart 与新入口 | S:旧入口标了 deprecated 但仍被引用，改签名须同时清理调用点
+ExportService.ts[DD7M]: F:把区域写成结构：按 xuid 查私有结构、公开结构查找、NBT 组装与落盘 | R:code:core/src/io/StructureNBT.ts,code:core/src/common/Structure.ts | A:checkStructure | S:结构名与 xuid 作用域绑定，跨玩家取结构必须走公开列表
+ImportOperation.ts[AD5M]: F:导入命令编排：进度条、路径解析、按 chunk 调 CLI 或内部导入 | R:code:core/src/io/ImportService.ts | A:oldStart | S:大结构曾因字节序判断失败而解析不了，导入链必须共用同一 NBT 转码
+ImportService.ts[DD7M]: F:结构导入与粘贴：xuid/名称解析、占用区域规划、NBT 校验与写入世界 | R:code:core/src/io/ImportOperation.ts,code:core/src/structure/StructureService.ts | A:findXuidByName | S:本平台 setStructure 会崩服，粘贴走分段填充而非结构原语
+NbtCodec.ts[PD9L]: F:.mcstructure 字节序转码与布局解析（含 block_position_data），并导出 snbtOf 供方块实体与状态使用 | R:code:core/src/io/StructureNBT.ts,code:core/src/structure/SurfaceExtract.ts | A:parseStructureLayout、toLseTag、snbtOf | S:字节序判断不能依赖尺寸；snbtOf 失败返回空串，调用方必须判空
+StructureNBT.ts[PD6T]: F:.mcstructure 的 NbtCompound 构造器：format_version、size、block_indices、palette、实体与原点 | R:code:core/src/io/NbtCodec.ts | A:构造函数字段 | S:字段名与嵌套层级照规范，缺少 structure 一层就解析不出方块数据
+StructureOrder.ts[PD8T]: F:Bedrock 结构文件线性索引与坐标互转（ZYX 序，Z 变化最快） | R:code:core/src/io/StructureNBT.ts | A:cellIndex/cellCoords | S:索引公式是文件格式规范而非约定；用 Y 最快会把每个结构转置
+Utils.ts[RD6T]: F:结构转换助手 CALL-CLI.exe 的绝对路径导出 | R:code:assets/bin/CALL-CLI.exe,code:core/src/common/Config.ts | A:CLI_EXE_PATH | S:BIN_PATH 自 3.0 起已是绝对路径，别再拼 process.cwd()，否则换工作目录即失踪
+ZipStore.ts[PD7S]: F:仅 STORE 的极简 ZIP 写出器与目录收集，用来生成可直接双击的 .mcaddon/.mcpack | R:code:core/src/common/Paths.ts | A:createStoreZip、collectEntries | S:不压缩也不分卷，条目顺序即写入顺序；CRC32 必须与实际字节一致
+
+===E:/code/LL3/Plugins/CALL/core/src/lib/three-math/===
+Box2.ts[LG3S]: F:three.js Box2 的 TS 拷贝：二维 AABB 的 min/max、并集与相交判定 | R:code:core/src/lib/three-math/Vector2.ts | A:min/max、union/intersect | S:属于 vendored 上游 three.js 拷贝，升级须整组替换；局部手改会在下次同步时丢失
+Box3.ts[LG4M]: F:three.js Box3 的 TS 拷贝：三维 AABB 的扩展、并交、射线与球体判定 | R:code:core/src/lib/three-math/Vector3.ts | A:expandByPoint/intersectsRay | S:vendored 拷贝；只做纯数学，别依赖 Object3D 重载
+Color.ts[LG4L]: F:three.js Color 的 TS 拷贝：hex/HSL 互转、sRGB 与线性空间转换 | R:code:core/src/lib/three-math/MathUtils.ts | A:setHex/setHSL/convertSRGBToLinear | S:vendored 拷贝；默认按 sRGB 语义，线性计算前须显式转换
+Cylindrical.ts[LG2T]: F:柱坐标（radius/theta/y）与 Vector3 的互转 | R:code:core/src/lib/three-math/Vector3.ts | A:setFromVector3 | S:vendored three.js 拷贝；theta 绕 y 轴、以 +z 为基准
+Euler.ts[LG6M]: F:欧拉角与其旋转顺序 IOrder，及与四元数、矩阵的互转 | R:code:core/src/lib/three-math/Quaternion.ts | A:setFromRotationMatrix/order | S:属于 vendored 上游 three.js 拷贝，升级须整组替换；局部手改会在下次同步时丢失；order 字符串决定乘法次序（默认 XYZ），改它会让所有派生矩阵静默变化
+Line3.ts[LG3S]: F:线段：最近点、距离、参数插值与矩阵变换 | R:code:core/src/lib/three-math/Vector3.ts | A:closestPointToPoint/distance | S:vendored three.js 拷贝；端点按引用保存，改原向量会连带改线段
+MathUtils.ts[LG4M]: F:通用数学：clamp、lerp、区间映射、随机数与 UUID/十六进制生成 | R:code:core/src/lib/three-math/Vector3.ts | A:clamp/lerp/seededRandom | S:vendored 拷贝；随机非加密安全，可复现须显式种子
+Matrix3.ts[LG5M]: F:3x3 矩阵：行列式、逆转置与从 4x4 取旋转部分 | R:code:core/src/lib/three-math/Matrix4.ts | A:setFromMatrix4/invert | S:属于 vendored 上游 three.js 拷贝，升级须整组替换；局部手改会在下次同步时丢失；元素按列主序存放，setFromMatrix4 只取旋转、丢弃平移
+Matrix4.ts[LG7L]: F:4x4 变换矩阵：合成与分解、旋转/位移/缩放、透视与正交投影、逆与法线矩阵 | R:code:core/src/lib/three-math/Matrix3.ts | A:compose/decompose/makeRotationFromEuler | S:属于 vendored 上游 three.js 拷贝，升级须整组替换；局部手改会在下次同步时丢失；列主序且右乘，欧拉顺序必须与 Euler.order 一致否则姿态错
+Quaternion.ts[LG6L]: F:四元数：从轴角/欧拉/矩阵构造，插值、点积与归一化 | R:code:core/src/lib/three-math/Euler.ts | A:setFromAxisAngle/slerpQuaternions | S:属于 vendored 上游 three.js 拷贝，升级须整组替换；局部手改会在下次同步时丢失；静态 slerp 已弃用并会打印警告，且未归一化的四元数会让旋转抖动
+Ray.ts[LG5M]: F:射线：最近点计算，与球、盒、平面、三角形的求交 | R:code:core/src/lib/three-math/Vector3.ts | A:intersectBox/intersectsSphere | S:属于 vendored 上游 three.js 拷贝，升级须整组替换；局部手改会在下次同步时丢失；direction 必须是单位向量，否则距离与求交结果都会失真
+Sphere.ts[LG3S]: F:球体：包含点与盒、射线求交、由点集生成包围球 | R:code:core/src/lib/three-math/Box3.ts | A:containsPoint/intersectsRay | S:vendored three.js 拷贝；非等比缩放下 applyMatrix4 只是保守近似
+Spherical.ts[LG2T]: F:球坐标（radius/phi/theta）与 Vector3 互转 | R:code:core/src/lib/three-math/Vector3.ts | A:setFromVector3 | S:vendored three.js 拷贝；phi 从 +y、theta 从 +z 量起
+Triangle.ts[LG3M]: F:三角形：重心、面积、法线、包含点与最近点 | R:code:core/src/lib/three-math/Vector3.ts | A:getNormal/getArea | S:vendored three.js 拷贝；退化三角形法线为零向量
+Vector2.ts[LG4M]: F:二维向量：算术、点积叉积、长度归一化、旋转与插值 | R:code:core/src/lib/three-math/MathUtils.ts | A:dot/cross/rotateAround | S:vendored 拷贝；零向量 normalize 得 NaN，先判长度
+Vector3.ts[LG5L]: F:三维向量：算术、叉点积、矩阵与四元数变换、球柱坐标互转 | R:code:core/src/lib/three-math/Quaternion.ts | A:applyMatrix4/applyQuaternion | S:属于 vendored 上游 three.js 拷贝，升级须整组替换；局部手改会在下次同步时丢失；applyMatrix4 会做透视除法，纯仿射场景应用 transformDirection 或 applyMatrix3
+Vector4.ts[LG3L]: F:四维向量：齐次坐标、与 4x4 矩阵相乘、插值与归一化 | R:code:core/src/lib/three-math/Vector3.ts | A:applyMatrix4/setAxisAngleFromQuaternion | S:vendored three.js 拷贝；与 Vector3 互转时 w 不做归一化
+index.ts[LG6T]: F:three-math 的统一导出口，外部一律从这里 import | R:code:core/src/lib/three-math/Vector3.ts | A:export * 列表 | S:新增模块必须在此再导出，否则调用方拿不到；上游升级要同步本文件
+
+===E:/code/LL3/Plugins/CALL/core/src/plugin/===
+Plugin.ts[EE7S]: F:第三方 shape 包契约：IPlugin 接口、PluginInfo 元数据与 ShapePlugin/PluginTool 适配层 | R:code:core/src/plugin/PluginLoader.ts | A:IPlugin、ShapePlugin | S:接口方法名与返回结构是外部契约，改签名会让已有 shape 包静默失效
+PluginLoader.ts[EE6T]: F:扫描 shapes 目录下的 .js 并以绝对路径 require，注册到 idList 与 pluginsMap | R:code:core/src/plugin/Plugin.ts | A:loadPlugins | S:必须用绝对路径；旧代码写死 ../../../userdata/plugins/，目录搬迁后全部失效
+ShapeOperation.ts[EE5T]: F:/ca shape 子命令处理：list 与 load（按包名、索引和坐标放置形状） | R:code:core/src/plugin/ShapeService.ts | A:start/load | S:短别名 li/lo 也要保留，帮助文本按它展示；未知子命令静默忽略而非报错
+ShapeService.ts[ED6S]: F:形状包服务：读取包内结构、转换为 NBT 并在世界放置，返回可翻译信息 | R:code:core/src/plugin/PluginLoader.ts | A:coveredArea、placeNbtAsync 调用 | S:放置走分段落块，直接调结构原语会崩服；区域占用必须先算 coveredArea
+
+===E:/code/LL3/Plugins/CALL/core/src/structure/===
+AreaDisplayerService.ts[AU8L]: F:选区显示：按 areaDisplayMode 选结构方块/粒子/文字/线框，并驱动每玩家定时刷新与释放 | R:code:core/src/holo/Wireframe.ts | A:areaDisplayMode 分支与 release | S:structure_block 是唯一被实测能渲染的方式；粒子在 2.0 报过完全不可见
+AreaOperation.ts[EU8M]: F:/ca area 选区操作：两点设置、脚下方块推断、区域归一化与显示同步 | R:code:core/src/structure/AreaDisplayerService.ts | A:feetPos、start | S:getBlockStandingOn 在此构建返回脚部格子，故「脚下方块」须向下扫非空气块（最多 3 格）
+BasicTranslOperation.ts[AD6M]: F:基础平移/翻转/旋转操作：对选区或结构做位移、镜像与旋转并回显结果 | R:code:core/src/structure/StructureService.ts,code:core/src/structure/Rotate.ts | A:transform 与 fillCommand 调用 | S:变换后须先算目标占用区再落块，直接按原尺寸写会覆盖邻区
+BatchSender.ts[RP7T]: F:全局批次节流：每刻最多下发 previewBatchPerTick 个任务，多预览轮转，首块同步发送 | R:code:core/src/structure/PreviewScene.ts | A:TICK_MS、drain | S:库按全局 8 包/刻限流，一次性提交会挤掉全服全息与其它批次
+BlockEditerOperation.ts[EU4T]: F:/ca block 子命令：编辑器表单入口与按 NBT 写入单方块 | R:code:core/src/view/BlockEditerForm.ts | A:start | S:无子命令即直接编辑，menu 走表单；两条分支的 IntPos 语义相同
+ChunkOperation.ts[ER3T]: F:/ca chunk 子命令：强制刷新玩家周围区块并回显成功 | R:code:core/src/user/PlayerManager.ts | A:start | S:它只是提示刷新，真正的加载由 tickingarea 租约负责
+Clipboard.ts[DD6S]: F:剪贴板几何：从多切片结构名解析各切片真实偏移并合成包围盒 | R:code:core/src/structure/Rotate.ts | A:sliceOrigin、clipboardBox | S:偏移只能从文件名解析，用 relative() 归零会让多切片粘贴叠在同一点
+FillOperation.ts[ED6T]: F:/ca fill 命令编排：按真实执行结果决定提示文案（全成功/部分失败/整体失败） | R:code:core/src/structure/FillService.ts | A:report | S:必须按 outcome 报，全部失败时也印成功文案是已修过的缺陷
+FillService.ts[DD9M]: F:填充/清除/替换执行器：分块、逐块发命令、失败分类与结果合并，支持半砖高度 | R:code:core/src/game/Cmd.ts,code:core/src/game/SafeArgs.ts | A:FillOutcome、fillCommand | S:未加载区块与尺寸越界必须分开归类，否则把加载问题报成参数错误
+GhostLedger.ts[DD8T]: F:幽灵方块账本：记录哪些格子在客户端已显示、已清除与待重试 | R:code:core/src/structure/PreviewScene.ts | A:markOwed、markCleared | S:applied 不得整体清空，否则离开窗口的格子永不被清除（直到重登）
+NBTService.ts[PD7S]: F:结构切片读写：把区域抓成自有 .mcstructure 文件并还原回世界 | R:code:core/src/structure/StructurePlacement.ts | A:placeBytesAsync | S:不能用 mc.setStructure 或 /structure load，二者在此平台静默失败或崩服
+PreviewHud.ts[DU6S]: F:预览 HUD 纯函数：倒计时文案与样式、手势判定、自动显示阈值 | R:code:core/src/structure/PreviewOperation.ts | A:gestureOf、countdownMode | S:刻意不引用引擎全局以便单测；改手势表须同步实机分支
+PreviewHudLock.ts[DU5T]: F:动作条占用锁：预览倒计时期间占位，选区提示让出，避免每秒互相覆盖 | R:code:core/src/structure/AreaDisplayerService.ts | A:hold/release | S:锁短时且须成对释放，泄漏会让选区提示长期不显示
+PreviewOperation.ts[AU9L]: F:预览总控：锚点与枢轴、旋转镜像、倒计时、手势与 HUD、超时清理与场景重建 | R:code:core/src/structure/PreviewScene.ts,code:core/src/structure/PreviewPlan.ts | A:PreviewState、anchorOf | S:旋转四次必须零下发靠 diff；重建不得清掉即将重画的格子
+PreviewPlan.ts[DU8M]: F:纯规划：格子到世界坐标的映射与差量，携带 blockSnbt 与方块实体载荷 | R:code:core/src/structure/Rotate.ts | A:planCells、diffPlacement | S:diff 必须幂等；新增的载荷字段只透传，不参与 id 比较
+PreviewScene.ts[AU9L]: F:预览场景：full/window/lazy 三模式、批量下发、状态叠加层（SNBT 求 id 后 viewBlockById）与方块实体推送 | R:code:core/src/structure/PreviewPlan.ts,code:core/src/holo/BlockView.ts | A:submitSets、overlayStates、pushEntities | S:顺序固定为批量本体、状态叠加、方块实体；状态叠加每预览上限 2048 格
+Rotate.ts[KD8M]: F:旋转与镜像数学：偏移变换、枢轴平移与旋转后的目标脚印 | R:code:core/src/structure/Clipboard.ts | A:rotateOffset、rotatedUnion | S:锚点固定在目标盒最小角，旋转只转盒内图案，不翻到反侧
+StructureOperation.ts[AD9L]: F:/ca structure 总命令：保存/载入/删除/列表、撤销重做与跨玩家共享 | R:code:core/src/structure/StructureService.ts,code:core/src/structure/StructureStore.ts | A:子命令分发 | S:结构名解析要同时接受 id 与显示名，旧数据里两者都可能出现
+StructurePlacement.ts[DD9L]: F:结构放置：镜像旋转映射、占用区计算、逐块写入与方块实体落盘，写完触发客户端重画 | R:code:core/src/io/NbtCodec.ts,code:core/src/holo/PasteSync.ts | A:coveredArea、placeNbtAsync、flushBlockEntities | S:setStructure 会段错误；方块实体只能经 getBlockEntity().setNbt，客户端另需重画
+StructureService.ts[DD9L]: F:结构服务：保存列表、私有与公开作用域、撤销重做栈与载入调度 | R:code:core/src/structure/StructureStore.ts,code:core/src/structure/StructureOperation.ts | A:getPrivate、clearUndoList | S:撤销重做受 settings.saveUndo 控制，关闭后玩家销毁会清空历史
+StructureStore.ts[PD8L]: F:结构磁盘布局：按玩家/名称/类型分目录，切片文件名编码 x_z 偏移 | R:code:core/src/common/Paths.ts | A:sliceFileName、folderPath、sanitizeFolder | S:旧版是 data/nbt 平铺，目录结构与 structures.json 必须同时迁移
+SurfaceExtract.ts[KD8M]: F:表面提取：内部剔除与预算截断，产出 descriptorOf 状态串、blockSnbtOf 的 SNBT 与方块实体载荷 | R:code:core/src/io/NbtCodec.ts | A:extractSurface、descriptorOf、blockSnbtOf | S:状态串键裸写；blockSnbtOf 只对带状态的条目返回非空
+TextureOperation.ts[EU3T]: F:/ca texture 子命令：把准星方块记入纹理选择器的 A/B 槽 | R:code:core/src/user/SettingsOperation.ts | A:start | S:只写 settings.texture 的 a/b 槽，方块名须先经 BlockType 规范化
+
+===E:/code/LL3/Plugins/CALL/core/src/temp/===
+Common.ts[CG3T]: F:通用小枚举：比较结果 Compare 与文件打开模式 FileMode | R:- | A:Compare | S:取值直接映射比较与 IO 语义（-1/0/1），不要重排枚值
+Constant.ts[CG5T]: F:全局常量：世界高度上下限、结构切片 64x64 上限、填充与显示阈值 | R:code:core/src/structure/Clipboard.ts | A:SPACE、STRUCTURE | S:结构 MAX_LENGTH=64 是平台硬限，切片命名与放置都依赖它
+Data.ts[DG5T]: F:玩家设置 Settings 与 defaultSettings 默认值，以及选区数组 Areas 类型 | R:code:core/src/user/CAPlayer.ts | A:Settings、defaultSettings | S:新增字段必须同时进 defaultSettings，否则老存档读出 undefined
+Enums.ts[CG5T]: F:消息类型枚举：按 LSE 历史编号映射 TextPacketType，只提供命名常量 | R:code:core/src/util/Msg.ts | A:Enums.msg | S:历史 popup=4 与 BDS 的 3 不同，必须按名称引用，禁止写裸数字
+Pos.ts[CG2T]: F:坐标与维度类型别名：dimid 取 0|1|2，Pos = FloatPos|IntPos | R:code:core/src/common/Pos3.ts | A:- | S:维度只有三种，跨维度操作必须显式携带 dimid
+Tool.ts[CG2T]: F:工具触发类型枚举：RIGHT/LEFT 字符串值，供手势表使用 | R:code:core/src/structure/PreviewHud.ts | A:- | S:值是字符串而非数字，与事件回调的 button 字段直接比较
+
+===E:/code/LL3/Plugins/CALL/core/src/user/===
+BindingMigration.ts[DD6T]: F:绑定迁移：把 ${posf.*} 改写为 ${pos.*}，修掉点击面平面造成的选择偏移 | R:code:core/src/user/Bindings.ts | A:migratePosfBindings | S:posf 落在点击面平面（+Z 面会差一格），需要原始点才用 ${hit}
+Bindings.ts[CD7T]: F:绑定解析：按物品类型到显示名到命令查找，空显示名等同无自定义名；默认值合并也在此 | R:code:core/src/user/BindingMigration.ts | A:matchBinding、mergeDefaults | S:显示名为空串必须视为无自定义名，只按类型匹配会让改名魔杖点击无效
+CAPlayer.ts[DD8S]: F:每个在线玩家的会话状态：settings、点击态、选区标记、显示标志与临时结构引用 | R:code:core/src/user/Players.ts,code:core/src/temp/Data.ts | A:构造函数与 stopTimers | S:玩家销毁必须清定时器与高亮，泄漏会对着失效句柄持续运行
+EnableOperation.ts[EU4T]: F:/ca enable 与 disable：切换玩家级启用开关并立即启停选区显示 | R:code:core/src/Activity.ts | A:on/off | S:开关是玩家级而非全局；关闭后不应再注册该玩家的定时器
+HelpOperation.ts[EU4T]: F:/ca help：读 config/help.json 生成帮助目录树并回显 | R:code:assets/help.json | A:start、readFile | S:读的是 config/ 下副本而非 assets/，副本缺失时帮助为空
+PermissionOperation.ts[EI7T]: F:/ca permission：在 customize 模式下增删查白名单并写回 userlist.json | R:code:core/src/common/Config.ts | A:check | S:非 customize 模式直接抛错，权限判定只认 Config 的 permission 值
+PlayerManager.ts[RU4T]: F:区块刷新：刷新单个玩家或同维度附近玩家的客户端区块 | R:code:core/src/temp/Constant.ts | A:refreshChunks、refreshPlayersChunks | S:只刷新客户端不加载服务端区块，附近半径取自 Constant.CHUNK
+Players.ts[DD8S]: F:玩家数据总表：xuid 到 CAPlayer 映射、数据加载保存与按名字查 xuid | R:code:core/src/user/CAPlayer.ts | A:dataMap、createCAPlayer | S:只缓存在线玩家，离线玩家数据必须走文件而不是 dataMap
+SettingsOperation.ts[EU7T]: F:/ca setting：读写玩家设置，禁止修改 enable、displayPos、area 三个受保护键 | R:code:core/src/temp/Data.ts | A:forbidModifyKeys | S:受保护键是防呆设计，放开会让启用开关与选区状态被脚本覆盖
+SwingWatcher.ts[IU8M]: F:左键检测（含对空挥动）：轮询 HologramLib 的 swingCount 并去重成点击事件 | R:code:core/src/holo/HoloCompat.ts | A:DEDUPE_MS、SwingWatcher | S:库缺失时该能力整体消失且只提示一次；去重窗口 100ms 防一次挥动触发两次
+ToolItems.ts[AU9L]: F:工具物品判定与诊断：identifier 到工具类型，/ca tools debug 打印库能力矩阵、状态解析结果与粘贴同步计数 | R:code:core/src/addon/AddonInstaller.ts,code:core/src/holo/HoloCompat.ts | A:TOOL_SPECS、debug() | S:identifier 必须与 assets/addon 下 items/*.json 一致，改名会认不出工具
+ToolOperation.ts[AU9L]: F:绑定执行引擎：把玩家绑定解析成命令或 JS 片段，变量替换后经 acorn 解析求值 | R:code:core/src/user/Bindings.ts | A:变量表与 matcher | S:替换后必须重新解析再执行；直接 eval 会撞上未定义变量并抛错
+
+===E:/code/LL3/Plugins/CALL/core/src/util/===
+Common.ts[CG2T]: F:通用构造器类型别名 Constructor<T>，供 mixin 与反射式构造使用 | R:- | A:- | S:纯类型无运行时实现，改签名会影响所有依赖它的构造调用
+Error.ts[CG3T]: F:两个自定义错误：Warn 表示可恢复警告，UnreachableError 表示不可能分支 | R:code:core/src/util/Safe.ts | A:- | S:Warn 用于可降级失败，抛出后必须在上层被捕获否则等同普通异常
+JsonPatch.ts[PD5M]: F:文件级操作封装：delete/create/patch/mkDir，用 fast-json-patch 合并 JSON | R:code:core/src/util/Safe.ts | A:patch_plus、deleteFuc | S:删除是同步 unlink 并回验存在性，失败返回 false 而非抛错，调用方须检查
+Msg.ts[CM8S]: F:唯一出站消息通道：类型归一化、空消息钳制、rawtext 校验后再发送 | R:code:core/src/temp/Enums.ts | A:MsgType、tell | S:空字符串与非法 type 曾导致玩家断连，必须先钳制再发送
+Safe.ts[CR8S]: F:回调边界兜底：safeCall/runAsync 吞异常并按 tag 归因输出，附 debugMod 开关 | R:code:core/src/util/Error.ts | A:safeCall、runAsync、describeError | S:引擎回调必须经此包裹，异常漏到引擎会静默丢失或中断整条回调链
+SimpleMatrix.ts[LG3S]: F:已废弃的简单三维矩阵与变换实现，仅为兼容旧调用保留 | R:code:core/src/common/Area3.ts | A:- | S:标了 deprecated，新代码用 three-math；混用会让坐标系约定不一致
+StrFactory.ts[CU7S]: F:字符串工厂：CALL- 前缀消息、名称合法性判断与命令回显拼装 | R:code:core/src/util/Translator.ts | A:isLegalName、cmdSuccess | S:isLegalName 对 null 返回 true 是历史行为，调用方需自行判空
+Translator.ts[CL7T]: F:语言加载：扫描 lang 目录用 properties-reader 读取并按 langCode 缓存，支持 sprintf 占位 | R:code:assets/lang/zh_CN.lang | A:scanLangDir、Tr._ | S:必须惰性扫描；LSE 0.22 取目录列表会返回 undefined 并拖垮整插件
+Version.ts[CG4T]: F:三段版本号类型与 fromString 解析，配合 Compare 做版本比较 | R:code:core/src/temp/Common.ts | A:fromString | S:段落缺失会得到 NaN，比较前必须校验否则比较恒为假
+
+===E:/code/LL3/Plugins/CALL/core/src/view/===
+AreaForm.ts[EU5T]: F:选区菜单：清除、显示与设置两点的交互表单 | R:code:core/src/structure/AreaOperation.ts | A:opt 分支 | S:表单只做交互，变更必须回 AreaOperation，避免两处各写一套归一化
+BlockEditerForm.ts[EU6M]: F:方块编辑器表单：NBT 与 BlockEntity 两种模式，按字段类型逐项编辑 | R:code:core/src/structure/BlockEditerOperation.ts | A:Mode、Type | S:只能提交完整 NBT 串，局部修改会让整块方块被替换
+Form.ts[CU7T]: F:所有玩家表单的基类：持有 settings 与玩家句柄，定义 sendForm 契约 | R:code:core/src/view/Menu.ts | A:sendForm | S:基类 sendForm 是空实现，子类必须覆盖否则选项链直接落空
+Menu.ts[EU8T]: F:主菜单：按 options 路径分发到选区、操作、保存、设置、形状等子表单 | R:code:core/src/view/MenuOperation.ts | A:子表单跳转表 | S:options 是逐层 shift 的索引栈，跳转表顺序改变会让菜单层级错位
+MenuOperation.ts[EU4T]: F:/ca menu 入口：把命令里的数字串解析成选项路径并打开主菜单 | R:code:core/src/view/Menu.ts | A:start | S:只解析数字，非数字片段被丢弃；缺 option 时按空路径进首页
+OperationForm.ts[EU8L]: F:建造操作表单：填充、替换、清除、复制、粘贴及参数（方块、半砖、是否含实体） | R:code:core/src/structure/BasicTranslOperation.ts | A:各操作分支 | S:参数最终由 Operation 层校验，表单层不得自写坐标取整逻辑
+SaveForm.ts[EU4T]: F:保存与另存为表单：先校验已有选区再提交保存 | R:code:core/src/structure/StructureOperation.ts | A:sendForm | S:无选区时直接提示、不进入命名页，避免存出空结构
+SettingForm.ts[EU7L]: F:玩家设置表单：热键绑定、显示模式、预览批量、撤销与保存开关 | R:code:core/src/user/SettingsOperation.ts | A:绑定增删分支 | S:写绑定要按 itemType 加 button 组合覆盖，追加会让同一组合出现多条
+ShapeForm.ts[EU5T]: F:形状包表单：列出已加载 shape 包并按索引选择放置 | R:code:core/src/plugin/ShapeService.ts | A:sendForm | S:包列表来自 PluginLoader.pluginsMap，未加载任何包时表单为空
+StructureForm.ts[EU6M]: F:结构管理表单：列出已存结构、分页选择、载入/删除/重命名与公开切换 | R:code:core/src/structure/StructureOperation.ts | A:quoteArg 与分页分支 | S:结构 id 可能含空格，拼命令前必须 quoteArg，否则命令被截成多个参数
+TutorailForm.ts[EU4T]: F:新手引导表单：读 config/help.json 逐级展示帮助条目 | R:code:core/src/user/HelpOperation.ts | A:构造函数读取 obj | S:帮助正文来自 config 下副本，文件缺失时引导为空且不报错
+
+===E:/code/LL3/Plugins/CALL/core/test/===
+BlockTypeTest.ts[TQ4T]: F:BlockType 的 NBT 到 states 转换单测，覆盖数字、字符串与嵌套标签 | R:code:core/src/common/BlockType.ts | A:preTest | S:断言依赖 NBT 序列化顺序，调整字段顺序会让快照式断言失败
+JsonPatchTest.ts[TQ4S]: F:JsonPatch 的增删改与目录操作单测，直接读写临时 json 文件 | R:code:core/src/util/JsonPatch.ts | A:preTest | S:用的是已部署插件的 plugins/CALL/temp 路径，未部署环境跑会写文件失败
+Test.ts[TQ4T]: F:测试入口：debugMod 为真时依次执行各测试类的 preTest | R:code:core/test/BlockTypeTest.ts | A:runTest | S:由 debugMod 开关控制，生产服默认关闭；打开会在启动时输出测试日志
+TestUtil.ts[TQ3T]: F:极简测试工具：equal 断言与带前缀的日志输出 | R:code:core/test/Test.ts | A:equal | S:失败只打印不中断，一个用例失败不会阻止后续用例继续执行
+TranslatorTest.ts[TQ4T]: F:语言表单测：校验各语言里 test.* 键的取值 | R:code:core/src/util/Translator.ts | A:preTest | S:断言直接依赖 assets/lang 里的测试键，删掉这些键会让用例失败
+
+===E:/code/LL3/Plugins/CALL/docs/===
+ARCHITECTURE.md[SG8S]: F:架构笔记：三条让整功能失效的平台 API 差异与实测规则（禁 setStructure、字节序、颜色范围等） | R:code:CHANGELOG.md,code:docs/dev/architecture.md | A:RULES 与各节编号 | S:每条都标了实测平台版本，升级 LL 或 LSE 后必须重新验证否则结论过期
+MIGRATION-2.0.md[SG7T]: F:1.6.1 到 2.0.0 迁移步骤：目录名必须为 CALL、userdata 保留、配置与结构数据沿用 | R:code:CHANGELOG.md | A:What you must do | S:装成 plugins/call 会被 LL3 拒载，文中目录名的大小写是硬要求
+_coverpage.md[SG3T]: F:docsify 封面：项目名、一句话定位与 logo | R:code:docs/index.html | A:- | S:logo 指向 docs/image/ 下的文件，改名会让封面图 404
+_navbar.md[SG4T]: F:docsify 顶部导航：说明与关于两组入口，链到用户文档 | R:code:docs/_sidebar.md | A:- | S:导航项路径必须与侧边栏一致，否则移动端入口缺失
+_sidebar.md[SG4T]: F:docsify 侧边栏：用户手册、功能介绍、开发者手册（含真机踩坑台账与发版规范）、其他 | R:code:docs/_navbar.md | A:- | S:新增页面不登记即站点内不可达；check-docs 只校验已登记链接可达
+index.html[SV5T]: F:文档站外壳：本地化 docsify 资源与初始化配置，不依赖 CDN | R:code:docs/_sidebar.md | A:docsify 初始化配置 | S:必须保持全本地化，改回 CDN 会让国内访问白屏
+
+===E:/code/LL3/Plugins/CALL/docs/dev/===
+architecture.md[SG8S]: F:平台坑机制：七条铁律、坐标语义、预览选型与实测结论（状态串按名查基态、SNBT 才吃状态、键不加引号） | R:code:docs/dev/pitfalls.md,code:docs/ARCHITECTURE.md | A:第 9 节坐标、第 10 节预览与实测表 | S:与 AGENTS.md 和 docs/ARCHITECTURE.md 重叠，改一处须三处同步
+plugin.md[SG6M]: F:形状包开发须知：文件结构、必须导出的定义、参数与命令生成流程 | R:code:docs/dev/shape.md | A:形状包开发 | S:包必须含一个 js 入口定义包名与形状数组，缺任一字段即不会被加载
+shape.md[SG6L]: F:形状包 API：export_cmd 生成函数与表单函数的签名、参数与示例 | R:code:docs/dev/plugin.md | A:导出函数 | S:签名与 Plugin.ts 的 IPlugin 契约绑定，参数顺序变更属破坏性改动
+pitfalls.md[SG8T]: F:真机台账：A–G 分类的症状、根因、修法、验证方式，含 C9/C10/C11 状态串、状态解析与粘贴同步 | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式，否则下次仍靠肉眼猜
+release.md[SG7T]: F:发版规范：触发授权、前置闸门清单（含 check:version）、版本策略、产物约定、单次发布步骤、事故恢复与禁止项 | R:code:scripts/check-version.mjs,code:CHANGELOG.md | A:第 3 节前置清单、第 5 节发布动作、第 8 节禁止项 | S:未获维护者明确指令不得发版；发布包不入库；变更日志顶部段落须等于当前版本
+
+===E:/code/LL3/Plugins/CALL/docs/other/===
+debug.md[SG5T]: F:问题反馈指引：需附版本、运行环境、复现步骤、日志片段、崩溃转储与 debugMod 诊断行 | R:code:docs/other/question.md | A:- | S:坐标与点击类问题必须附 debugMod 日志，否则无法定位
+limitations.md[SG6T]: F:已知限制清单：方块实体内容不恢复、部分结构无法完整还原等能力边界 | R:code:docs/other/question.md | A:结构还原 | S:这是能力边界不是缺陷；修复后必须删条目，否则用户按限制行事
+plugins.md[SG3T]: F:第三方形状包收录页（当前仅占位说明） | R:code:docs/dev/plugin.md | A:- | S:内容为空是刻意的，新增包需在此登记下载链接
+question.md[SG6S]: F:常见问题：菜单打开方式、选区与快捷键、结构过大等高频疑问 | R:code:docs/user/function/menu.md | A:使用操作类 | S:答案与默认配置耦合（如默认菜单键是钟），改默认值须同步本文
+update.md[SG5T]: F:更新说明：从 release 下载覆盖并保留 userdata 的步骤 | R:code:CHANGELOG.md | A:如何更新 | S:覆盖时必须保留 userdata，否则配置与已存结构全部丢失
+
+===E:/code/LL3/Plugins/CALL/docs/user/===
+config.md[SG7S]: F:配置参考：配置文件真实路径、各键含义与取值范围，含预览方块实体与粘贴同步三项新键 | R:code:assets/configs.default.jsonc | A:预览与粘贴同步表段 | S:键集必须与 configs.default.jsonc 一致，check-docs 会逐键校验反引号覆盖
+format.md[SG6T]: F:文档格式约定：指令参数记法 param:type 与参数类型表 | R:code:docs/user/function/area.md | A:参数类型表 | S:全站命令示例按此记法书写，另立一套会让示例与实现脱节
+install.md[SG7T]: F:安装说明：BDS、LL、LSE 版本矩阵与可选 HologramLib 26.51.11+/26.60.8+ 要求及安装步骤 | R:code:docs/user/tools.md | A:环境要求 | S:库能力按导出面判定（需 450 条），版本矩阵只是安装指引
+introduction.md[SG6T]: F:插件介绍：定位、对上游的派生关系与运行环境速览 | R:code:README.md | A:运行环境 | S:页内版本口径与 README 一致，改版本要两处同步
+migrate.md[SG7T]: F:1.x 与 2.0 升级到 3.x：结论是数据不用迁移，四个数据文件均兼容 | R:code:docs/MIGRATION-2.0.md | A:结论数据不用迁移 | S:升级是覆盖程序并保留 userdata；删 userdata 等于清空全部存档
+tools.md[SG7M]: F:工具物品说明：call:* 物品、获取与绑定，以及 HologramLib 450 导出依赖与逐项降级范围 | R:code:assets/addon/CALL_Tools_BP/manifest.json | A:怎么获得、依赖的 HologramLib | S:缺 HologramLib 时线框、状态预览、方块实体与空左键逐项降级，其余照常
+
+===E:/code/LL3/Plugins/CALL/docs/user/function/===
+area.md[SG6T]: F:选区使用说明：a/b 两点设置、清除与显示选区 | R:code:core/src/structure/AreaOperation.ts | A:设置选区a点 | S:不给坐标时取脚下方块，与实现里向下扫描非空气块的规则一致
+areaOperation.md[SG6T]: F:选区操作说明：填充（实心/空心/保留）、清除、复制粘贴与结构保存 | R:code:core/src/structure/FillService.ts | A:填充 fill | S:填充语义与原版不同（不限方块总数），按原版经验估耗时会低估
+console.md[SG6T]: F:后台命令说明：reload、权限查看等仅服务端控制台可用的指令 | R:code:docs/user/function/other.md | A:重启插件 reload | S:这些指令只有控制台可用，玩家身份输入无效
+hotkey.md[SG6S]: F:快捷键机制：用特定名称物品点击方块触发绑定命令序列，含绑定语法与变量 | R:code:core/src/user/ToolOperation.ts | A:绑定指令 | S:变量 ${pos} 与 ${posf} 语义不同，posf 落在点击面平面上
+menu.md[SG5T]: F:菜单说明：/call 打开图形菜单及其与指令的对应关系 | R:code:core/src/view/Menu.ts | A:菜单 | S:菜单只是指令的图形壳，菜单项缺失不等于功能不可用
+other.md[SG5T]: F:其他操作：启用或关闭 CALL、查看版本等零散指令 | R:code:core/src/user/EnableOperation.ts | A:启用和关闭 on-off | S:开关只影响执行者自己，不影响其他玩家
+setting.md[SG6T]: F:设置命令说明：查询与修改个人设置项及其取值 | R:code:core/src/user/SettingsOperation.ts | A:可修改的设置项 | S:enable、displayPos、area 属受保护键，可改项列表刻意不含它们
+shape.md[SG6T]: F:形状命令说明：/call shape list 与按 json 参数生成形状，参数由包作者定义 | R:code:docs/dev/shape.md | A:查询形状 与 生成形状 | S:参数是各包自定义 JSON，文档无法穷举；普通玩家应走菜单而非记参数
+
+===E:/code/LL3/Plugins/CALL/docs/vendor/===
+countable.js[LG2T]: F:第三方 docsify 插件：统计并显示站点访问数（默认关闭） | R:code:docs/index.html | A:defaultOptions | S:vendored 第三方脚本，勿手改；升级应整文件替换
+theme-simple.css[LG2T]: F:docsify 的 simple 主题样式，压缩成三行约 65KB | R:code:docs/index.html | A:- | S:vendored 主题，改它会在主题升级时丢失；定制应另立 css 文件
+
+===E:/code/LL3/Plugins/CALL/scripts/===
+bench-preview.mjs[TQ5T]: F:预览两处热路径的离线基准：extractSurface 与旋转重建，文件头记有优化前数字 | R:code:core/src/structure/SurfaceExtract.ts,code:core/src/structure/PreviewPlan.ts | A:文件头的基线数据 | S:改动 SurfaceExtract 或 PreviewPlan 后要重跑，否则性能回归无人发现
+build.mjs[OV9M]: F:构建流水线：清 dist、tsc 编译、拷资产、摆形状包、生成 manifest 与 tooth、打精简/全量 zip、可选部署 | R:code:tsconfig.build.json,code:scripts/zip.mjs | A:步骤注释与 --no-deps/--no-zip/--deploy | S:精简包不含 node_modules（LSE 首启自装），全量包才离线可用
+check-config.mjs[TQ7S]: F:离线校验配置：先去注释，再核对 check.json 的键都出现在 configs.default.json | R:code:assets/check.jsonc | A:键集合比对 | S:与运行时 checkConfig 是同一条不变量，两者漂移曾导致插件初始化中止
+check-docs.mjs[TQ7S]: F:文档守卫：侧栏与导航链接可达、无残留上游引用、config.md 键集与模板一致 | R:code:docs/_sidebar.md,code:docs/user/config.md | A:三项检查 | S:三项都对应真实发生过的错误，绕过检查等于放行 404 与失效指令
+check-icons.mjs[TQ4T]: F:图标校验：手工解析 PNG 头与像素块，确认工具图标尺寸与格式合法 | R:code:scripts/gen-addon-icons.mjs | A:decodePng | S:不依赖图像库；换图后必须跑一次，否则坏图只在客户端才显现
+dev-run-server.mjs[TQ5S]: F:开发辅助：启动 BDS 副本、捕获控制台、经 .console-in 文件转发命令 | R:code:build.json | A:.console-in 与 .server-out.log | S:仅用于本地调试；日志与命令文件都落在服务端目录，勿提交
+fetch-types.mjs[OV7T]: F:把 LSE 官方 TS 声明钉住 commit 拉到 types/lse，因上游未发布 npm 包 | R:code:types/index.d.ts | A:--sha 参数与钉住的 commit | S:重新生成不会产出 types/index.d.ts，删它会让引用解析失败
+gen-addon-icons.mjs[OV6S]: F:用圆、矩形、线、环等图元直接生成 32x32 RGBA 工具图标，无需图像库 | R:code:assets/addon/CALL_Tools_RP/textures/textures_list.json | A:图元函数与调色板 | S:图标可由源码复现，手改 PNG 会在下次生成时被覆盖
+gen-icon-preview.mjs[OV4T]: F:生成图标预览拼版：放大六倍并列，便于肉眼检查贴图 | R:code:scripts/gen-addon-icons.mjs | A:SCALE/PAD 常量 | S:用 cwd 定位仓库根，必须在仓根执行否则找不到源图
+test-live.mjs[TQ7M]: F:一键活测：构建部署、装 CALLTEST 测试插件、无头起服、等 ALL DONE 后输出 PASS/FAIL | R:code:scripts/dev-run-server.mjs | A:--minutes/--keep 与 ALL DONE 判定 | S:测试插件不进发行包；退出码非零即有断言失败，与 CI 同一套判定
+zip.mjs[OV7S]: F:零依赖 ZIP 写出器：deflate 或 store、无 zip64、UTF-8 名，输出可字节复现 | R:code:scripts/build.mjs | A:createZip | S:条目排序且固定 DOS 时间戳，改这两点会让发行包哈希不稳定
+check-version.mjs[OV7S]: F:版本一致性守卫（只读）：比对 package.json、tooth.json、CHANGELOG 最新段落与 git tag，未打标签只告警 | R:code:package.json,code:docs/dev/release.md | A:problems/warnings 汇总与退出码 | S:绝不改写文件或打标签；三处不一致才失败
+
+===E:/code/LL3/Plugins/CALL/shapes/===
+call.superx101.basicShape.ts[ED8L]: F:内置基础形状包：用 three-math 生成几何体并导出 export_cmd，供 /ca shape 列表与参数化生成 | R:code:core/src/plugin/Plugin.ts | A:ShapePlugin 导出与 i18n.load | S:形状包契约由 IPlugin 定义，签名或参数顺序变化会同时破坏所有第三方包
+
+===E:/code/LL3/Plugins/CALL/types/===
+compat.d.ts[FL7T]: F:旧 HelperLib 类型别名：LLSE_Player/Item/Block 映射到新的 Player/Item/Block | R:code:types/lse/index.d.ts | A:别名声明 | S:属迁移垫片，新代码必须用新名；全部迁移完成后应删除本文件
+index.d.ts[FL6T]: F:空模块，专为 types/lse 下文件的 /// reference path 兜底，避免 TS6053 | R:code:types/compat.d.ts | A:- | S:删了会触发大量 TS6053；fetch-types 不会重新生成本文件

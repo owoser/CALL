@@ -14,7 +14,8 @@
     "server:dev": "node scripts/dev-run-server.mjs",
     "check:config": "node scripts/check-config.mjs",
     "test:unit": "node --test tests/unit/",
-    "check:docs": "node scripts/check-docs.mjs"
+    "check:docs": "node scripts/check-docs.mjs",
+    "check:version": "node scripts/check-version.mjs"
   },
   "repository": {
     "type": "git",

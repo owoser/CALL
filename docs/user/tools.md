@@ -277,3 +277,19 @@ data/nbt/
 
 默认绑定写在 `configs.json` 的 `default.items` 里，按**物品 id** 匹配
 （例如 `call:wand_select`），所以玩家自己改过的绑定不会被更新覆盖。
+
+## 依赖的 HologramLib（可选）
+
+工具本身只是**触发入口**，点击后的线框、假方块预览、以及对空气左键的检测，走的是
+[HologramLib](https://ieckseyr.github.io/HologramLib/levilamina/) 的服务端发包能力：
+
+| 能力 | 没有 HologramLib 时 |
+|---|---|
+| 选区/预览线框 | 不显示（选区数据仍然正确） |
+| 假方块预览 | 不可用 |
+| 对空气左键 | 不可用（点方块/点实体仍然可用） |
+| 其余（选区、复制、粘贴、填充、菜单、快捷键） | 完全正常 |
+
+- 版本要求见[安装说明](user/install.md)：**26.51.11 / 26.60.8** 及以上（450 条导出）；
+- 能力按**导出面**判定：缺 `blockFakeSetBlockEntity` 只关掉"方块实体预览/粘贴同步"，缺 `swingCount` 只关掉对空左键，其余功能照常；
+- 升级后如果线框残留或方块朝向不对，先跑 `/ca tools debug` 看能力矩阵与 `blockFakeResolve` 的解析结果（见[架构与平台坑](dev/architecture.md)第 10 节）。

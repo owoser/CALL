@@ -19,6 +19,8 @@
   * [开发须知](dev/plugin.md)
   * [形状包 API](dev/shape.md)
   * [架构与平台坑](dev/architecture.md)
+  * [真机踩坑台账](dev/pitfalls.md)
+  * [发版规范](dev/release.md)
 * 其他
   * [常见问题](other/question.md)
   * [已知限制](other/limitations.md)

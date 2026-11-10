@@ -4,13 +4,15 @@
 
 所有结论都在 **LeviLamina 26.51.x + LegacyScriptEngine 0.22.x** 上实测验证过（~`~npm run test:unit~`~ / ~`~npm run test:live~`~）。
 
-## 五条铁律
+## 七条铁律
 
 1. **绝不调用 ~`~mc.setStructure~`~**
 2. **绝不把未校验的值塞进数据包**（尤其是 boss 条颜色）
 3. **绝不缓存 ~`~Player~`~ 句柄**
 4. **绝不为了加载区块而传送玩家**
 5. **每个引擎回调都过 ~`~util/Safe.ts~`~**（~`~safeCall~`~ / ~`~runAsync~`~）
+6. **位置参数一律 ~`~Vec3~`~ + ~`~Math.floor~`~**——LSE 返回的是方块**中心**，见第 9 节
+7. **预览用 ~`~viewBlock~`~ / ~`~blockBatch*~`~，不用 item display**，见第 10 节
 
 ## 1. ~`~mc.setStructure~`~ 会让服务端崩溃
 
@@ -118,3 +120,75 @@ pkt->mColor = color;                                              // 直接发�
 | 目视 | 手工清单 | 选区框、GUI、工具键位、客户端是否掉线 |
 
 !> 真机测试**必须走真实指令路径**。2.0 的 16 项测试全绿，但 ~`~/ca fill~`~ 仍然会踢客户端 —— 因为那些测试只直接调用模块。
+
+## 9. 坐标语义：LSE 的位置参数是方块**中心**
+
+这是本仓库代价最大的一次误判（"所有工具都往左偏一格"，连续排查了八轮）。
+
+LegacyScriptEngine 把位置参数回传为**方块中心**（~`~x + 0.5~`~），而 ~`~ParamType.BlockPos~`~ 在转成整数时是**向零截断**而不是向下取整：
+
+| 点击的方块 | 回传值 | ~`~BlockPos~`~ 截断 | ~`~Vec3~`~ + ~`~Math.floor~`~ |
+|---|---|---|---|
+| x = 44 | 44.5 | 44 ✅ | 44 ✅ |
+| x = -44 | -43.5 | -43 ❌ | -44 ✅ |
+| x = -0.5 | 0.5 | 0 ❌ | 0 ✅ |
+
+所以**正坐标看起来正常、负坐标必偏一格**，而且在世界里"往负方向就是偏一格"，很容易被误判成线框或渲染问题。
+
+CALL 的做法（~`~core/src/CACommand.ts~`~ 的 ~`~normalisePositions~`~）：
+
+- 命令参数一律声明为 ~`~ParamType.Vec3~`~；
+- 回调第一步把 ~`~intPos~ / ~IntPos~ / ~AxisPos~`~ 全部 ~`~Math.floor~`~；
+- 事件侧另有两条约定：~`~player.pos.y~`~ 是**脚部格**，"脚下那个方块"要向下扫到第一个非空气块；
+  ~`~${posf}~`~ 是**点击面平面**（点 +Z 面会多一格），需要原始点用 ~`~${hitf}~`~。
+
+!> 判断修没修好，不要看截图：开 ~`~debugMod~`~ 让日志打印解析后的 IntPos，点 ~`~-45~`~ 的方块必须打印 ~`~-45~`~。
+
+## 10. 预览与假方块：选型、顺序、预算
+
+| 手段 | 性质 | 适用 |
+|---|---|---|
+| ~`~viewBlock~`~/~`~viewClearBlock~`~ | 纯客户端方块覆盖，无实体 | 单格、小范围预览（首选） |
+| ~`~blockBatch*~`~ | 同上，但按子区块合并成 UpdateSubChunkBlocks | 大范围；≤1024 格/包，库全局 8 包/刻 |
+| item display | **伪实体**（一个浮空实体装着方块） | 不用于预览：会"随风飘扬"、慢、卡 |
+
+三条硬顺序：
+
+1. **先清理再下发**：~`~diffPlacement~`~ 必须先发 clear 再发 set，否则"移动"会先画出新窗口再还原旧窗口；
+2. ~`~applied~`~ 是"客户端此刻显示着什么"的唯一记忆，**不可整体清空**，未确认的清理要进 ~`~stale~`~ 重试；
+3. 线框**不要设时长**：~`~shapeSetDuration~`~ 在部分版本上会留下"幽灵计时实体"，尺寸不变时用 ~`~shapeSetLocation~`~ 移动而不是重建。
+
+### 实测：方块状态只有 network id / SNBT 这条路过关
+
+在 HologramLib 26.60.8 上逐项量过（同一个楼梯，只改朝向）：
+
+| 调用 | 结果 | 结论 |
+|---|---|---|
+| `blockFakeResolve('minecraft:stone_stairs[weirdo_direction=2,…]')` | 3265450305 | 与下一行**相同** |
+| `blockFakeResolve('minecraft:stone_stairs[weirdo_direction=0,…]')` | 3265450305 | 状态串解析是**按名字查基态**，状态被忽略 |
+| `blockFakeResolveNbt('{"name":"minecraft:stone_stairs","states":{"weirdo_direction":2,…}}')` | 3142500659 | **吃状态** |
+| `blockFakeResolveNbt('…"weirdo_direction":0…')` | 3265450305 | 与基态一致 |
+
+所以 `blockFakeSet` / `blockBatchSet` 画的楼梯永远是默认朝向（它们都走状态串解析），这也是
+"预览楼梯朝向不对、粘贴却正常"的最终根因。CALL 现在的画法是两层：
+
+1. **批量铺本体**（`blockBatchSet`，快，但只有基态）；
+2. **状态叠加**：palette 里带状态的格子用 `blockFakeResolveNbt` 求出 network id，再用
+   `viewBlockById` 覆盖一次（每个预览上限 2048 格，超出部分保留基态并在计数里体现）。
+
+另外两个坑：状态串的**键不能加引号**（库只给值去引号，`["k"=v]` 整条被拒）；`blockFakeSet`
+要求**真实在线玩家**（`level->getPlayer`），所以无头测试只能断言解析结果，不能断言"发送成功"。
+
+版本闸门（~`~core/src/holo/HoloCompat.ts~`~）：能力按**导出面**判定，最低 v26.51.11 / v26.60.8（450 导出）：
+
+| 能力 | 最低版本 | 说明 |
+|---|---|---|
+| ~`~swingCount~`~（对空左键） | API 1.37.0 / LL 26.51.9 · 26.60.5 | 26.51.8 是另一套已撤回接口 |
+| ~`~shapeDestroy~`~ 真正移除 | LL 26.51.10 · 26.60.6 | 更早版本要 park 到远处再销毁 |
+
+低于最低版本时**只降级 + 告警一次**，不崩、不静默改变行为。
+
+血条（~`~core/src/holo/BossBar.ts~`~）：
+
+- 每次预览用**独立 id**，结束必须移除自己的 id，绝不调用"移除全部"；
+- 参数按库要求传（id 这类大数要按大数传，否则控制台会刷 ~`~bossBarGetInfo: 参数类型不匹配~`~）。

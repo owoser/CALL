@@ -29,6 +29,11 @@ jobs:
       - name: Validate config schema
         run: npm run check:config
 
+      # Version consistency gate: package.json == tooth.json == newest CHANGELOG section.
+      # An untagged version only warns; a disagreement fails.
+      - name: Validate version consistency
+        run: npm run check:version
+
       - name: Validate documentation
         run: npm run check:docs
 

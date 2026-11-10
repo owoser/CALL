@@ -13,6 +13,45 @@ fixes are based on.
 
 ## [3.9.5-beta1]
 
+### Added (3.9.5-beta1, HologramLib 450)
+
+- **Block entity contents in the preview.** Banners keep their patterns, signs their text and
+  chests their contents: the cells the clipboard carries are drawn through `blockFakeSetBlockEntity`
+  after their body, capped at `previewBlockEntityMax` payloads per preview.
+- **Pasting repaints the clients that are standing there.** The world was always written correctly
+  ((Block.getBlockEntity().setNbt)) but no BlockActorData packet followed, so a pasted banner
+  stayed solid until the chunk reloaded. `pasteSyncBlockEntities` (default `fake`), `pasteSyncRadius`,
+  `pasteSyncMax`.
+- **`/ca tools debug`** now prints the HologramLib capability matrix and resolves a sample stair
+  through both resolvers, which is what told us the string resolver is name-only.
+
+### Fixed (3.9.5-beta1, HologramLib 450)
+
+- **Stairs, fences, logs, waterlogged blocks keep their state in the preview.** Measured on
+  26.60.8: the library's state STRING resolver (`blockFakeSet`/`blockBatchSet`) returns the block's
+  BASE network id (`weirdo_direction=2` and `=0` give the same number), while its SNBT resolver
+  honours the states. State-carrying cells are therefore resolved from SNBT and overlaid with
+  `viewBlockById` (bounded to 2048 cells per preview); the batch path still draws the bodies.
+- **State strings must use unquoted keys.** The library parser trims the key but only unquotes the
+  value, so the old `["weirdo_direction"=2]` form was refused outright.
+
+### Changed (3.9.5-beta1, HologramLib gate)
+
+- The dependency is now gated on the **exported API surface**, not a release number (442- and
+  450-export builds both report ABI 1.37.0). Minimum supported: **v26.60.8 / v26.51.11**; the
+  version exports (`holoLseVersion`/`holoAbiVersion`) are logged, and a missing export only
+  disables the feature that needs it, with one warning.
+
+### Docs (3.9.5-beta1)
+
+- **Project rules for agents are now in `AGENTS.md`** (outside the AOCI-managed block): docs-first
+  debugging, the verified platform facts, HologramLib integration limits, and a hard release gate.
+- **`docs/dev/pitfalls.md`** is the incident ledger (symptom -> root cause -> fix -> how to verify),
+  built from the two long debugging sessions; **`docs/dev/release.md`** documents the release process.
+- **`npm run check:version`** (also wired into CI) compares `package.json`, `tooth.json` and the
+  newest `CHANGELOG` section; an untagged version only warns, a disagreement fails. This is what
+  caught the drift where the tree said 3.9.x while the last tag was still v3.1.0.
+
 ### Changed (3.9.5-beta1, build 36)
 
 - The per-burst `[CALL][preview] +N 批 / +M 格` line is `debugMod`-only. It printed about once per

@@ -87,6 +87,11 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 | `previewBatchPerTick` | `6` | 2 – 8 | 全局每 tick 最多提交几个批量调用；库的预算是全局 8 包/tick，这里留几个给别的功能 |
 | `previewResendSeconds` | `45` | 0 – 120 | 客户端重载区块会丢掉假方块，插件还会按这个间隔重发一次（0 = 只靠区块变化触发；跨区块触发有 1.5 秒限流） |
 | `previewBatchQueueMax` | `24` | 0 – 128 | 库内待发包数超过这个值就暂缓投喂（0 = 不限）：宁可慢一点，也不要灌爆客户端导致丢包残留 |
+| `previewBlockEntity` | `true` | true / false | 预览里连带显示**方块实体内容**（旗帜图案、告示牌文字、箱子内容）。需要 HologramLib `blockFakeSetBlockEntity`（26.60.8 / 26.51.11 起），旧库自动跳过 |
+| `previewBlockEntityMax` | `64` | 0 – 512 | 一次预览最多下发多少条方块实体数据（每条一个包）；超出部分只显示方块本体 |
+| `pasteSyncBlockEntities` | `"fake"` | `fake` / `off` | 粘贴写完后是否用库把方块实体数据（旗帜图案/告示牌文字/箱子内容）重画给附近玩家。服务端数据本来就正确，客户端只缺那一个数据包；需要 HologramLib `26.60.8` / `26.51.11` 起 |
+| `pasteSyncRadius` | `64` | 16 – 256 | 只重画这个范围内的在线玩家；更远的玩家随区块发送拿到正确数据 |
+| `pasteSyncMax` | `256` | 0 – 4096 | 每个写入批次最多重画多少格（每条一个数据包）；超出只保留服务端正确数据 |
 | `previewViewDistance` | `64` | 16 – 256 | 预览方块的可见距离 |
 | `previewBlockScale` | `"1"` | 字符串 | 一个展示等于一个方块的缩放 |
 | `previewBlockOffsetY` | `"0"` | 模型单位 | 库的模型偏移参数，一般保持 0 |
