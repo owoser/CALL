@@ -128,7 +128,7 @@ SafeArgs.ts[RS8M]: F:出站参数校验：血条颜色/百分比、消息类型�
 ===E:/code/LL3/Plugins/CALL/core/src/holo/===
 BlockView.ts[IM8M]: F:客户端方块覆盖桥：blockFakeSet 状态串、blockFakeSetNbt 按 SNBT 铺块、方块实体推送，viewBlock 仅旧库回退 | R:code:holo/HoloCompat.ts,code:holo/PasteSync.ts | A:backend/statesExact/set/setBlockNbt/setBlockEntity | S:绝不再用 viewBlockById 写持久注册表；一次预览只能用一个覆盖族
 BossBar.ts[IM6M]: F:血条封装：创建、改标题、改进度、移除，只操作自己创建的 id | R:code:core/src/holo/Holo.ts | A:BossBar.add/remove | S:绝不调用 bossBarRemoveAll，那会清掉其他插件的血条
-FakeBlocks.ts[IR8M]: F:假方块批量适配：打包下发、按真实方块还原（restore/restoreDetailed）与单格清理回退 | R:code:holo/Holo.ts,code:structure/BatchSender.ts | A:set、restore、restoreDetailed、clearOne、stats | S:restore 必须按坐标回写而不是按数量切片；读不到方块的格子单列不可读，不可无限重试
+FakeBlocks.ts[IR8M]: F:假方块批量适配：打包下发、按真实方块还原（restore/restoreDetailed 含 selfTest 探针）、状态串键去引号与库计数解析（含 dropped/bad） | R:code:holo/Holo.ts,code:structure/BatchSender.ts | A:set、restore、restoreDetailed、selfTest、unquoteStateKeys、parseStats | S:库的队列无容量上限，只会因 findPlayer 失败或包体编码为空而丢包；还原串必须用裸键，否则整条被拒
 Holo.ts[IR8S]: F:HologramLib 防御式桥接：一次性 ll.import 绑定，库缺失或缺 lrca 时所有调用为 no-op | R:code:core/src/holo/HoloCompat.ts | A:Holo.available/bind | S:函数必须绑定一次复用，禁止在 tick 内 ll.import；库缺失应降级而不是报错
 HoloCompat.ts[IR8M]: F:库能力闸门：按导出面探测 swing、状态串、批量、方块实体与 SNBT，版本串仅用于日志 | R:code:core/src/holo/Holo.ts,code:core/src/holo/BlockView.ts | A:status()、caps、probe()、removeReliable() | S:442 与 450 导出都自称 ABI 1.37.0，禁止用发布号判能力
 ItemDisplay.ts[IM5S]: F:用 item display 做假方块预览：固定姿态参数并走无缝创建接口 | R:code:core/src/holo/Holo.ts | A:BLOCK_MODE、itemDisplayCreateSeamless | S:先创建再 SetMode 会重生显示并错位；坐标是底部中心，y 取整、x/z 取 +0.5
@@ -188,7 +188,7 @@ PreviewHud.ts[DU6S]: F:预览 HUD 纯函数：倒计时文案与样式、手势�
 PreviewHudLock.ts[DU5T]: F:动作条占用锁：预览倒计时期间占位，选区提示让出，避免每秒互相覆盖 | R:code:core/src/structure/AreaDisplayerService.ts | A:hold/release | S:锁短时且须成对释放，泄漏会让选区提示长期不显示
 PreviewOperation.ts[AU9L]: F:预览总控：锚点与枢轴、旋转镜像、倒计时、手势与 HUD、超时清理与场景重建 | R:code:core/src/structure/PreviewScene.ts,code:core/src/structure/PreviewPlan.ts | A:PreviewState、anchorOf | S:旋转四次必须零下发靠 diff；重建不得清掉即将重画的格子
 PreviewPlan.ts[DU8M]: F:纯规划：格子到世界坐标的映射与差量，并按真实角度重算带状态方块的 id 与 SNBT | R:code:structure/StateRemap.ts,code:structure/SurfaceExtract.ts | A:planCells、diffPlacement | S:提取恒 0°，状态重映射必须在这里做；每个 palette 条目每角度只算一次
-PreviewScene.ts[AU9L]: F:预览场景：三模式构建、批量与逐格下发、计划即记账、重建继承账本、取消先停喂再等排空并双次还原 | R:code:structure/PreviewPlan.ts,code:structure/CleanupGate.ts,code:structure/BatchSender.ts | A:build、enqueue、detachScene、clear、drainCleanup、teardownReport | S:取消必须按"计划过且清除过"的所有格子还原；everApplied 设 20 万格上限防长会话膨胀
+PreviewScene.ts[AU9L]: F:预览场景：三模式构建、批量与逐格下发、计划即记账、重建继承账本、取消先停喂再等排空并双次还原，并打印库丢包/坏项与载荷自检 | R:code:structure/PreviewPlan.ts,code:structure/CleanupGate.ts,code:holo/FakeBlocks.ts | A:build、enqueue、detachScene、clear、drainCleanup、teardownReport | S:取消必须按"计划过且清除过"的格子还原；还原日志的三个数字决定残留属于库侧还是客户端侧
 Rotate.ts[KD8M]: F:旋转与镜像数学：偏移变换、枢轴平移与旋转后的目标脚印 | R:code:core/src/structure/Clipboard.ts | A:rotateOffset、rotatedUnion | S:锚点固定在目标盒最小角，旋转只转盒内图案，不翻到反侧
 StructureOperation.ts[AD9L]: F:/ca structure 总命令：保存/载入/删除/列表、撤销重做与跨玩家共享 | R:code:core/src/structure/StructureService.ts,code:core/src/structure/StructureStore.ts | A:子命令分发 | S:结构名解析要同时接受 id 与显示名，旧数据里两者都可能出现
 StructurePlacement.ts[DD9L]: F:结构放置：镜像旋转映射、占用区计算、逐块写入并回读校验，方块实体经 SNBT 往返后写入并触发客户端重画 | R:code:io/NbtCodec.ts,code:holo/PasteSync.ts | A:coveredArea、placeNbtAsync、flushBlockEntities、blockEntityPayload | S:setStructure 会段错误；setNbt 会返回 true 却留空，必须回读校验；BE 载荷优先 NBT.parseSNBT(snbtOf())
@@ -218,7 +218,7 @@ PlayerManager.ts[RU4T]: F:区块刷新：刷新单个玩家或同维度附近玩
 Players.ts[DD8S]: F:玩家数据总表：xuid 到 CAPlayer 映射、数据加载保存与按名字查 xuid | R:code:core/src/user/CAPlayer.ts | A:dataMap、createCAPlayer | S:只缓存在线玩家，离线玩家数据必须走文件而不是 dataMap
 SettingsOperation.ts[EU7T]: F:/ca setting：读写玩家设置，禁止修改 enable、displayPos、area 三个受保护键 | R:code:core/src/temp/Data.ts | A:forbidModifyKeys | S:受保护键是防呆设计，放开会让启用开关与选区状态被脚本覆盖
 SwingWatcher.ts[IU8M]: F:左键检测（含对空挥动）：轮询 HologramLib 的 swingCount 并去重成点击事件 | R:code:core/src/holo/HoloCompat.ts | A:DEDUPE_MS、SwingWatcher | S:库缺失时该能力整体消失且只提示一次；去重窗口 100ms 防一次挥动触发两次
-ToolItems.ts[AU9L]: F:工具物品判定与诊断：/ca tools debug 打印构建戳、库能力矩阵、方块实体普查、粘贴同步与取消清理计数 | R:code:addon/AddonInstaller.ts,code:holo/HoloCompat.ts | A:TOOL_SPECS、debug() | S:identifier 必须与 assets/addon 下 items/*.json 一致，改名会认不出工具
+ToolItems.ts[AU9L]: F:工具物品判定与诊断：/ca tools debug 打印构建戳、库能力矩阵、库队列/丢包/坏项、方块实体普查与取消清理计数 | R:code:core/src/addon/AddonInstaller.ts,code:holo/HoloCompat.ts | A:TOOL_SPECS、debug() | S:identifier 必须与 assets/addon 下 items/*.json 一致，改名会认不出工具
 ToolOperation.ts[AU9L]: F:绑定执行引擎：把玩家绑定解析成命令或 JS 片段，变量替换后经 acorn 解析求值 | R:code:core/src/user/Bindings.ts | A:变量表与 matcher | S:替换后必须重新解析再执行；直接 eval 会撞上未定义变量并抛错
 
 ===E:/code/LL3/Plugins/CALL/core/src/util/===

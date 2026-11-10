@@ -45,6 +45,18 @@ function isInt(n: unknown): boolean {
  * `skipped`. A `;` inside the state would break the format, so those cells are dropped instead of
  * producing a malformed batch (the caller re-sends them through the per-cell path).
  */
+/**
+ * Can this descriptor travel in the packed format?
+ *
+ * The packed entry is `x y z state` and entries are joined by `;`, so a `;` inside the state
+ * breaks the format. Such a cell must NOT be counted as restored - the caller has to send it
+ * through the single-cell path instead (a dropped cell that is counted as restored is a ghost).
+ */
+export function isPackableId(id: string): boolean {
+    const text = String(id ?? "");
+    return text !== "" && text.indexOf(";") < 0;
+}
+
 export function packCells(cells: FakeCell[], maxBytes = PACK_MAX_BYTES): PackResult {
     const segments: string[] = [];
     let current: string[] = [];
@@ -53,7 +65,7 @@ export function packCells(cells: FakeCell[], maxBytes = PACK_MAX_BYTES): PackRes
 
     for (const cell of cells) {
         const id = String(cell?.id ?? "");
-        if (id === "" || id.indexOf(";") >= 0 || !isInt(cell.x) || !isInt(cell.y) || !isInt(cell.z)) {
+        if (!isPackableId(id) || !isInt(cell.x) || !isInt(cell.y) || !isInt(cell.z)) {
             skipped++;
             continue;
         }
@@ -230,11 +242,17 @@ export const FakeBlocks = {
     ): {
         restored: Array<[number, number, number]>;
         skipped: Array<[number, number, number]>;
+        /**
+         * Cells with a usable descriptor that the PACKED format cannot carry (a `;` inside the
+         * state). They must be sent one by one, otherwise they keep the fake block forever.
+         */
+        direct: FakeCell[];
         /** `blockBatchSelfTest` output per segment (only with `probe`), for diagnostics. */
         probe?: string[];
     } {
         const entries: FakeCell[] = [];
         const skipped: Array<[number, number, number]> = [];
+        const direct: FakeCell[] = [];
         for (const [x, y, z] of cells) {
             let id = "";
             try {
@@ -250,13 +268,33 @@ export const FakeBlocks = {
             } catch {
                 id = "";
             }
-            if (id !== "") entries.push({ x, y, z, id });
+            if (isPackableId(id)) entries.push({ x, y, z, id });
+            else if (id !== "") direct.push({ x, y, z, id });
             else skipped.push([x, y, z]);
         }
-        if (entries.length === 0) return { restored: [], skipped };
+        if (entries.length === 0) return { restored: [], skipped, direct };
 
         const packed = packCells(entries);
-        if (packed.segments.length === 0) return { restored: [], skipped: [...skipped, ...entries.map((e) => [e.x, e.y, e.z] as [number, number, number])] };
+        if (packed.segments.length === 0) {
+            return { restored: [], skipped: [...skipped, ...entries.map((e) => [e.x, e.y, e.z] as [number, number, number])], direct };
+        }
+        if (packed.skipped > 0) {
+            // packCells dropped some entries: they must NOT be reported as restored.
+            const kept = new Set<string>();
+            for (const segment of packed.segments) {
+                for (const item of segment.split(";")) {
+                    const parts = item.trim().split(/\s+/);
+                    if (parts.length >= 4) kept.add(parts[0] + "," + parts[1] + "," + parts[2]);
+                }
+            }
+            for (const entry of [...entries]) {
+                const key = entry.x + "," + entry.y + "," + entry.z;
+                if (kept.has(key)) continue;
+                entries.splice(entries.indexOf(entry), 1);
+                if (isPackableId(entry.id)) skipped.push([entry.x, entry.y, entry.z]);
+                else direct.push(entry);
+            }
+        }
         const probe: string[] = [];
         if (options.probe === true) {
             for (const segment of packed.segments) {
@@ -266,11 +304,11 @@ export const FakeBlocks = {
         }
         for (const segment of packed.segments) {
             if (FakeBlocks.set(playerName, segment, false) < 0) {
-                return { restored: [], skipped: [...skipped, ...entries.map((e) => [e.x, e.y, e.z] as [number, number, number])] };
+                return { restored: [], skipped: [...skipped, ...entries.map((e) => [e.x, e.y, e.z] as [number, number, number])], direct };
             }
         }
         const restored = entries.map((e) => [e.x, e.y, e.z] as [number, number, number]);
-        return probe.length > 0 ? { restored, skipped, probe } : { restored, skipped };
+        return probe.length > 0 ? { restored, skipped, direct, probe } : { restored, skipped, direct };
     },
 
     /**

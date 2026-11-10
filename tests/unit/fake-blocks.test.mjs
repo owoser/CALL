@@ -81,6 +81,22 @@ test('stats parse into numbers', () => {
     assert.equal(parseStats(''), null);
 });
 
+test('a descriptor the packed format cannot carry is reported, not silently dropped', () => {
+    const { isPackableId, packCells } = load();
+    assert.equal(isPackableId('minecraft:stone'), true);
+    assert.equal(isPackableId(''), false);
+    // ';' joins entries, so it can never appear inside a descriptor
+    assert.equal(isPackableId('minecraft:sign[text="a;b"]'), false);
+
+    const packed = packCells([
+        { x: 0, y: 0, z: 0, id: 'minecraft:stone' },
+        { x: 1, y: 0, z: 0, id: 'minecraft:sign[text="a;b"]' },
+    ]);
+    assert.equal(packed.segments.length, 1);
+    assert.equal(packed.skipped, 1, 'the unpackable cell must be counted, so restore can retry it');
+    assert.equal(packed.segments[0], '0 0 0 minecraft:stone');
+});
+
 test('without the library the adapter reports itself unavailable', () => {
     const { FakeBlocks } = load();
     FakeBlocks.setSource({ set: null, clear: null });

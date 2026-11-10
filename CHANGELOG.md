@@ -25,6 +25,17 @@ fixes are based on.
 - **`/ca tools debug`** now prints the HologramLib capability matrix and resolves a sample stair
   through both resolvers, which is what told us the string resolver is name-only.
 
+### Fixed (3.9.5-beta1, cells the packed format cannot carry)
+
+- **Restore now reports (and repairs) entries the batch format refuses.** `packCells()` silently
+  drops a cell whose descriptor contains `;` (or has non-integer coordinates), and
+  `restoreDetailed()` ignored `packed.skipped` while still reporting "restored 1506" - the live
+  selfTest made it visible: `请求=1506` but `changes=1272, bad=1`, so 234 cells never received a
+  packet and stayed on screen. Such cells are now returned as `direct` and restored one by one
+  through `blockFakeSet`; `restored` only counts entries that really made it into a segment.
+- `/ca tools debug` and the cancel report show the library's `dropped`/`bad` counters and a
+  `单格补发 N 格` figure, which is what turned this from a guess into a measurement.
+
 ### Fixed (3.9.5-beta1, a clear is not a confirmation)
 
 - **A restored cell is no longer forgotten.** `markCleared` removed the cell from `everApplied` as

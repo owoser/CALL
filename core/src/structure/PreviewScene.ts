@@ -290,7 +290,7 @@ interface CleanupTask {
 const cleanups: CleanupTask[] = [];
 
 /** Counters for /ca tools debug: how the last cancels actually went. */
-const teardownStats = { tasks: 0, cells: 0, waited: 0, passes: 0, deadlineHits: 0, failed: 0, carried: 0, skipped: 0 };
+const teardownStats = { tasks: 0, cells: 0, waited: 0, passes: 0, deadlineHits: 0, failed: 0, carried: 0, skipped: 0, direct: 0 };
 
 /** How long a cancel may wait for the library queue to drain before restoring anyway. */
 const DRAIN_WAIT_MS = 3000;
@@ -1298,6 +1298,16 @@ export const PreviewScene = {
                     work--;
                     continue;
                 }
+                if (result.direct.length > 0) {
+                    // The packed format cannot carry these (a ';' inside the descriptor): send the
+                    // real block one cell at a time, otherwise they keep the fake block forever.
+                    let sent = 0;
+                    for (const cell of result.direct) {
+                        if (BlockView.set(task.playerName, cell.x, cell.y, cell.z, cell.id)) sent++;
+                    }
+                    teardownStats.direct += sent;
+                    if (sent < result.direct.length) teardownStats.failed += result.direct.length - sent;
+                }
                 if (result.skipped.length > 0) {
                     // The chunk is gone / the block cannot be read: nothing left to restore there.
                     teardownStats.skipped += result.skipped.length;
@@ -1338,8 +1348,8 @@ export const PreviewScene = {
         return "取消清理: 待处理 " + cleanups.length + " 条 · 累计 " + teardownStats.tasks + " 次/" +
             teardownStats.cells + " 格 · 等队列 " + teardownStats.waited + " 次 · 二次还原 " +
             teardownStats.passes + " 次 · 超时放行 " + teardownStats.deadlineHits + " · 失败 " +
-            teardownStats.failed + " 格 · 不可读 " + teardownStats.skipped + " 格 · 继承 " +
-            teardownStats.carried + " 格" +
+            teardownStats.failed + " 格 · 单格补发 " + teardownStats.direct + " 格 · 不可读 " +
+            teardownStats.skipped + " 格 · 继承 " + teardownStats.carried + " 格" +
             (BatchSender.pending() > 0 ? " · 发送队列 " + BatchSender.pending() : "");
     },
 
