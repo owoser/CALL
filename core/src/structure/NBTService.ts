@@ -84,7 +84,7 @@ export default class NBTService {
             NBTService.writeFile(saveid, comp);
             return true;
         } catch (e) {
-            logger.warn("[CALL][NBTService] saveFromNBT failed: " + describeError(e));
+            logger.warn("[NBTService] saveFromNBT failed: " + describeError(e));
             return false;
         }
     }
@@ -174,7 +174,7 @@ export default class NBTService {
         const file = NBTService.filePath(saveid);
         // data/nbt/public/ belongs to the operator: CALL may read it, never delete it.
         if (file.replace(/\\/g, "/").includes("/public/")) {
-            logger.warn("[CALL][store] refused to delete a public structure file: " + file);
+            logger.warn("[store] refused to delete a public structure file: " + file);
             return false;
         }
         try {

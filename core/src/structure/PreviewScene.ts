@@ -560,7 +560,7 @@ export const PreviewScene = {
                 const layout = parseStructureLayout(NBTService.readBytes(ref.sid));
                 out.push({ origin: ref.origin, layout });
             } catch (e) {
-                logger.warn("[CALL][Preview] 读取切片失败 " + ref.sid + ": " + describeError(e));
+                logger.warn("[Preview] 读取切片失败 " + ref.sid + ": " + describeError(e));
             }
         }
         return out;
@@ -1155,7 +1155,7 @@ export const PreviewScene = {
                 }
                 if (parsed < expected) {
                     scene.truncated += expected - parsed;
-                    logger.warn("[CALL][preview] 预览载荷被截断: 打包 " + expected + " 条，库只解析 " +
+                    logger.warn("[preview] 预览载荷被截断: 打包 " + expected + " 条，库只解析 " +
                         parsed + " 条（段=" + packed.segments.length + "）");
                 }
             }
@@ -1244,7 +1244,7 @@ export const PreviewScene = {
         scene.logCells = scene.batchCells;
         try {
             const stats = FakeBlocks.stats();
-            logger.info("[CALL][preview] +" + batches + " 批 / +" + cells + " 格"
+            logger.info("[preview] +" + batches + " 批 / +" + cells + " 格"
                 + (stats != null ? "（库队列 " + stats.queue + " 包）" : "")
                 + (scene.resends > 0 ? " 重发 " + scene.resends : "")
                 + (scene.batchFallbacks > 0 ? " 回退 " + scene.batchFallbacks : "")
@@ -1345,7 +1345,7 @@ export const PreviewScene = {
         try {
             layout = parseStructureLayout(NBTService.readBytes(ref.sid));
         } catch (e) {
-            logger.warn("[CALL][Preview] 懒解析切片失败 " + ref.sid + ": " + describeError(e));
+            logger.warn("[Preview] 懒解析切片失败 " + ref.sid + ": " + describeError(e));
             return;
         }
 
@@ -1492,7 +1492,7 @@ export const PreviewScene = {
         const ledger = detached.ledger;
         const cells = teardownCells(ledger);
         if (debugEnabled()) {
-            logger.info("[CALL][preview] 取消: applied=" + ledger.applied.size + " stale=" + ledger.stale.size +
+            logger.info("[preview] 取消: applied=" + ledger.applied.size + " stale=" + ledger.stale.size +
                 " ever=" + ledger.everApplied.size + " 清理=" + cells.length + " 队列=" +
                 (BatchSender.pendingOf("preview:" + xuid)) + " 库队列=" + (FakeBlocks.stats()?.queue ?? -1));
         }
@@ -1546,10 +1546,10 @@ export const PreviewScene = {
                     const dDropped = after == null ? -1 : after.dropped - before.dropped;
                     const dBad = after == null ? -1 : after.bad - before.bad;
                     if ((result.truncated ?? 0) > 0) {
-                        logger.warn("[CALL][preview] 还原载荷被截断: " + result.truncated +
+                        logger.warn("[preview] 还原载荷被截断: " + result.truncated +
                             " 条没进库（检查 PACK_MAX_BYTES 是否仍低于参数上限）");
                     }
-                    logger.info("[CALL][preview] 还原: 请求=" + task.cells.length +
+                    logger.info("[preview] 还原: 请求=" + task.cells.length +
                         " 可读=" + result.restored.length + " 不可读=" + result.skipped.length +
                         " 段=" + ((result.probe ?? []).length || "?") +
                         " 库丢包+" + dDropped + " 库坏项+" + dBad +
@@ -1579,7 +1579,7 @@ export const PreviewScene = {
                         // NOTHING could be read: almost always the wrong DIMENSION (a Player has no
                         // dimid; only positions do) or an unloaded chunk. Say it out loud.
                         const sample = result.skipped.slice(0, 3).map((c) => c.join(",")).join(" / ");
-                        logger.error("[CALL][preview] 还原一格都没读到: 维度=" + task.dimid +
+                        logger.error("[preview] 还原一格都没读到: 维度=" + task.dimid +
                             " 请求=" + task.cells.length + " 未加载=" + (result.unloaded ?? 0) +
                             " 解析失败=" + (result.failed ?? 0) + " 样例=" + sample);
                     }

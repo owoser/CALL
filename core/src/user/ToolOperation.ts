@@ -86,7 +86,7 @@ export class ToolOperation {
         // report can then be answered from the log instead of a screenshot.
         try {
             if (Config.get(Config.GLOBAL, "debugMod", false) === true) {
-                for (const cmd of arr) logger.info("[CALL][tool] cmd " + cmd);
+                for (const cmd of arr) logger.info("[tool] cmd " + cmd);
             }
         } catch {
             // diagnostics only
@@ -318,7 +318,7 @@ export class ToolOperation {
             if (migratePosfBindings(caPlayer.settings) > 0) {
                 caPlayer.persistSettings();
                 try {
-                    logger.warn("[CALL][tool] 已把使用 ${posf} 的绑定改写为 ${pos}（点击的方块坐标）");
+                    logger.warn("[tool] 已把使用 ${posf} 的绑定改写为 ${pos}（点击的方块坐标）");
                 } catch {
                     // logger may not be ready
                 }
@@ -377,7 +377,7 @@ export class ToolOperation {
             if (Config.get(Config.GLOBAL, "debugMod", false) !== true) return;
             const bp = block?.pos ?? {};
             const fp = posFloat ?? {};
-            logger.info("[CALL][tool] path=" + source + " item=" + String(item?.type ?? "?")
+            logger.info("[tool] path=" + source + " item=" + String(item?.type ?? "?")
                 + " block=" + String(bp.x) + "," + String(bp.y) + "," + String(bp.z)
                 + " type=" + String(block?.type ?? "?")
                 + " posf=" + String(fp.x) + "," + String(fp.y) + "," + String(fp.z)
@@ -391,7 +391,7 @@ export class ToolOperation {
     private static logPath(caPlayer: CAPlayer, path: string, item: any, source: string): void {
         try {
             if (Config.get(Config.GLOBAL, "debugMod", false) !== true) return;
-            logger.info("[CALL][tool] path=" + path + " item=" + String(item?.type ?? "?")
+            logger.info("[tool] path=" + path + " item=" + String(item?.type ?? "?")
                 + " source=" + source + " player=" + String(caPlayer.$.realName ?? "?"));
         } catch {
             // diagnostics only

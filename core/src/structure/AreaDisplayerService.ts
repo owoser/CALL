@@ -215,7 +215,7 @@ export default class AreaDisplayerService {
         try {
             const block = mc.getBlock(record.x, record.y, record.z, record.dimid as 0 | 1 | 2);
             if (block == null) {
-                logger.warn("[CALL][AreaDisplay] cannot restore highlight at "
+                logger.warn("[AreaDisplay] cannot restore highlight at "
                     + record.x + "," + record.y + "," + record.z + " (chunk not loaded) - will retry on next start");
                 return; // keep journal entry so a later start can fix it
             }
@@ -305,7 +305,7 @@ export default class AreaDisplayerService {
 
         if (!AreaDisplayerService.announcedMode) {
             AreaDisplayerService.announcedMode = true;
-            logger.info("[CALL][AreaDisplay] mode = " + mode);
+            logger.info("[AreaDisplay] mode = " + mode);
         }
 
         switch (mode) {

@@ -48,7 +48,7 @@ function healGlobalConfig(): void {
             const hasNew = fs.statSync(GLOBAL_PATH).size > 3;
             if (!hasNew && fs.existsSync(legacy)) {
                 fs.copyFileSync(legacy, GLOBAL_PATH);
-                logger.warn("[CALL] configs.json -> configs.jsonc（文件内容已保留，注释将在下次升级时补齐）");
+                logger.warn("configs.json -> configs.jsonc（文件内容已保留，注释将在下次升级时补齐）");
             }
         } catch {
             // GLOBAL_PATH missing
@@ -67,10 +67,10 @@ function healGlobalConfig(): void {
         if (!missing) return;
         if (!fs.existsSync(CONFIG_TEMPLATE_PATH)) return;
         fs.copyFileSync(CONFIG_TEMPLATE_PATH, GLOBAL_PATH);
-        logger.warn("[CALL] " + GLOBAL_PATH + " was missing or empty - restored the default template");
+        logger.warn("" + GLOBAL_PATH + " was missing or empty - restored the default template");
     } catch (e) {
         try {
-            logger.warn("[CALL] cannot restore the default config: " + (e && (e as any).message ? (e as any).message : e));
+            logger.warn("cannot restore the default config: " + (e && (e as any).message ? (e as any).message : e));
         } catch {
             // logger may not be ready yet
         }
@@ -97,7 +97,7 @@ function migrateConfigFile(): void {
         fs.writeFileSync(path.join(backupDir, "configs.v" + result.from + "." + stamp + ".jsonc"), userText, "utf8");
         fs.writeFileSync(GLOBAL_PATH, result.text, "utf8");
         try {
-            logger.warn("[CALL] configs.jsonc 升级 v" + result.from + " → v" + result.to +
+            logger.warn("configs.jsonc 升级 v" + result.from + " → v" + result.to +
                 (result.added.length ? "，新增 " + result.added.join(", ") : "") +
                 (result.dropped.length ? "，移除 " + result.dropped.join(", ") : "") +
                 "（旧文件已备份到 config/backup/）");
@@ -106,7 +106,7 @@ function migrateConfigFile(): void {
         }
     } catch (e) {
         try {
-            logger.warn("[CALL] configs.jsonc 升级失败: " + (e && (e as any).message ? (e as any).message : e));
+            logger.warn("configs.jsonc 升级失败: " + (e && (e as any).message ? (e as any).message : e));
         } catch {
             // ignore
         }
@@ -183,13 +183,13 @@ function healMissingKeys(): void {
         fs.writeFileSync(GLOBAL_PATH, JSON.stringify(current, null, 4) + "\n", "utf8");
         addedKeys = missing;
         try {
-            logger.warn("[CALL] configs.json 补全 " + missing.length + " 个新配置项: " + missing.join(", "));
+            logger.warn("configs.json 补全 " + missing.length + " 个新配置项: " + missing.join(", "));
         } catch {
             // logger may not be ready
         }
     } catch (e) {
         try {
-            logger.warn("[CALL] cannot fill in new config keys: " + (e && (e as any).message ? (e as any).message : e));
+            logger.warn("cannot fill in new config keys: " + (e && (e as any).message ? (e as any).message : e));
         } catch {
             // ignore
         }
@@ -254,13 +254,13 @@ function migratePreviewDefaults(): void {
         if (changes.length === 0) return;
         fs.writeFileSync(GLOBAL_PATH, JSON.stringify(current, null, 4) + "\n", "utf8");
         try {
-            logger.warn("[CALL] 预览上限/批量按新渲染方式上调: " + changes.join(", "));
+            logger.warn("预览上限/批量按新渲染方式上调: " + changes.join(", "));
         } catch {
             // logger may not be ready
         }
     } catch (e) {
         try {
-            logger.warn("[CALL] cannot migrate preview defaults: " + (e && (e as any).message ? (e as any).message : e));
+            logger.warn("cannot migrate preview defaults: " + (e && (e as any).message ? (e as any).message : e));
         } catch {
             // ignore
         }

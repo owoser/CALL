@@ -72,7 +72,7 @@ export class ShapeService {
         } catch (e) {
             tell(player, StrFactory.cmdErr(describeError(e)), MsgType.RAW);
             if (ShapeService.debugMod) {
-                logger.error("[CALL][ShapeService] " + pluginId + " failed:\n" + (e && e.stack ? e.stack : describeError(e)));
+                logger.error("[ShapeService] " + pluginId + " failed:\n" + (e && e.stack ? e.stack : describeError(e)));
             }
             return;
         }

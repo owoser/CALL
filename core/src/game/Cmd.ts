@@ -36,7 +36,7 @@ const DIM_NAMES = ["overworld", "nether", "the_end"];
 
 function report(cmd: string): void {
     try {
-        if (Config.get(Config.GLOBAL, "outputCmd", false)) logger.info("[CALL][cmd] " + cmd);
+        if (Config.get(Config.GLOBAL, "outputCmd", false)) logger.info("[cmd] " + cmd);
     } catch {
         // config not ready
     }

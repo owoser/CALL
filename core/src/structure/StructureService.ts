@@ -585,7 +585,7 @@ export default class StructureService {
             const pruned = StructureStore.pruneEmptyFolders();
 
             if (moved > 0 || orphans > 0 || pruned > 0) {
-                logger.info("[CALL][store] 结构目录已整理：移动 " + moved + " 个切片" +
+                logger.info("[store] 结构目录已整理：移动 " + moved + " 个切片" +
                     (orphans > 0 ? "，未归属 " + orphans + " 个（data/nbt/_orphan/）" : "") +
                     (pruned > 0 ? "，清理空目录 " + pruned + " 个" : "") +
                     "；原件备份在 data/nbt/_legacy/");
@@ -828,7 +828,7 @@ export default class StructureService {
                         if (st?.area?.end != null) st.area.end.dimid = 0;
                         if (!warnedUndoDimension) {
                             warnedUndoDimension = true;
-                            logger.warn("[CALL][undo] 快照缺少维度，已按主世界处理（首次出现在 " + sid + "）");
+                            logger.warn("[undo] 快照缺少维度，已按主世界处理（首次出现在 " + sid + "）");
                         }
                     }
                 } catch {
@@ -951,19 +951,19 @@ export default class StructureService {
             Config.set(Config.STRUCTURES, `private.${caPlayer.xuid}`, data);
             overCallback();
         }, "redo").catch((e) => {
-            logger.error("[CALL][StructureService.redoPush] snapshot failed: " + describeError(e));
+            logger.error("[StructureService.redoPush] snapshot failed: " + describeError(e));
         });
     }
 
     public static undoPop(caPlayer: CAPlayer, overCallback: () => void) {
         StructureService.pop(caPlayer, overCallback, "undo").catch((e) =>
-            logger.error("[CALL][StructureService.undoPop] " + describeError(e))
+            logger.error("[StructureService.undoPop] " + describeError(e))
         );
     }
 
     public static redoPop(caPlayer: CAPlayer, overCallback: () => void) {
         StructureService.pop(caPlayer, overCallback, "redo").catch((e) =>
-            logger.error("[CALL][StructureService.redoPop] " + describeError(e))
+            logger.error("[StructureService.redoPop] " + describeError(e))
         );
     }
 
@@ -980,7 +980,7 @@ export default class StructureService {
             });
         }
         StructureService.otherSave(caPlayer, structArr, overCallback, "copy").catch((e) =>
-            logger.error("[CALL][StructureService.copy] " + describeError(e))
+            logger.error("[StructureService.copy] " + describeError(e))
         );
     }
 
@@ -1023,7 +1023,7 @@ function Play_versionSafeRun(caPlayer: CAPlayer, cmd: string): { success: boolea
         const full = `/execute at "${player.realName}" run ${cmd}`;
         return mc.runcmdEx(full) as { success: boolean; output: string };
     } catch (e) {
-        logger.debug("[CALL][StructureService] runcmd failed: " + describeError(e));
+        logger.debug("[DBG][StructureService] runcmd failed: " + describeError(e));
         return null;
     }
 }

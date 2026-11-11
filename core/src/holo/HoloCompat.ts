@@ -293,8 +293,8 @@ export function warnOnce(): void {
     warned = true;
     const s = status();
     try {
-        if (s.reason === "") logger.info("[CALL] " + describe());
-        else logger.warn("[CALL] " + describe());
+        if (s.reason === "") logger.info("" + describe());
+        else logger.warn("" + describe());
     } catch {
         // logger missing (unit tests)
     }

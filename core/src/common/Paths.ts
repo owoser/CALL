@@ -157,14 +157,14 @@ let layoutNotice: string | null = null;
 try {
     layoutNotice = migrateLegacyLayout(ROOT, (msg) => {
         try {
-            logger.warn("[CALL] layout: " + msg);
+            logger.warn("layout: " + msg);
         } catch {
             // logger not ready
         }
     });
 } catch (e) {
     try {
-        logger.warn("[CALL] layout migration failed, keeping the old files: " + (e && (e as any).message ? (e as any).message : e));
+        logger.warn("layout migration failed, keeping the old files: " + (e && (e as any).message ? (e as any).message : e));
     } catch {
         // ignore
     }
@@ -248,7 +248,7 @@ export default class Paths {
             } catch (e) {
                 ok = false;
                 try {
-                    logger.error("[CALL][Paths] cannot create directory: " + dir + " (" + (e as Error).message + ")");
+                    logger.error("[Paths] cannot create directory: " + dir + " (" + (e as Error).message + ")");
                 } catch {
                     // logger itself may not exist yet
                 }

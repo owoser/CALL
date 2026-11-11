@@ -48,8 +48,8 @@ function detect(): "blockFake" | "viewBlock" | "none" {
 
 function log(message: string, warn: boolean): void {
     try {
-        if (warn) logger.warn("[CALL][view] " + message);
-        else logger.info("[CALL][view] " + message);
+        if (warn) logger.warn("[view] " + message);
+        else logger.info("[view] " + message);
     } catch {
         // logger unavailable (unit tests)
     }

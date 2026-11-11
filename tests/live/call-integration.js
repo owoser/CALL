@@ -20,8 +20,8 @@ const RESULTS = [];
 function record(ok, name, detail) {
     RESULTS.push({ ok, name, detail: detail || "" });
     const line = (ok ? "PASS " : "FAIL ") + name + (detail ? " :: " + detail : "");
-    logger.info("[CALLTEST] " + line);
-    if (!ok) console.error("[CALLTEST] " + line);
+    logger.info(line);
+    if (!ok) console.error(line);
 }
 function check(name, fn) {
     try {
@@ -2229,9 +2229,9 @@ async function runSuite() {
 
 function finish() {
     const failed = RESULTS.filter((r) => !r.ok);
-    logger.info("[CALLTEST] SUMMARY total=" + RESULTS.length + " failed=" + failed.length);
-    for (const f of failed) logger.info("[CALLTEST] FAILED: " + f.name + " :: " + f.detail);
-    logger.info("[CALLTEST] ALL DONE");
+    logger.info("SUMMARY total=" + RESULTS.length + " failed=" + failed.length);
+    for (const f of failed) logger.info("FAILED: " + f.name + " :: " + f.detail);
+    logger.info("ALL DONE");
 }
 
 mc.listen("onServerStarted", () => {

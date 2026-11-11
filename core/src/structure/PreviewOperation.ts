@@ -10,6 +10,7 @@ import CAPlayer from "../user/CAPlayer";
 import { Pos3 as Pos3Type } from "../common/Pos3";
 import { MsgType, online, tell } from "../util/Msg";
 import { describeError } from "../util/Safe";
+import { dbg } from "../util/Log";
 import StrFactory from "../util/StrFactory";
 
 import Holo from "../holo/Holo";
@@ -301,7 +302,7 @@ function hudTick(): void {
             hudFor(xuid, st, now);
         } catch (e) {
             try {
-                logger.warn("[CALL][preview hud] " + (e && (e as any).message ? (e as any).message : e));
+                logger.warn("[preview hud] " + (e && (e as any).message ? (e as any).message : e));
             } catch {
                 // ignore
             }
@@ -670,14 +671,15 @@ export default class PreviewOperation {
             const flushed = await PreviewScene.flushCleanup(4000);
             waited = flushed.waitedMs;
             if (!flushed.ok) {
-                logger.warn("[CALL][preview] 粘贴前清理未完全结束（等 " + flushed.waitedMs + "ms，剩 " +
+                logger.warn("[preview] 粘贴前清理未完全结束（等 " + flushed.waitedMs + "ms，剩 " +
                     flushed.tasks + " 任务 / 库队列 " + flushed.queue + " 包），继续粘贴");
             }
         } catch {
             // the wait is best effort: never block a paste on it
         }
         if (waited >= 50) {
-            logger.info("[CALL][preview] 粘贴前等待清理完成 " + waited + "ms");
+            // Only interesting when something feels slow - keep it out of the normal console.
+            dbg("preview", "粘贴前等待清理完成 " + waited + "ms");
         }
 
         try {

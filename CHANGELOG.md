@@ -15,6 +15,14 @@ fixes are based on.
 
 ### Added (3.9.5-beta1, HologramLib 450)
 
+### Changed (3.9.5-beta1, console log prefixes)
+
+- The host already prints `[CALL] ` in front of every line, so our messages no longer repeat it:
+  `[CALL] [CALL][preview] …` is now `[CALL] [preview] …`.
+- Debug output goes through `util/Log.ts` and is marked `[DBG]` (`[CALL] [DBG][preview] …`), and it
+  stays silent unless `debugMod` is on. "粘贴前等待清理完成 Nms" is now one of those debug lines
+  instead of a normal one.
+
 ### Fixed (3.9.5-beta1, rotating the preview left walk-through ghosts behind)
 
 - A cell that had been replaced by an item display was invisible to the diff: an unchanged cell got

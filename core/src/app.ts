@@ -91,7 +91,7 @@ const UseItem = "onUseItem";
         const message = describeError(e);
         try {
             if (Config.get(Config.GLOBAL, "debugMod")) {
-                logger.error("[CALL][tool] " + message + "\nstack:" + (e && e.stack ? e.stack : ""));
+                logger.error("[tool] " + message + "\nstack:" + (e && e.stack ? e.stack : ""));
             }
         } catch {
             // ignore
@@ -233,7 +233,7 @@ const UseItem = "onUseItem";
                     } catch {
                         // the preview teardown is best-effort here
                     }
-                    logger.info("[CALL][dim] " + String(player.realName ?? player.xuid) + " -> " + String(dimId));
+                    logger.info("[dim] " + String(player.realName ?? player.xuid) + " -> " + String(dimId));
                 });
             });
         } catch {
@@ -454,7 +454,7 @@ namespace Other {
 
         if (repairs.length > 0) {
             const shown = repairs.slice(0, 8).join("; ") + (repairs.length > 8 ? " …" : "");
-            logger.warn("[CALL] configs.json 按校验规则修正 " + repairs.length + " 项: " + shown);
+            logger.warn("configs.json 按校验规则修正 " + repairs.length + " 项: " + shown);
         }
     }
 
@@ -491,7 +491,7 @@ function init(): boolean {
 
         Other.checkConfig(); //check config
         if (!Config.get(Config.GLOBAL, "enable")) {
-            logger.warn("[CALL] disabled by config (enable = false)");
+            logger.warn("disabled by config (enable = false)");
             return false;
         }
         //set default settings
@@ -505,15 +505,15 @@ function init(): boolean {
 
         ListenerHandler.init(); //init listener
         CACommand.register(); //register command
-        logger.info("[CALL] " + Config.PLUGIN_VERSION.toString() + " ready (root: " + Paths.toPosix(Paths.ROOT) + ")");
+        logger.info("" + Config.PLUGIN_VERSION.toString() + " ready (root: " + Paths.toPosix(Paths.ROOT) + ")");
         // Which build is this? A screenshot without the commit is unattributable, and we already
         // lost a round to "is this the new build or the old one?".
-        logger.info("[CALL] " + BuildStamp.describe());
+        logger.info("" + BuildStamp.describe());
         // Print the locations: the upstream docs point at a config path that never existed, and
         // since 3.1 the layout is assets/ (read-only) + config/ + data/.
-        logger.info("[CALL] config: " + Paths.toPosix(Config.GLOBAL_FILE));
-        logger.info("[CALL] data  : " + Paths.toPosix(Paths.DATA));
-        if (Paths.LAYOUT_NOTICE != null) logger.warn("[CALL] " + Paths.LAYOUT_NOTICE);
+        logger.info("config: " + Paths.toPosix(Config.GLOBAL_FILE));
+        logger.info("data  : " + Paths.toPosix(Paths.DATA));
+        if (Paths.LAYOUT_NOTICE != null) logger.warn("" + Paths.LAYOUT_NOTICE);
 
         // Tool items are addon items, so they only exist after the packs are enabled and the
         // server has been restarted once. Report the real state instead of assuming success.
@@ -535,31 +535,31 @@ function init(): boolean {
                     });
                     if (displayProbe > 0) {
                         ItemDisplay.destroy(displayProbe);
-                        logger.info("[CALL] HologramLib " + Holo.version() + " - wireframe + fake blocks ready");
+                        logger.info("HologramLib " + Holo.version() + " - wireframe + fake blocks ready");
                     } else {
-                        logger.warn("[CALL] HologramLib " + Holo.version() + " 线框可用，但 itemDisplay 创建失败（探针/校准不可用）");
+                        logger.warn("HologramLib " + Holo.version() + " 线框可用，但 itemDisplay 创建失败（探针/校准不可用）");
                     }
                     // The preview itself now uses per-client block overrides.
                     const backend = PreviewScene.backend();
                     if (backend.indexOf("不可用") < 0) {
-                        logger.info("[CALL] 预览渲染: " + backend + "（逐客户端方块覆盖，无实体）");
+                        logger.info("预览渲染: " + backend + "（逐客户端方块覆盖，无实体）");
                     } else {
-                        logger.warn("[CALL] 预览渲染: " + backend + " —— 方块预览将不可用，只显示线框");
+                        logger.warn("预览渲染: " + backend + " —— 方块预览将不可用，只显示线框");
                     }
                 } else {
-                    logger.warn("[CALL] HologramLib " + Holo.version() + " 已加载，但画框失败（版本不兼容？）");
+                    logger.warn("HologramLib " + Holo.version() + " 已加载，但画框失败（版本不兼容？）");
                 }
             } else {
-                logger.warn("[CALL] wireframe unavailable: " + Holo.reason() + " (fallback: particle outline)");
+                logger.warn("wireframe unavailable: " + Holo.reason() + " (fallback: particle outline)");
             }
         }
 
         if (Config.get(Config.GLOBAL, "toolItems", true) !== false) {
             const addon = AddonInstaller.install();
             if (addon.ok) {
-                if (addon.needsRestart) logger.warn("[CALL] " + addon.message);
+                if (addon.needsRestart) logger.warn("" + addon.message);
                 else if (AddonInstaller.itemsAvailable()) {
-                    logger.info("[CALL] tool items ready");
+                    logger.info("tool items ready");
                     // No texturepack-required nag: the pack is delivered without it (the old
                     // warning assumed addon failures were caused by that flag and was wrong).
                 } else {
@@ -569,7 +569,7 @@ function init(): boolean {
                     ToolItems.checkAfterStart();
                 }
             } else {
-                logger.warn("[CALL] 内置工具物品不可用: " + addon.message);
+                logger.warn("内置工具物品不可用: " + addon.message);
             }
 
             // Keep configs.json honest: a tool released after this config was written has no
@@ -579,7 +579,7 @@ function init(): boolean {
             ToolItems.healDefaultBindings();
         }
     } catch (e) {
-        logger.error("[CALL] init failed: " + describeError(e) + "\nstack:" + (e && e.stack ? e.stack : ""));
+        logger.error("init failed: " + describeError(e) + "\nstack:" + (e && e.stack ? e.stack : ""));
         return false;
     }
     return true;
@@ -622,6 +622,6 @@ export default function main() {
             });
         });
     } catch (e) {
-        logger.warn("[CALL] ll.onUnload unavailable: " + describeError(e));
+        logger.warn("ll.onUnload unavailable: " + describeError(e));
     }
 }

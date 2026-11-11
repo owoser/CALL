@@ -78,7 +78,8 @@ npm run test:live      # 真机（改掉落块/指令/预览/工具行为时必�
 ## 6. 环境与协作
 
 - 开发服 `D:\MCserver\SER-DEV`（LL 26.60）；兼容验证 `D:\MCserver\Master-26.51`（26.51）。`build.json -> bdsDir` 是唯一部署源。
-- 日志统一 `[CALL]` 前缀；新增日志默认静默，避免刷屏。
+- **日志前缀由宿主加 `[CALL] `，我们自己的 message 只写模块标签**（`[preview]`、`[structure]`…），不要再写 `[CALL]`——否则控制台出现 `[CALL] [CALL][preview]`。
+- 调试日志走 `util/Log.ts` 的 `dbg(tag, msg)`：受 `debugMod` 控制、前缀 `[DBG][tag]`（控制台显示 `[CALL] [DBG][preview] …`）；新增日志默认静默，避免刷屏。
 - 不把服务端目录（`plugins/`、`worlds/`、`mods/`）复制进仓库。
 - 未经确认不 commit / push；提交信息用 `fix(area): …` / `feat(preview): …` 并写清诱因。
 

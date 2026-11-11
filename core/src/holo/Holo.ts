@@ -111,7 +111,7 @@ export const Holo = {
             return fn(...args);
         } catch (e) {
             try {
-                logger.warn("[CALL][Holo] " + name + " failed: " + (e && (e as any).message ? (e as any).message : e));
+                logger.warn("[Holo] " + name + " failed: " + (e && (e as any).message ? (e as any).message : e));
             } catch {
                 // logger unavailable
             }

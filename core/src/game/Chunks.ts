@@ -242,7 +242,7 @@ export async function sweepStaleAreas(): Promise<number> {
             runNow("/tickingarea remove " + name);
             removed++;
         }
-        if (removed > 0) logger.warn("[CALL] removed " + removed + " stale ticking area(s) from a previous run");
+        if (removed > 0) logger.warn("removed " + removed + " stale ticking area(s) from a previous run");
     } catch (e) {
         logFailure("Chunks.sweepStaleAreas", e);
     }

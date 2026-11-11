@@ -74,7 +74,7 @@ export function logFailure(tag: string, e: any): void {
     if (!shouldLog(tag, message)) return;
     const stack = e && typeof e.stack === "string" ? "\n" + e.stack : "";
     try {
-        logger.error("[CALL][" + tag + "] " + message + stack);
+        logger.error("[" + tag + "] " + message + stack);
     } catch {
         // logger not available yet / engine shutting down
     }

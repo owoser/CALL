@@ -77,7 +77,7 @@ export function tell(player: Player | null | undefined, text: any, type: number 
         return player.sendText(body, kind) !== false;
     } catch (e) {
         try {
-            logger.debug("[CALL][Msg] send failed: " + describeError(e));
+            logger.debug("[DBG][Msg] send failed: " + describeError(e));
         } catch {
             // nothing else we can do
         }
@@ -104,7 +104,7 @@ export function broadcast(text: any, type: number = MsgType.RAW): number {
         }
     } catch (e) {
         try {
-            logger.debug("[CALL][Msg] broadcast failed: " + describeError(e));
+            logger.debug("[DBG][Msg] broadcast failed: " + describeError(e));
         } catch {
             // ignore
         }

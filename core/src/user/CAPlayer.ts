@@ -88,7 +88,7 @@ export default class CAPlayer {
         if (warned.has(xuid)) return;
         warned.add(xuid);
         try {
-            logger.warn("[CALL][CAPlayer] " + xuid + ": " + message);
+            logger.warn("[CAPlayer] " + xuid + ": " + message);
         } catch {
             // logger unavailable
         }

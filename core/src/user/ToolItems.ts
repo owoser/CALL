@@ -146,8 +146,8 @@ export class ToolItems {
             if (ToolItems.startProbeDone) return;
             ToolItems.startProbeDone = true;
             try {
-                if (AddonInstaller.itemsAvailable()) logger.info("[CALL] tool items ready");
-                else logger.warn("[CALL] " + ToolItems.MISSING_HINT);
+                if (AddonInstaller.itemsAvailable()) logger.info("tool items ready");
+                else logger.warn("" + ToolItems.MISSING_HINT);
             } catch {
                 // logger may already be gone during shutdown
             }
@@ -307,7 +307,7 @@ export class ToolItems {
             if (fixed > 0) {
                 Config.set(Config.GLOBAL, "default.items", live);
                 try {
-                    logger.warn("[CALL] 已把 " + fixed + " 条使用 ${posf} 的绑定改写为 ${pos}（点击的方块坐标）");
+                    logger.warn("已把 " + fixed + " 条使用 ${posf} 的绑定改写为 ${pos}（点击的方块坐标）");
                 } catch {
                     // logger may not be ready
                 }
@@ -324,14 +324,14 @@ export class ToolItems {
 
             Config.set(Config.GLOBAL, "default.items", defaults);
             try {
-                logger.warn("[CALL] configs.json 补全内置工具绑定: " + missing.join(", "));
+                logger.warn("configs.json 补全内置工具绑定: " + missing.join(", "));
             } catch {
                 // logger may not be ready
             }
             return missing;
         } catch (e) {
             try {
-                logger.warn("[CALL] cannot fill in tool bindings: " + describeError(e));
+                logger.warn("cannot fill in tool bindings: " + describeError(e));
             } catch {
                 // ignore
             }

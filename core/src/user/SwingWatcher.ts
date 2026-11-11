@@ -191,7 +191,7 @@ export const SwingWatcher = {
                     onAirLeft(caPlayer);
                 } catch (e) {
                     try {
-                        logger.warn("[CALL][swing] " + (e && (e as any).message ? (e as any).message : e));
+                        logger.warn("[swing] " + (e && (e as any).message ? (e as any).message : e));
                     } catch {
                         // ignore
                     }

@@ -482,13 +482,13 @@ export default class CACommand {
         try {
             installed = cmd.setup() !== false;
         } catch (e) {
-            logger.error("[CALL][command] register failed: " + (e && (e as Error).message ? (e as Error).message : String(e)));
+            logger.error("[command] register failed: " + (e && (e as Error).message ? (e as Error).message : String(e)));
         }
         if (installed) {
-            logger.info("[CALL][command] /call registered (alias: /ca)");
+            logger.info("[command] /call registered (alias: /ca)");
         } else {
             logger.error(
-                "[CALL][command] /call could NOT be registered. " +
+                "[command] /call could NOT be registered. " +
                 "Another plugin may already own the name, or the server was not fully started."
             );
         }

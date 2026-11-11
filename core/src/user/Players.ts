@@ -94,10 +94,10 @@ export default class Players {
                 tell(player, StrFactory.cmdErr("command failed: " + text), MsgType.RAW);
             }
             if (Config.get(Config.GLOBAL, "debugMod", false)) {
-                logger.debug("[CALL][cmd] " + text + " -> " + ok);
+                logger.debug("[DBG][cmd] " + text + " -> " + ok);
             }
             if (Config.get(Config.GLOBAL, "outputCmd", false)) {
-                logger.info("[CALL][cmd] " + text);
+                logger.info("[cmd] " + text);
             }
             return { success: ok !== false, output: "" };
         } catch (e) {

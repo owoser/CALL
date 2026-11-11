@@ -46,7 +46,7 @@ function drain(): void {
             job.run();
         } catch (e) {
             try {
-                logger.warn("[CALL][batch] " + (e && (e as any).message ? (e as any).message : e));
+                logger.warn("[batch] " + (e && (e as any).message ? (e as any).message : e));
             } catch {
                 // ignore
             }

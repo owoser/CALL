@@ -35,7 +35,7 @@ function scanLangDir(): void {
         }
     } catch (e) {
         try {
-            logger.warn("[CALL][Translator] cannot list language files in " + LANG_DIR + ": " + (e as Error).message);
+            logger.warn("[Translator] cannot list language files in " + LANG_DIR + ": " + (e as Error).message);
         } catch {
             // logger unavailable
         }
@@ -51,7 +51,7 @@ function getReader(lang: string): PropertiesReader.Reader | null {
         reader = PropertiesReader(path.join(LANG_DIR, lang + ".lang"));
     } catch (e) {
         try {
-            logger.warn("[CALL][Translator] cannot open language " + lang + ": " + (e as Error).message);
+            logger.warn("[Translator] cannot open language " + lang + ": " + (e as Error).message);
         } catch {
             // ignore
         }
