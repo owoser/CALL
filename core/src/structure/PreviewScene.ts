@@ -135,6 +135,8 @@ interface Scene extends GhostLedger {
     nearDropped: number;
     nearRegistrations: number;
     nearPos: { x: number; y: number; z: number } | null;
+    /** Bumped whenever the desired content changes - part of the near throttle key. */
+    contentVersion: number;
     /** Block entity payloads accepted / refused-or-over-budget for this preview. */
     entitiesSent: number;
     entitiesDropped: number;
@@ -636,6 +638,7 @@ export const PreviewScene = {
             nearDropped: 0,
             nearRegistrations: 0,
             nearPos: null,
+            contentVersion: 0,
         };
 
         if (info.cells > maxCells()) {
@@ -699,15 +702,15 @@ export const PreviewScene = {
         if (!Number.isFinite(px) || !Number.isFinite(py) || !Number.isFinite(pz)) return;
         if (sourceDim(scene) !== pdim) return;
 
+        // NOTE: no periodic refresh. Re-registering destroys and recreates the cubes, so it must only
+        // happen when something really changed - a timer would make the window flicker every tick.
         const key = [scene.anchor.x, scene.anchor.y, scene.anchor.z, scene.degrees, scene.mirror,
-            scene.pivot, scene.applied.size, scene.nearWindow].join("|");
-        const now = Date.now();
+            scene.pivot, scene.contentVersion].join("|");
         const moved = scene.nearPos == null
             ? Infinity
             : Math.abs(px - scene.nearPos.x) + Math.abs(py - scene.nearPos.y) + Math.abs(pz - scene.nearPos.z);
         const contentChanged = key !== scene.nearKey;
-        const should = contentChanged || moved >= Math.max(1, radius / 2) || now - scene.nearAt > 4000;
-        if (!should) return;
+        if (!contentChanged && moved < Math.max(1, radius / 2)) return;
 
         const candidates: NearCandidate[] = [];
         for (const [cellKey, id] of scene.applied) {
@@ -723,7 +726,7 @@ export const PreviewScene = {
             exclude: scene.beCells,
         });
         scene.nearKey = key;
-        scene.nearAt = now;
+        scene.nearAt = Date.now();
         scene.nearPos = { x: px, y: py, z: pz };
         scene.nearDropped = picked.dropped;
         scene.nearWindow = picked.cells.length;
@@ -850,6 +853,7 @@ export const PreviewScene = {
     enqueue(xuid: string, desired: Map<string, PlannedCell>): void {
         const scene = scenes.get(xuid);
         if (scene == null) return;
+        scene.contentVersion++;
         // SAFETY NET: every cell this plan wants on screen goes into `everApplied`, whether or not
         // its packet is later confirmed. Teardown restores that union, so a cell that some draw
         // path forgot to mark can never become a permanent ghost - restoring a cell that already
@@ -1337,7 +1341,10 @@ export const PreviewScene = {
 
     startTimer(xuid: string): void {
         const scene = scenes.get(xuid);
-        if (scene == null || scene.timer != null || scene.mode === "full") return;
+        if (scene == null || scene.timer != null) return;
+        // EVERY mode needs this ticker, not only window/lazy: the walk-through window has to follow
+        // the player, and a "full" preview used to register it once and never again (the reported
+        // "only near the drop point does it turn into entities").
         scene.timer = setInterval(() => {
             const live = scenes.get(xuid);
             if (live == null) return;
@@ -1346,7 +1353,7 @@ export const PreviewScene = {
                 return;
             }
             try { PreviewScene.syncNear(live); } catch { /* cosmetic */ }
-            PreviewScene.refreshWindow(xuid, false);
+            if (live.mode !== "full") PreviewScene.refreshWindow(xuid, false);
         }, WINDOW_TICK_MS);
     },
 

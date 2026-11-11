@@ -63,10 +63,21 @@ test('the byte budget truncates instead of overflowing the argument', () => {
     const long = 'minecraft:oak_stairs[weirdo_direction=2,upside_down_bit=false]';
     const cells = [];
     for (let i = 0; i < 200; i++) cells.push(cell(i % 5, 64, Math.floor(i / 5), long));
-    const out = selectNearCells(cells, { x: 0.5, y: 64, z: 0.5 }, opts({ maxBytes: 400 }));
+    const out = selectNearCells(cells, { x: 0.5, y: 64, z: 0.5 }, opts({ maxBytes: 400, allowStates: true }));
     assert.ok(out.cells.length > 0, 'something fits');
     assert.ok(out.bytes <= 400, 'budget respected: ' + out.bytes);
     assert.ok(out.dropped > 0, 'the rest is reported, not silently lost');
+});
+
+test('stateful cells stay solid unless explicitly allowed', () => {
+    const { selectNearCells } = load();
+    const stairs = cell(0, 64, 0, 'minecraft:oak_stairs[weirdo_direction=2]');
+    const stone = cell(1, 64, 0);
+    const out = selectNearCells([stairs, stone], { x: 0.5, y: 64, z: 0.5 }, opts());
+    assert.equal(out.cells.length, 1, 'only the plain block is registered');
+    assert.equal(out.cells[0].id, 'minecraft:stone');
+    const allowed = selectNearCells([stairs, stone], { x: 0.5, y: 64, z: 0.5 }, opts({ allowStates: true }));
+    assert.equal(allowed.cells.length, 2, 'opt-in still works');
 });
 
 test('cells with an unusable descriptor are skipped', () => {

@@ -15,6 +15,18 @@ fixes are based on.
 
 ### Added (3.9.5-beta1, HologramLib 450)
 
+### Fixed (3.9.5-beta1, the walk-through window only worked near the drop point)
+
+- **The window never followed the player.** The ticker was only started for window/lazy previews, so
+  a "full" preview registered the near set once (at build time) and nothing re-registered it while
+  walking. Every mode now starts the ticker; `full` only refreshes the near window, not the cells.
+- **The throttle re-registered on every tick** (its key included the window size and a 4 s fallback,
+  and re-registering destroys and recreates the cubes). It now keys on a `contentVersion` that only
+  moves when the scene changes, plus the player-distance rule.
+- **Stateful blocks (stairs, slabs, ...) stay solid.** They are drawn per cell through SNBT, and the
+  near layer re-sends its window through the batch path - a descriptor that differs at all showed up
+  as a scrambled orientation. Plain blocks only, until the two paths are made byte-identical.
+
 ### Added (3.9.5-beta1, walk through the preview)
 
 - **Nearby preview blocks can be walked through.** `blockBatchSetNear` turns the cells around the

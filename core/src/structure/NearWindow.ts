@@ -30,6 +30,15 @@ export interface NearWindowOptions {
     maxBytes: number;
     /** Cell keys that must stay solid (block entities, SNBT payloads). */
     exclude?: Set<string>;
+    /**
+     * Allow cells whose descriptor carries STATES (stairs, slabs, ...).
+     *
+     * Default false: the near layer re-sends those cells through the batch path, and a batch
+     * descriptor that differs at all from what the per-cell path drew shows up as a scrambled
+     * orientation (the reported "stairs face the wrong way while walking through"). Plain blocks
+     * only, until that path is made byte-identical.
+     */
+    allowStates?: boolean;
 }
 
 export interface NearWindowResult {
@@ -72,11 +81,13 @@ export function selectNearCells(
     const reach = radius + 1;
     const reachSq = reach * reach;
     const exclude = options.exclude ?? new Set<string>();
+    const allowStates = options.allowStates === true;
 
     const inside: Array<{ cell: NearCandidate; d2: number }> = [];
     for (const cell of cells) {
         if (cell == null || cell.id === "" || cell.id.indexOf(";") >= 0) continue;
         if (exclude.has(cell.key)) continue;
+        if (!allowStates && cell.id.indexOf("[") >= 0) continue;
         const d2 = distanceSq(cell, player.x, player.y, player.z);
         if (!Number.isFinite(d2) || d2 > reachSq) continue;
         inside.push({ cell, d2 });
