@@ -25,6 +25,6 @@
   * [发版规范](dev/release.md)
 * 其他
   * [常见问题](other/question.md)
-  * [问题反馈](other/debug.md)
+  * [问题反馈（QQ 群 / Issues）](other/debug.md)
   * [更新日志](other/update.md)
   * [更多形状包](other/plugins.md)

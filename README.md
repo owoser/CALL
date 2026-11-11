@@ -216,6 +216,13 @@ to that server, so `npm run deploy` moves them aside and puts them back instead 
 geometry, structure capture, `.mcstructure` round trips, shape placement and
 copy -> paste, all against a real LeviLamina process.
 
+## Feedback
+
+| Channel | Where |
+|---|---|
+| QQ group (CALL 反馈\|交流) | <https://qm.qq.com/q/Divoxq6cSG> |
+| GitHub Issues | <https://github.com/owoser/CALL/issues> |
+
 ## References
 
 | Topic | Source |

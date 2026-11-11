@@ -1,5 +1,14 @@
 # 问题反馈
 
+## 反馈渠道
+
+| 渠道 | 地址 | 适合 |
+|---|---|---|
+| **QQ 群** | [点击加入【CALL插件 反馈\|交流】](https://qm.qq.com/q/Divoxq6cSG) | 快速提问、贴截图、确认"是不是 bug" |
+| **GitHub Issues** | <https://github.com/owoser/CALL/issues> | 可复现的问题、功能建议（便于追踪与归档） |
+
+> 群号与二维码以群链接为准；提问前建议先看一眼下面的信息清单，能显著加快定位。
+
 ## 提交 Issue
 
 请到 **<https://github.com/owoser/CALL/issues>** 提交，并尽量附上下面这些信息，能显著加快定位：
