@@ -6,6 +6,7 @@
   * [从 1.x / 2.0 升级](user/migrate.md)
   * [文档格式约定](user/format.md)
   * [配置参考](user/config.md)
+* [已知限制](user/known-limitations.md)
   * 功能介绍
     * [后台命令](user/function/console.md)
     * [菜单](user/function/menu.md)

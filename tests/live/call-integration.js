@@ -701,9 +701,10 @@ async function runSuite() {
         return "banner round-tripped with patterns: " + pastedSnbt.slice(0, 90);
     });
 
-    // --- engine facts: block state keys, entity capture, /structure ----------
-    await checkAsync("ca.stateKeysProbe", async () => {
+    // --- RECORDED ENGINE FACTS (see docs/user/known-limitations.md) ----------
+    await checkAsync("ca.engineFacts", async () => {
         const Cmd = require(path.join(M.root, "core", "src", "game", "Cmd.js"));
+        const codec = require(path.join(M.root, "core", "src", "io", "NbtCodec.js"));
         const p = spot(36);
         fillBox(p.x, p.y, p.z, 6, 2, 6, "minecraft:air");
         Cmd.runNow("/setblock " + (p.x + 1) + " " + p.y + " " + (p.z + 1) + " minecraft:chest replace");
@@ -712,65 +713,33 @@ async function runSuite() {
         assert(/"minecraft:cardinal_direction"\s*=/.test(chestStates),
             "chest state key is namespaced (StateRemap must strip minecraft:): " + chestStates);
 
-        // The engine captures entities into the structure NBT even though NbtCodec ignores them.
+        // Paintings/entities are unsupported. Record what the capture actually contains so the
+        // documented reason stays true.
+        const stand = mc.spawnMob("minecraft:armor_stand", p.x + 3.5, p.y + 1, p.z + 3.5, DIM);
         const area = new M.Area3(new M.Pos3(p.x, p.y, p.z, DIM), new M.Pos3(p.x + 5, p.y + 1, p.z + 5, DIM));
         M.NBTService.save("calltest_probe", area);
         const bytes = M.NBTService.readBytes("calltest_probe");
         M.NBTService.del("calltest_probe");
-        assert(bytes.toString("latin1").indexOf("entities") >= 0,
-            "the captured structure carries an entities key");
-        const codec = require(path.join(M.root, "core", "src", "io", "NbtCodec.js"));
+        try { if (stand != null) stand.remove(); } catch { }
+
         const layout = codec.parseStructureLayout(bytes);
         assert(layout.indices.length > 0, "the layout parses");
-        const ents = layout.entities ?? [];
         const rawText = bytes.toString("latin1");
-        const rawHasEntity = rawText.indexOf("armor_stand") >= 0;
-        if (!rawHasEntity) {
-            // mc.getStructure() does NOT capture actors on this build: the byte image has no
-            // "armor_stand" at all, so a painting can never ride CALL's own .mcstructure files.
-            // /structure save+load does carry them (see ca.structureCommands).
-            return chestStates + " | mc.getStructure drops entities (parsed=" + ents.length + ")";
-        }
-        assert(ents.length > 0, "the captured structure's entities are parsed: " + ents.length);
-        assert(/^minecraft:/.test(String(ents[0].identifier)), "entity identifier: " + String(ents[0].identifier));
-        assert(Array.isArray(ents[0].pos) && ents[0].pos.length === 3, "entity pos: " + JSON.stringify(ents[0].pos));
-        try { if (stand0 != null) stand0.remove(); } catch { }
-
-        // What does one entry of structure.entities look like? (armor stand -> save -> dump)
-        const ent = mc.spawnMob("minecraft:armor_stand", p.x + 2.5, p.y + 1, p.z + 2.5, DIM);
-        let shape = "no-entity";
+        const at = rawText.indexOf("armor_stand");
+        const actor = at < 0 ? "absent" : "present@" + at;
+        let keys = "?";
         try {
             const comp = mc.getStructure(
-                new IntPos(p.x, p.y, p.z, DIM),
-                new IntPos(p.x + 5, p.y + 2, p.z + 5, DIM),
-                false, false
-            );
-            if (comp != null) {
-                const root = comp.getCompound && comp.getCompound("structure");
-                const list = root != null && root.getList ? root.getList("entities") : null;
-                const n = list != null && list.getSize ? list.getSize() : -1;
-                if (n > 0) {
-                    const first = list.getCompound(0);
-                    shape = "count=" + n + " keys=" + (first && first.getKeys ? first.getKeys().join(",") : "?");
-                    try {
-                        const posTag = first.getTag ? first.getTag("pos") : null;
-                        shape += " posType=" + (posTag && posTag.getType ? posTag.getType() : "?");
-                        const posList = first.getList ? first.getList("pos") : null;
-                        if (posList != null && posList.getSize) {
-                            shape += " pos=[" + [0, 1, 2].map((k) => {
-                                try { return String(posList.getFloat(k)); } catch { return "?"; }
-                            }).join(",") + "]";
-                        }
-                    } catch { }
-                } else {
-                    shape = "count=" + n;
-                }
+                new IntPos(p.x, p.y, p.z, DIM), new IntPos(p.x + 5, p.y + 1, p.z + 5, DIM), false, false);
+            if (comp != null && comp.getKeys) {
+                keys = comp.getKeys().join(",");
+                const st = comp.getCompound ? comp.getCompound("structure") : null;
+                if (st != null && st.getKeys) keys += " | structure:" + st.getKeys().join(",");
+                const lst = st != null && st.getList ? st.getList("entities") : null;
+                keys += " | entities=" + (lst != null && lst.getSize ? lst.getSize() : "n/a");
             }
-        } catch (e) {
-            shape = "dumpErr=" + String(e && e.message ? e.message : e).slice(0, 80);
-        }
-        try { if (ent != null) ent.remove(); } catch { }
-        return chestStates + " | entities " + shape + " | layout cells=" + layout.indices.length;
+        } catch (e) { keys = "err:" + String(e && e.message ? e.message : e).slice(0, 60); }
+        return chestStates + " | actor=" + actor + " | keys=" + keys + " | cells=" + layout.indices.length;
     });
 
     // --- /structure save|load: blocks AND entities --------------------------

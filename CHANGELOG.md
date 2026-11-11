@@ -15,26 +15,18 @@ fixes are based on.
 
 ### Added (3.9.5-beta1, HologramLib 450)
 
-### Added (3.9.5-beta1, entity groundwork)
+### Docs (3.9.5-beta1, paintings are out of scope)
 
-- `io/NbtCodec`: `StructureLayout.entities` - entities are parsed from `structure.entities`
-  (identifier + float position + the raw compound), with float positions supported (the integer-only
-  reader dropped them).
-- `holo/FakeEntities`: the library's protocol-entity family (create/move/rotate/destroy) behind the
-  usual export gate - the building block for previewing entities instead of faking them with blocks.
-  Measured on this build: **`mc.getStructure` drops actors entirely** (a saved area with an armour
-  stand contains no `armor_stand` bytes), so a painting can never ride CALL's own .mcstructure file;
-  `/structure save … true` + `/structure load … none true` DOES carry entities (proven round-trip).
-
-- **Block entity contents in the preview.** Banners keep their patterns, signs their text and
-  chests their contents: the cells the clipboard carries are drawn through `blockFakeSetBlockEntity`
-  after their body, capped at `previewBlockEntityMax` payloads per preview.
-- **Pasting repaints the clients that are standing there.** The world was always written correctly
-  ((Block.getBlockEntity().setNbt)) but no BlockActorData packet followed, so a pasted banner
-  stayed solid until the chunk reloaded. `pasteSyncBlockEntities` (default `fake`), `pasteSyncRadius`,
-  `pasteSyncMax`.
-- **`/ca tools debug`** now prints the HologramLib capability matrix and resolves a sample stair
-  through both resolvers, which is what told us the string resolver is name-only.
+- **Entity support (paintings, item frames, mobs) is not implemented and will not be.** The capture
+  does contain actor identifiers (measured: `armor_stand` shows up in the captured bytes), but the
+  LSE NBT API exposes no readable `structure.entities` entries, `/summon minecraft:painting` and
+  `mc.spawnMob("minecraft:painting")` both refuse, and drawing a painting through the library's
+  protocol entities crashed a real client while the server stayed healthy. Copy still records blocks
+  and block entities; paintings are ignored, no warning.
+- The one channel that DOES carry actors - `/structure save … true` + `/structure load … none
+  true`, session-scoped - is written down with everything else in the new
+  `docs/user/known-limitations.md`, so nobody has to rediscover it.
+- The painting/entity code written while investigating was reverted; only the findings remain.
 
 ### Fixed (3.9.5-beta1, namespaced states, drop/pickup, waiting)
 

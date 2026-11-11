@@ -40,6 +40,7 @@
 1. [安装说明](user/install.md)
 2. [快速上手：选区与复制粘贴](user/function/area.md)
 3. [配置参考](user/config.md)
+4. [已知限制](user/known-limitations.md)
 
 ## 项目地址
 
