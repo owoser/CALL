@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-10T05:51:09Z",
-  "updated_at": "2026-11-11T06:00:44Z",
+  "updated_at": "2026-11-11T09:17:43Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -53,9 +53,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "1e72d40d60dc89e16d9db9f9342d9c66d4e580322d30685e8422483d45f35c58",
-      "size": 101364,
-      "normalized_sha256": "1e72d40d60dc89e16d9db9f9342d9c66d4e580322d30685e8422483d45f35c58"
+      "sha256": "a7c47cd25d17f27868f8256a13273dd4fa7d85d657591d2a189b37f3cd8597e2",
+      "size": 101521,
+      "normalized_sha256": "a7c47cd25d17f27868f8256a13273dd4fa7d85d657591d2a189b37f3cd8597e2"
     },
     "LICENSE": {
       "role": "index",
@@ -71,9 +71,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "aaf803b8a618941ce6ab5a193e35bb0658e9fd2ca496e0eac7276c1310a1e266",
-      "size": 68631,
-      "normalized_sha256": "aaf803b8a618941ce6ab5a193e35bb0658e9fd2ca496e0eac7276c1310a1e266"
+      "sha256": "46c7820f11c6a3da83c6aee8aa9fc8355b8efc2e8a58c009aa199c4b8afbac25",
+      "size": 68493,
+      "normalized_sha256": "46c7820f11c6a3da83c6aee8aa9fc8355b8efc2e8a58c009aa199c4b8afbac25"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -232,15 +232,15 @@
     },
     "assets/check.jsonc": {
       "role": "index",
-      "sha256": "0164b26911ff49641c91ce9710612f4fe9be2ac9b38bb300d16c7336adaf47c3",
-      "size": 8103,
-      "normalized_sha256": "0164b26911ff49641c91ce9710612f4fe9be2ac9b38bb300d16c7336adaf47c3"
+      "sha256": "1e21327e8644fd8ac1fb70ab6d1733417a44102bf9a67f28dd936440366eb323",
+      "size": 8108,
+      "normalized_sha256": "1e21327e8644fd8ac1fb70ab6d1733417a44102bf9a67f28dd936440366eb323"
     },
     "assets/configs.default.jsonc": {
       "role": "index",
-      "sha256": "58d64b402c71be7e07bc1d326172a89e8054477c6c046f9e209b7a833c6a74ba",
-      "size": 36131,
-      "normalized_sha256": "58d64b402c71be7e07bc1d326172a89e8054477c6c046f9e209b7a833c6a74ba"
+      "sha256": "a834cd51b6c01ae87801d8f43f66250ecee4b8ca05d3e3e33b08f545399c88ff",
+      "size": 36177,
+      "normalized_sha256": "a834cd51b6c01ae87801d8f43f66250ecee4b8ca05d3e3e33b08f545399c88ff"
     },
     "assets/help.json": {
       "role": "index",
@@ -812,6 +812,12 @@
       "size": 4196,
       "normalized_sha256": "34c0523b1294a423ceecce56094c5306b422dfad90e8823c0af303d273a2c066"
     },
+    "core/src/structure/ContainerClear.ts": {
+      "role": "index",
+      "sha256": "f26fd9a58a52459052e38519058ccb17dab92b7f368eeecf337547e348698790",
+      "size": 2017,
+      "normalized_sha256": "f26fd9a58a52459052e38519058ccb17dab92b7f368eeecf337547e348698790"
+    },
     "core/src/structure/FillOperation.ts": {
       "role": "index",
       "sha256": "4a842fb940f77ea860401c12485757037db3bdcd60d48763c5d3f744a6a29add",
@@ -892,15 +898,15 @@
     },
     "core/src/structure/StructurePlacement.ts": {
       "role": "index",
-      "sha256": "cd48df6c330f87ff9c47e434545393531765276eb269461dfa48ee0b7af6c318",
-      "size": 20324,
-      "normalized_sha256": "cd48df6c330f87ff9c47e434545393531765276eb269461dfa48ee0b7af6c318"
+      "sha256": "2e7a6f01a616ccaa5fc8674029d13650eb7230a07e087f5acbc8ae6ecd2ffbdd",
+      "size": 21309,
+      "normalized_sha256": "2e7a6f01a616ccaa5fc8674029d13650eb7230a07e087f5acbc8ae6ecd2ffbdd"
     },
     "core/src/structure/StructureService.ts": {
       "role": "index",
-      "sha256": "d0373ef82f4f8a18d70ef98362701bc0607efa4ddf9fdc0189fdfd77a793ab3e",
-      "size": 47739,
-      "normalized_sha256": "d0373ef82f4f8a18d70ef98362701bc0607efa4ddf9fdc0189fdfd77a793ab3e"
+      "sha256": "a4d9fc2f18ca98a0378f52fde083fa401ed5f8b8322c0188873e3f8bf94bff65",
+      "size": 45513,
+      "normalized_sha256": "a4d9fc2f18ca98a0378f52fde083fa401ed5f8b8322c0188873e3f8bf94bff65"
     },
     "core/src/structure/StructureStore.ts": {
       "role": "index",
@@ -1221,9 +1227,9 @@
     },
     "docs/dev/pitfalls.md": {
       "role": "index",
-      "sha256": "d0ca8f7fd91b05d17cf06689ff0169f84be62d7e1dab22acc1b9f9e62d1313bb",
+      "sha256": "0a7ccb8aa30b02743e376b4ff64732561289494807e135e20b685802a36c12b5",
       "size": 23183,
-      "normalized_sha256": "d0ca8f7fd91b05d17cf06689ff0169f84be62d7e1dab22acc1b9f9e62d1313bb"
+      "normalized_sha256": "0a7ccb8aa30b02743e376b4ff64732561289494807e135e20b685802a36c12b5"
     },
     "docs/dev/plugin.md": {
       "role": "index",
@@ -1326,9 +1332,9 @@
     },
     "docs/user/config.md": {
       "role": "index",
-      "sha256": "7f6a77b3afa77824e71f558e0a28e6122133d4ed086f246f9b6973840de92f07",
-      "size": 13356,
-      "normalized_sha256": "7f6a77b3afa77824e71f558e0a28e6122133d4ed086f246f9b6973840de92f07"
+      "sha256": "a2ae5e1b50162aab2fa133c745e763f51f40fe7bc560dba0453787cce16b3e51",
+      "size": 13331,
+      "normalized_sha256": "a2ae5e1b50162aab2fa133c745e763f51f40fe7bc560dba0453787cce16b3e51"
     },
     "docs/user/format.md": {
       "role": "index",
@@ -1542,9 +1548,9 @@
     },
     "tests/live/call-integration.js": {
       "role": "observe",
-      "sha256": "2642c4816dafc19b04ea1d03c67dc1c0ffc18c75cc8fc53758122d083af87b27",
-      "size": 118642,
-      "normalized_sha256": "2642c4816dafc19b04ea1d03c67dc1c0ffc18c75cc8fc53758122d083af87b27"
+      "sha256": "ec34cdf9a33901e8aedf9137af6058037ac0ae32bc00e1751f6720e282c8ee5f",
+      "size": 118251,
+      "normalized_sha256": "ec34cdf9a33901e8aedf9137af6058037ac0ae32bc00e1751f6720e282c8ee5f"
     },
     "tests/live/manifest.json": {
       "role": "observe",
@@ -1605,6 +1611,12 @@
       "sha256": "a4b27882d68ceafa73c4d0a9fdfeb387ddbaa6870ddc90ea68b98d98ecd2714b",
       "size": 2171,
       "normalized_sha256": "a4b27882d68ceafa73c4d0a9fdfeb387ddbaa6870ddc90ea68b98d98ecd2714b"
+    },
+    "tests/unit/container-clear.test.mjs": {
+      "role": "observe",
+      "sha256": "ea6eeb6b53b704babaaab0468d64da5ed60436c26a2bb6127960ab5174e33dfa",
+      "size": 2455,
+      "normalized_sha256": "ea6eeb6b53b704babaaab0468d64da5ed60436c26a2bb6127960ab5174e33dfa"
     },
     "tests/unit/dimension.test.mjs": {
       "role": "observe",
