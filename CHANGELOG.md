@@ -15,6 +15,16 @@ fixes are based on.
 
 ### Added (3.9.5-beta1, HologramLib 450)
 
+### Fixed (3.9.5-beta1, rotating the preview left walk-through ghosts behind)
+
+- A cell that had been replaced by an item display was invisible to the diff: an unchanged cell got
+  no packet, and a "clear" restored a block that was no longer there. Rotating or moving the preview
+  therefore left those cells behind until the preview was cancelled.
+- `enqueue()` now releases every display first (destroy + re-send the cell through its original
+  payload) before diffing the new plan; the same path runs on teardown.
+- The measured height baseline (-0.09 blocks) is baked into the code, and `previewNearYOffset` is a
+  delta on top of it (0 = already flush with the real blocks).
+
 ### Fixed (3.9.5-beta1, the walk-through block's height)
 
 - Its anchor is the model CENTRE, so it has to be placed at the CELL centre: the create call now uses

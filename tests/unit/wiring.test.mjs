@@ -180,6 +180,18 @@ test('block entities ride along with the paste', () => {
         'transformLayout must remap block entity indices');
 });
 
+test('a content change releases the walk-through displays first', () => {
+    const scene = read('core/src/structure/PreviewScene.ts');
+    assert.ok(scene.includes('releaseCubes(scene)'),
+        'enqueue must release the displays before diffing the new plan');
+    // It has to happen BEFORE contentVersion++ and the diff, otherwise the old cells are skipped.
+    const release = scene.indexOf('PreviewScene.releaseCubes(scene)');
+    const version = scene.indexOf('scene.contentVersion++');
+    assert.ok(release > 0 && release < version, 'release before the diff: ' + release + ' < ' + version);
+    assert.ok(scene.includes('redrawCell(scene, key, cube.x, cube.y, cube.z)'),
+        'a released cell must be re-sent through its original payload');
+});
+
 test('the preview sends through the batch API', () => {
     const scene = read('core/src/structure/PreviewScene.ts');
     assert.ok(scene.includes('import { FakeBlocks, packCells'), 'the scene must use the batch adapter');

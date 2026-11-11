@@ -686,8 +686,9 @@
   // Size of the walk-through visual (a block-mode item display). 1 = a normal-looking block;
   // if a specific block still looks like a miniature, nudge this (0.5 - 2).
   "previewNearScale": 1,
-  // Extra vertical offset of the walk-through visual, in BLOCKS (0 = centred in its cell, which is
-  // correct). Only nudge it (+/- 0.1 - 0.3) if a specific block still looks off.
+  // Extra vertical offset of the walk-through visual, in BLOCKS, added on top of the built-in
+  // measured baseline (-0.09). 0 = already lines up with the real blocks; nudge +/- 0.1 only if a
+  // particular block still looks off.
   "previewNearYOffset": 0,
 
     /*

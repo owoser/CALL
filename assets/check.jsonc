@@ -253,7 +253,7 @@
   "previewNearYOffset": {
     "type": "number",
     "default": 0,
-    "description": "可穿方块模型的额外垂直偏移（单位：格，0 = 正好居中在方块格内）。"
+    "description": "可穿方块模型的额外垂直偏移（单位：格），叠加在内置实测基准 -0.09 之上；0 = 与真方块齐平。"
   },
   "previewNearCells": {
     "type": "number",

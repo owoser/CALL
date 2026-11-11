@@ -240,10 +240,21 @@ const nearRadius = () => Math.floor(num("previewNearRadius", 5, 0, 16));
 const nearMaxCells = () => Math.floor(num("previewNearCells", 512, 64, 2048));
 /** Keep the cube invisible (the block looks unchanged but is passable). */
 const nearInvisible = () => String(Config.get(Config.GLOBAL, "previewNearInvisible", true)).toLowerCase() !== "false";
-/** Extra vertical offset in BLOCKS (0 = the model is centred in its cell). Fine tuning only. */
+/**
+ * Engine baseline for the walk-through visual, in blocks.
+ *
+ * Measured on a real client: the item display's block model sits 0.09 blocks high when it is anchored
+ * at the cell centre, so -0.09 lines it up exactly with the surrounding blocks. It lives HERE as the
+ * baseline on purpose - the config key is only a fine-tuning DELTA on top of it, so nobody has to
+ * rediscover the number (or accidentally apply it twice).
+ */
+const NEAR_Y_BASELINE = -0.09;
+
+/** Extra vertical offset in BLOCKS, added to NEAR_Y_BASELINE. 0 = the measured default. */
 const nearYOffset = () => {
     const value = Number(Config.get(Config.GLOBAL, "previewNearYOffset", 0));
-    return Number.isFinite(value) && value >= -1 && value <= 1 ? value : 0;
+    const delta = Number.isFinite(value) && value >= -1 && value <= 1 ? value : 0;
+    return NEAR_Y_BASELINE + delta;
 };
 /** Size of the walk-through cube; 1 = normal (the library's own default). */
 const nearScale = () => {
@@ -441,6 +452,7 @@ function detachScene(xuid: string): { ledger: GhostLedger; dimid: number; player
     // Walk-through registration: the library destroys the active sulfur cubes here. Without this a
     // player who cancels while standing inside the preview would keep the cubes on their client.
     if (scene.nearCubes.size > 0) {
+        // Teardown restores every cell anyway, so only the displays have to go here.
         try {
             NearBlocks.clearAll(Array.from(scene.nearCubes.values()).map((c) => c.id));
         } catch { /* cosmetic */ }
@@ -799,6 +811,25 @@ export const PreviewScene = {
     },
 
     /**
+     * Destroy every walk-through display and put its cell back exactly as it was drawn.
+     *
+     * Called before a content change (so the new plan starts from real blocks) and on teardown.
+     */
+    releaseCubes(scene: Scene): void {
+        if (scene.nearCubes.size === 0) {
+            scene.nearWindow = 0;
+            return;
+        }
+        for (const [key, cube] of scene.nearCubes) {
+            try { NearBlocks.leave(cube.id); } catch { /* keep going */ }
+            PreviewScene.redrawCell(scene, key, cube.x, cube.y, cube.z);
+        }
+        scene.nearCubes.clear();
+        scene.nearPayload.clear();
+        scene.nearWindow = 0;
+    },
+
+    /**
      * Re-send one cell exactly the way it was drawn before it became a cube.
      *
      * Plain cells go through the per-cell path (which is what the ledger already restored anyway);
@@ -937,6 +968,11 @@ export const PreviewScene = {
     enqueue(xuid: string, desired: Map<string, PlannedCell>): void {
         const scene = scenes.get(xuid);
         if (scene == null) return;
+        // The plan is about to change (move / rotate / re-extract). Any cell that is currently
+        // replaced by a walk-through display must be released FIRST: the display still shows the OLD
+        // block, and the diff below would either skip the cell (unchanged) or clear a block that is
+        // not there any more - which is exactly the "rotating leaves ghosts behind" report.
+        PreviewScene.releaseCubes(scene);
         scene.contentVersion++;
         // SAFETY NET: every cell this plan wants on screen goes into `everApplied`, whether or not
         // its packet is later confirmed. Teardown restores that union, so a cell that some draw
