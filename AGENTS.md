@@ -37,6 +37,7 @@
 7. `Player` 句柄不能缓存，每次 `mc.getPlayer(xuid)` 现取。
 8. 加载区块用 `tickingarea` 租约，不传送玩家；`mc.getBlock` 能读到 ≠ `/fill` 能执行。
 9. **维度只在坐标对象上**：`IntPos`/`FloatPos` 有 `dimid`，`Player` **没有**（取到 `undefined`）。一律用 `common/Dimension.dimensionOf()`，`?? 0` 会把地狱/末地当成主世界，且不报错——表现是"还原一格都没读到"。
+10. **实体不进自有结构文件**：`mc.getStructure` 在这版会把实体丢掉（实测：保存含盔甲架的选区，字节里没有 `armor_stand`），`structure.entities` 只是空壳。要带实体（画、展示框）只有一条路：`/structure save … true` + `/structure load … none true`（已实测可往返，且支持旋转参数），且**仅当前会话有效**。
 
 > 机制与实测数据见 `docs/dev/architecture.md`。
 

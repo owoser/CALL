@@ -388,6 +388,22 @@ export interface NbtTypedValue {
     value: any;
 }
 
+/**
+ * One entry of `structure.entities`.
+ *
+ * Paintings and item frames are ENTITIES in Bedrock, so a copy that only knows blocks silently loses
+ * them. The engine already records them (the `entities` key was measured in a captured structure),
+ * the position is kept as a FLOAT - integer-only readers drop it.
+ */
+export interface StructureEntity {
+    /** Actor identifier, e.g. "minecraft:painting". */
+    identifier: string;
+    /** Position relative to the structure corner (floats). */
+    pos: [number, number, number];
+    /** The whole entity compound as plain JS, for `setNbt` on paste. */
+    nbt: Record<string, any>;
+}
+
 export interface StructureLayout {
     size: [number, number, number];
     indices: number[];
@@ -400,6 +416,8 @@ export interface StructureLayout {
      * `structure.block_position_data.<cell> = { block_entity_data: {...} }`.
      */
     blockEntities?: Map<number, NbtTag>;
+    /** Entities captured with the structure (paintings, item frames, armour stands, ...). */
+    entities?: StructureEntity[];
 }
 
 /** Convert a compound's entries while keeping each value's tag id. */
@@ -440,6 +458,63 @@ function numArray(tag: NbtTag | undefined): number[] {
         return out;
     }
     return [];
+}
+
+/** Like `numArray`, but also accepts the FLOAT / DOUBLE values an entity position carries. */
+function numberList(tag: NbtTag | undefined): number[] {
+    if (tag == null) return [];
+    const one = (t: NbtTag): number | null => {
+        switch (t.type) {
+            case 1:
+            case 2:
+            case 3:
+            case 4:
+            case 5:
+            case 6:
+                return Number(t.value);
+            default:
+                return null;
+        }
+    };
+    if (tag.type === 9) {
+        const out: number[] = [];
+        for (const item of tag.items) {
+            const v = one(item);
+            if (v != null) out.push(v);
+        }
+        return out;
+    }
+    const single = one(tag);
+    return single == null ? [] : [single];
+}
+
+/**
+ * `structure.entities` -> [{ identifier, pos, nbt }].
+ *
+ * Shape is read tolerantly: the identifier may sit at the top level or inside `nbt`, and the
+ * position may be a `pos` list or `x`/`y`/`z` numbers.
+ */
+function parseEntities(structureTag: Extract<NbtTag, { type: 10 }>): StructureEntity[] | undefined {
+    const list = child(structureTag, "entities");
+    if (list == null || list.type !== 9) return undefined;
+    const out: StructureEntity[] = [];
+    for (const item of list.items) {
+        if (item.type !== 10) continue;
+        const js = toJs(item) as Record<string, any>;
+        const identifier = String(js?.identifier ?? js?.nbt?.identifier ?? "");
+        if (identifier === "") continue;
+        const pos = numberList(child(item, "pos"));
+        out.push({
+            identifier,
+            pos: [
+                pos[0] ?? Number(js?.x ?? 0),
+                pos[1] ?? Number(js?.y ?? 0),
+                pos[2] ?? Number(js?.z ?? 0),
+            ],
+            nbt: js,
+        });
+    }
+    return out.length > 0 ? out : undefined;
 }
 
 function toJs(tag: NbtTag): any {
@@ -678,7 +753,8 @@ export function parseStructureLayout(buf: Buffer): StructureLayout {
     }
 
     const blockEntities = parseBlockEntities(structureTag) ?? scanBlockEntities(buf);
-    return { size: [size[0], size[1], size[2]], indices, palette, blockEntities };
+    const entities = parseEntities(structureTag);
+    return { size: [size[0], size[1], size[2]], indices, palette, blockEntities, entities };
 }
 // --------------------------------------------------- mirror / rotate support
 export interface TransformOptions {

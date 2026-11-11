@@ -15,6 +15,17 @@ fixes are based on.
 
 ### Added (3.9.5-beta1, HologramLib 450)
 
+### Added (3.9.5-beta1, entity groundwork)
+
+- `io/NbtCodec`: `StructureLayout.entities` - entities are parsed from `structure.entities`
+  (identifier + float position + the raw compound), with float positions supported (the integer-only
+  reader dropped them).
+- `holo/FakeEntities`: the library's protocol-entity family (create/move/rotate/destroy) behind the
+  usual export gate - the building block for previewing entities instead of faking them with blocks.
+  Measured on this build: **`mc.getStructure` drops actors entirely** (a saved area with an armour
+  stand contains no `armor_stand` bytes), so a painting can never ride CALL's own .mcstructure file;
+  `/structure save … true` + `/structure load … none true` DOES carry entities (proven round-trip).
+
 - **Block entity contents in the preview.** Banners keep their patterns, signs their text and
   chests their contents: the cells the clipboard carries are drawn through `blockFakeSetBlockEntity`
   after their body, capped at `previewBlockEntityMax` payloads per preview.

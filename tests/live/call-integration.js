@@ -721,8 +721,56 @@ async function runSuite() {
             "the captured structure carries an entities key");
         const codec = require(path.join(M.root, "core", "src", "io", "NbtCodec.js"));
         const layout = codec.parseStructureLayout(bytes);
-        assert(layout.indices.length > 0, "the layout parses (entities are simply not read yet)");
-        return chestStates + " | entities key present, layout cells=" + layout.indices.length;
+        assert(layout.indices.length > 0, "the layout parses");
+        const ents = layout.entities ?? [];
+        const rawText = bytes.toString("latin1");
+        const rawHasEntity = rawText.indexOf("armor_stand") >= 0;
+        if (!rawHasEntity) {
+            // mc.getStructure() does NOT capture actors on this build: the byte image has no
+            // "armor_stand" at all, so a painting can never ride CALL's own .mcstructure files.
+            // /structure save+load does carry them (see ca.structureCommands).
+            return chestStates + " | mc.getStructure drops entities (parsed=" + ents.length + ")";
+        }
+        assert(ents.length > 0, "the captured structure's entities are parsed: " + ents.length);
+        assert(/^minecraft:/.test(String(ents[0].identifier)), "entity identifier: " + String(ents[0].identifier));
+        assert(Array.isArray(ents[0].pos) && ents[0].pos.length === 3, "entity pos: " + JSON.stringify(ents[0].pos));
+        try { if (stand0 != null) stand0.remove(); } catch { }
+
+        // What does one entry of structure.entities look like? (armor stand -> save -> dump)
+        const ent = mc.spawnMob("minecraft:armor_stand", p.x + 2.5, p.y + 1, p.z + 2.5, DIM);
+        let shape = "no-entity";
+        try {
+            const comp = mc.getStructure(
+                new IntPos(p.x, p.y, p.z, DIM),
+                new IntPos(p.x + 5, p.y + 2, p.z + 5, DIM),
+                false, false
+            );
+            if (comp != null) {
+                const root = comp.getCompound && comp.getCompound("structure");
+                const list = root != null && root.getList ? root.getList("entities") : null;
+                const n = list != null && list.getSize ? list.getSize() : -1;
+                if (n > 0) {
+                    const first = list.getCompound(0);
+                    shape = "count=" + n + " keys=" + (first && first.getKeys ? first.getKeys().join(",") : "?");
+                    try {
+                        const posTag = first.getTag ? first.getTag("pos") : null;
+                        shape += " posType=" + (posTag && posTag.getType ? posTag.getType() : "?");
+                        const posList = first.getList ? first.getList("pos") : null;
+                        if (posList != null && posList.getSize) {
+                            shape += " pos=[" + [0, 1, 2].map((k) => {
+                                try { return String(posList.getFloat(k)); } catch { return "?"; }
+                            }).join(",") + "]";
+                        }
+                    } catch { }
+                } else {
+                    shape = "count=" + n;
+                }
+            }
+        } catch (e) {
+            shape = "dumpErr=" + String(e && e.message ? e.message : e).slice(0, 80);
+        }
+        try { if (ent != null) ent.remove(); } catch { }
+        return chestStates + " | entities " + shape + " | layout cells=" + layout.indices.length;
     });
 
     // --- /structure save|load: blocks AND entities --------------------------
