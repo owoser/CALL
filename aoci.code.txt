@@ -7,7 +7,7 @@
 AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线、发版门禁、提交闸门、日志前缀约定）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:[CALL] 前缀由宿主加；调试走 util/Log.ts 的 dbg()
 CHANGELOG.md[SC8L]: F:版本史：按版本记录修复与变更，4.0.0 为"预览可穿行/容器不撒落/配置精简"正式版 | R:code:README.md | A:顶部 4.0.0 汇总段与历史段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
 LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
-README.md[RS9L]: F:仓库门面：功能简介、环境要求表（含 HologramLib）、安装与构建说明 | R:code:docs/user/install.md | A:Requirements/Install/Build 各节 | S:环境要求表必须列全前置库，版本以导出面为准
+README.md[RS9L]: F:仓库门面：功能简介、环境要求表（含 HologramLib 链接与安装方式）、安装与构建说明 | R:code:docs/user/install.md | A:Requirements/Install/Build 各节 | S:环境要求表必须列全前置库，版本以导出面为准
 build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
 package-lock.json[FV3L]: F:npm 依赖锁定树（lockfileVersion 2），固定 acorn、escodegen、estraverse 等运行时依赖的精确版本 | R:code:package.json | A:packages 与 dependencies 节点 | S:顶层 version 仍是 2.0.0 与 package.json 不一致，不能据此判断发行版本
 package.json[PS9L]: F:插件包元数据与脚本入口（构建/部署/闸门/单测） | R:code:tooth.json,code:CHANGELOG.md | A:version、scripts、devDependencies | S:版本号必须与 tooth.json、CHANGELOG 一致，否则 check:version 失败
@@ -282,7 +282,7 @@ update.md[DG8L]: F:更新日志页：手动更新步骤与版本速览表 | R:co
 ===E:/code/LL3/Plugins/CALL/docs/user/===
 config.md[DG9L]: F:配置参考：分组说明 + 每键含义（含 previewNear 五键与 silentContainerClear），提示已精简/只认 call:* | R:code:core/src/assets/configs.default.jsonc | A:基础/结构/预览各表 | S:新增键必须同时进 check.jsonc 与模板
 format.md[SG6T]: F:文档格式约定：指令参数记法 param:type 与参数类型表 | R:code:docs/user/function/area.md | A:参数类型表 | S:全站命令示例按此记法书写，另立一套会让示例与实现脱节
-install.md[DG2L]: F:安装说明：目录布局、依赖、首次启动与物品包生效步骤 | R:code:docs/user/introduction.md | A:安装/升级/验证步骤 | S:启动日志示例里的版本号随发版更新
+install.md[DG2L]: F:安装说明：环境要求（含 HologramLib 及其下载/仓库链接与发布包名）、前置库章节、安装步骤与验证 | R:code:docs/user/introduction.md,code:README.md | A:环境要求/前置库/安装步骤/首次启动 | S:前置库章节必须给出对应平台线的发布包名与 lip 命令
 introduction.md[DG1L]: F:插件介绍：环境要求表（BDS/LL/LSE/HologramLib）、能力概览与 1.x 差异 | R:code:README.md | A:运行环境与功能列表 | S:前置库 HologramLib 必列；版本号随发版更新
 migrate.md[DG2S]: F:升级指南：目录布局迁移、配置键变更与已知限制提示 | R:code:docs/user/config.md | A:1.x/2.0→3.x→4.0.0 步骤 | S:autoUpdate 等已删键要在文中说明
 tools.md[DG8S]: F:工具物品说明：六个工具的用法、靠近可穿（previewNear*）、点击空气、粘贴入口与结构存放 | R:code:docs/user/config.md,code:docs/user/known-limitations.md | A:工具表与各专题段 | S:工具数量/绑定方式变化要同步；靠近可穿参数必须与配置模板一致
