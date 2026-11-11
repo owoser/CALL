@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-10T05:51:09Z",
-  "updated_at": "2026-11-11T13:27:22Z",
+  "updated_at": "2026-11-11T13:55:45Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -53,9 +53,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "44fe027bafee775090b38905911425b3a67650ec97972819b3fcb6c00c1c632d",
-      "size": 108446,
-      "normalized_sha256": "44fe027bafee775090b38905911425b3a67650ec97972819b3fcb6c00c1c632d"
+      "sha256": "733dc4c1978f020817ae460c7f0ee5921d2a60e89489ff063faafda51f19a1f5",
+      "size": 109270,
+      "normalized_sha256": "733dc4c1978f020817ae460c7f0ee5921d2a60e89489ff063faafda51f19a1f5"
     },
     "LICENSE": {
       "role": "index",
@@ -71,9 +71,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "971c1327f3309bd397df9000f43beb8a2648bae29703ef271ccbea4dcf1751d0",
-      "size": 67543,
-      "normalized_sha256": "971c1327f3309bd397df9000f43beb8a2648bae29703ef271ccbea4dcf1751d0"
+      "sha256": "91d15f28d37430feaf41a518018f2ea7c2579a45f0b822541ff841c1533e3dd1",
+      "size": 67650,
+      "normalized_sha256": "91d15f28d37430feaf41a518018f2ea7c2579a45f0b822541ff841c1533e3dd1"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -232,15 +232,15 @@
     },
     "assets/check.jsonc": {
       "role": "index",
-      "sha256": "345b4c74a75395680835910500e307406f0f76736b37dee6ae40e02d28e0d8a1",
-      "size": 9129,
-      "normalized_sha256": "345b4c74a75395680835910500e307406f0f76736b37dee6ae40e02d28e0d8a1"
+      "sha256": "53e76bd16d89f61aee946291daef37128a820c269e98e0ec28cc458383a732e1",
+      "size": 5616,
+      "normalized_sha256": "53e76bd16d89f61aee946291daef37128a820c269e98e0ec28cc458383a732e1"
     },
     "assets/configs.default.jsonc": {
       "role": "index",
-      "sha256": "a99fc4fc08af22f3ef9a9d852ef5b5a4a8c7d5d70d02843dd92f518e2dc20632",
-      "size": 37239,
-      "normalized_sha256": "a99fc4fc08af22f3ef9a9d852ef5b5a4a8c7d5d70d02843dd92f518e2dc20632"
+      "sha256": "50ff599a5436da56b8da779e52305a35121abae9547724191aeae74b05afbd81",
+      "size": 12028,
+      "normalized_sha256": "50ff599a5436da56b8da779e52305a35121abae9547724191aeae74b05afbd81"
     },
     "assets/help.json": {
       "role": "index",
@@ -1036,9 +1036,9 @@
     },
     "core/src/user/ToolItems.ts": {
       "role": "index",
-      "sha256": "5d8d65750c92e72758cb0ab0d46d55e27df8481e4341d336b5a29f71a5410ffc",
-      "size": 22217,
-      "normalized_sha256": "5d8d65750c92e72758cb0ab0d46d55e27df8481e4341d336b5a29f71a5410ffc"
+      "sha256": "1571fe873f87b76dd8489a2e295d86d535dfc8477963492dea61ddd36a9f9405",
+      "size": 23668,
+      "normalized_sha256": "1571fe873f87b76dd8489a2e295d86d535dfc8477963492dea61ddd36a9f9405"
     },
     "core/src/user/ToolOperation.ts": {
       "role": "index",
@@ -1350,9 +1350,9 @@
     },
     "docs/user/config.md": {
       "role": "index",
-      "sha256": "a7aef258778f44a09cad0238877acc3b40d27964ededcae7c64caffa9b66e71b",
-      "size": 14261,
-      "normalized_sha256": "a7aef258778f44a09cad0238877acc3b40d27964ededcae7c64caffa9b66e71b"
+      "sha256": "8af2d8bd9957ac63a1dabc43ba1a1b3511996bb123da025835d8f8a39128681b",
+      "size": 14527,
+      "normalized_sha256": "8af2d8bd9957ac63a1dabc43ba1a1b3511996bb123da025835d8f8a39128681b"
     },
     "docs/user/format.md": {
       "role": "index",

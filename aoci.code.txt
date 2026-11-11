@@ -5,7 +5,7 @@
 .gitignore[FC5T]: F:忽略 node_modules、dist 产物、CALL-CLI 的 bin/obj 与本地草稿日志，并注明 types/lse 是刻意入库 | R:code:package.json | A:- | S:types/lse 虽是 fetch-types 生成却必须入库，忽略它会同时破坏 typecheck 与类型契约
 .prettierrc[FC3T]: F:Prettier 格式约定：双引号、分号、4 空格缩进、80 列 | R:- | A:- | S:只有格式约定无强制 lint；改 tabWidth 会波及全仓 TS 缩进，应单独提交
 AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线、发版门禁、提交闸门、日志前缀约定）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:[CALL] 前缀由宿主加；调试走 util/Log.ts 的 dbg()
-CHANGELOG.md[SC8L]: F:版本史：逐版本记录修复与新增（16KB 截断、维度、状态命名、容器清空、靠近可穿、日志前缀） | R:code:README.md | A:顶部 3.9.5-beta1 各段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
+CHANGELOG.md[SC8L]: F:版本史：逐版本记录修复与变更（截断、维度、状态命名、容器清空、靠近可穿、日志前缀、配置精简） | R:code:README.md | A:顶部 3.9.5-beta1 各段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
 LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
 README.md[SC8M]: F:对外说明：fork 缘由、版本矩阵（含可选 HologramLib）、内置工具、构建与真机测试、参考链接 | R:code:CHANGELOG.md,code:docs/user/install.md | A:Why this fork exists、References | S:版本矩阵与发版门禁口径须与 docs/ 一致，改一处两处同步
 build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
@@ -57,8 +57,8 @@ CALL-CLI.deps.json[FV3T]: F:.NET 9 win-x64 运行依赖清单：CALL-CLI 依赖 
 CALL-CLI.runtimeconfig.json[FV2T]: F:CALL-CLI 的 .NET 9 运行时配置（tfm net9.0，关闭二进制序列化与元数据更新） | R:code:assets/bin/CALL-CLI.deps.json | A:runtimeOptions | S:目标机必须装 .NET 9 运行时；升 TFM 需整组重新 publish 所有 bin 资产
 
 ===E:/code/LL3/Plugins/CALL/assets/===
-check.jsonc[FC5T]: F:配置校验模板：每个键的类型、默认值与说明，供 check:config 校验（含 previewNear 五键，Y 偏移是叠加基准的增量） | R:code:assets/configs.default.jsonc | A:各键定义 | S:与模板键集合必须一致，否则 check:config 报问题
-configs.default.jsonc[FC5T]: F:默认配置模板（带注释）：键名、默认值、取值范围与用途（含 previewNear 五键，Y 偏移 0=已齐平，增量叠加内置 -0.09） | R:code:assets/check.jsonc,code:docs/user/config.md | A:全局/结构/预览/权限各段 | S:新增键必须同时进 check.jsonc 与 docs
+check.jsonc[FC5T]: F:配置校验模板：一 key 一 spec（type/enum/min/max），由模板生成，供 check:config 与启动自检 | R:code:core/src/assets/configs.default.jsonc | A:configs 下 80 条 spec | S:必须与模板 key 集合、version 完全一致；spec 必须放在 configs 内
+configs.default.jsonc[FC5T]: F:默认配置模板（分组+单行中文注释，约 270 行）：基础/结构/工具/选区/预览/粘贴；items 只绑定 call:* | R:code:core/src/assets/check.jsonc,code:docs/user/config.md | A:version=10 与各分组键 | S:行尾不能写 // 注释（check-docs 解析器不认）；改键必须 version+1
 help.json[FC5T]: F:游戏内帮助目录的三级键位映射（help.cN 分类→条目→翻译键），只放引用不放正文 | R:code:assets/lang/zh_CN.lang | A:help.c0…help.c3 | S:值必须是 lang 中存在的 help.*.tN 键；改文案只动语言文件，不必动本文件
 icons.json[FC5T]: F:原版物品图标名白名单（apple、bed_*、chest_boat 等），供菜单与图形界面挑选图标 | R:code:assets/item_texture.json | A:顶层数组 | S:名称须与客户端贴图名一致；此处只是名字清单，缺项会让对应图标显示为空
 item_texture.json[FC5T]: F:原版物品名→textures/items/* 贴图路径映射，供建造菜单显示物品图标 | R:code:assets/icons.json | A:顶层键值 | S:值不带 .png 且指向原版贴图；补图标需同时登记 icons.json
@@ -223,7 +223,7 @@ PlayerManager.ts[RU4T]: F:区块刷新：刷新单个玩家或同维度附近玩
 Players.ts[CA9L]: F:玩家查询与指令分发：按名称/xuid 取玩家、跑指令与调试输出 | R:code:core/src/game/Cmd.ts | A:online、runAs、debug | S:失败日志用模块标签；调试执行走 [DBG]
 SettingsOperation.ts[EU7T]: F:/ca setting：读写玩家设置，禁止修改 enable、displayPos、area 三个受保护键 | R:code:core/src/temp/Data.ts | A:forbidModifyKeys | S:受保护键是防呆设计，放开会让启用开关与选区状态被脚本覆盖
 SwingWatcher.ts[SW8L]: F:挥动检测：swing 计数与"工具触发/放置"去重，避免重复触发 | R:code:core/src/holo/HoloCompat.ts | A:noteHandled、count、reset、statsOf | S:与 onDropItem/onTakeItem 联动，不要重复计数
-ToolItems.ts[AU8L]: F:内置工具定义与调试输出（假方块/靠近可穿含半径缩放/挥动计数/构建戳） | R:code:core/src/holo/HoloCompat.ts,code:core/src/holo/NearBlocks.ts | A:TOOL_SPECS、debug、list | S:新增诊断默认静默，只在 tools debug 输出
+ToolItems.ts[AU8L]: F:内置工具物品与绑定维护：默认绑定合并、${posf} 迁移、清理非 call:* 绑定、调试输出 | R:code:core/src/holo/HoloCompat.ts,code:core/src/common/Config.ts | A:TOOL_IDS、migrateBindings、stripForeignBindings、healDefaultBindings、debug | S:只认 call:* 物品；原版物品绑定必须被清除而不是保留
 ToolOperation.ts[AU6L]: F:工具操作：注册/获取/给予工具项并绑定动作 | R:code:core/src/user/ToolItems.ts | A:give、register、handle | S:工具 id 与动作表必须一致
 
 ===E:/code/LL3/Plugins/CALL/core/src/util/===
@@ -281,7 +281,7 @@ question.md[SG6S]: F:常见问题：菜单打开方式、选区与快捷键、�
 update.md[SG5T]: F:更新说明：从 release 下载覆盖并保留 userdata 的步骤 | R:code:CHANGELOG.md | A:如何更新 | S:覆盖时必须保留 userdata，否则配置与已存结构全部丢失
 
 ===E:/code/LL3/Plugins/CALL/docs/user/===
-config.md[DG9L]: F:配置参考：键名、默认值、取值范围与影响（含 previewNear 五键，Y 偏移叠加内置基准） | R:code:assets/configs.default.jsonc | A:全局/结构/预览各表 | S:新增键必须同时进 check.jsonc 与模板，否则 check:config 失败
+config.md[DG9L]: F:配置参考：分组说明 + 每键含义（含 previewNear 五键与 silentContainerClear），并提示已精简/只认 call:* | R:code:core/src/assets/configs.default.jsonc | A:基础/结构/预览各表 | S:新增键必须同时进 check.jsonc 与模板
 format.md[SG6T]: F:文档格式约定：指令参数记法 param:type 与参数类型表 | R:code:docs/user/function/area.md | A:参数类型表 | S:全站命令示例按此记法书写，另立一套会让示例与实现脱节
 install.md[SG7T]: F:安装说明：BDS、LL、LSE 版本矩阵与可选 HologramLib 26.51.11+/26.60.8+ 要求及安装步骤 | R:code:docs/user/tools.md | A:环境要求 | S:库能力按导出面判定（需 450 条），版本矩阵只是安装指引
 introduction.md[DG8L]: F:入门导读：安装后的阅读顺序与功能概览 | R:code:docs/user/install.md,code:docs/user/known-limitations.md | A:阅读顺序列表 | S:新增文档页要同步这里的目录
