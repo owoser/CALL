@@ -15,6 +15,22 @@ fixes are based on.
 
 ### Added (3.9.5-beta1, HologramLib 450)
 
+### Fixed (3.9.5-beta1, stateful blocks and containers can be walked through too)
+
+- **`blockBatchSetNear` was the wrong primitive.** It re-sends the whole window through the batch
+  path, and a batch state string cannot carry block states: measured,
+  `blockFakeResolve("minecraft:oak_stairs[weirdo_direction=2]")` returns the SAME network id as
+  direction 0 while `blockFakeResolveNbt` honours it. That is why a registered staircase came back
+  with the default facing, and why containers/signs lost their data (the re-send carries a block
+  only). Only plain blocks were safe there.
+- The window is now managed by CALL itself with `sulfurCreate` / `sulfurDestroy`:
+  enter = `blockFakeClear` the cell + an invisible cube holding that block's item; leave (1.3x
+  hysteresis) = destroy the cube + re-send the cell through the path that drew it (SNBT for states,
+  `blockFakeSetBlockEntity` for containers/signs). Stairs keep their facing, chests keep their
+  contents, and everything within the radius is passable.
+- The ENTER scan is throttled to block-boundary movement (or a scene change); the LEAVE pass only
+  walks the active cubes, so a 100k-cell preview costs nothing per tick.
+
 ### Fixed (3.9.5-beta1, the walk-through window only worked near the drop point)
 
 - **The window never followed the player.** The ticker was only started for window/lazy previews, so

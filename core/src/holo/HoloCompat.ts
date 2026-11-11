@@ -38,7 +38,7 @@ export interface HoloCaps {
     fakeStates: boolean;
     /** blockBatchSet / blockBatchClear: sub-chunk batched fake blocks. */
     batch: boolean;
-    /** blockBatchSetNear: nearby cells turn into passable sulfur cubes while the player is close. */
+    /** sulfurCreate / sulfurDestroy + blockFakeClear: our own walk-through cubes (state-safe). */
     nearPass: boolean;
     /** blockFakeSetBlockEntity: block entity payload (banner patterns, sign text, chests). */
     fakeEntity: boolean;
@@ -73,7 +73,7 @@ const CAP_EXPORTS: Array<[keyof HoloCaps, string[]]> = [
     ["swing", ["swingCount", "swingTotal", "swingReset"]],
     ["fakeStates", ["blockFakeSet", "blockFakeClear"]],
     ["batch", ["blockBatchSet", "blockBatchClear"]],
-    ["nearPass", ["blockBatchSetNear", "blockBatchClear"]],
+    ["nearPass", ["sulfurCreate", "sulfurDestroy", "blockFakeClear"]],
     ["fakeEntity", ["blockFakeSetBlockEntity"]],
     ["viewById", ["viewBlockById"]],
     ["viewEntity", ["viewBlockEntity"]],

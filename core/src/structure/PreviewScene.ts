@@ -126,8 +126,14 @@ interface Scene extends GhostLedger {
     /** Batched sets the library refused (-1) and cells the encoder had to drop. */
     batchRejected: number;
     batchSkipped: number;
-    /** Cells that carry block-entity data - the near-switch keeps them SOLID. */
+    /** Cells that carry block-entity data (kept for diagnostics). */
     beCells: Set<string>;
+    /** Cells currently replaced by a passable sulfur cube, with the cube's display id. */
+    nearCubes: Map<string, { id: number; x: number; y: number; z: number }>;
+    /** How each drawn cell must be re-sent when its cube goes away (states / block entity). */
+    cellPayload: Map<string, { id: string; blockSnbt?: string; snbt?: string }>;
+    /** Payload of the cells whose cube is currently active (kept until they are restored). */
+    nearPayload: Map<string, { id: string; blockSnbt?: string; snbt?: string }>;
     /** Near-switch (walk-through) bookkeeping. */
     nearWindow: number;
     nearKey: string;
@@ -135,6 +141,8 @@ interface Scene extends GhostLedger {
     nearDropped: number;
     nearRegistrations: number;
     nearPos: { x: number; y: number; z: number } | null;
+    /** Block-granularity key of the last ENTER scan (see syncNear). */
+    nearScanKey: string;
     /** Bumped whenever the desired content changes - part of the near throttle key. */
     contentVersion: number;
     /** Block entity payloads accepted / refused-or-over-budget for this preview. */
@@ -210,6 +218,11 @@ function drawCells(scene: Scene, ops: PlanOp[]): void {
             continue;
         }
         markSet(scene, op.key, op.x, op.y, op.z, id);
+        scene.cellPayload.set(op.key, {
+            id,
+            ...(op.blockSnbt != null && op.blockSnbt !== "" ? { blockSnbt: op.blockSnbt } : {}),
+            ...(op.snbt != null && op.snbt !== "" ? { snbt: op.snbt } : {}),
+        });
         scene.cellQueued++;
         if (op.snbt != null && op.snbt !== "") {
             // Kept so the near-switch never picks this cell: leaving the radius re-sends the bare
@@ -227,6 +240,13 @@ const nearRadius = () => Math.floor(num("previewNearRadius", 5, 0, 16));
 const nearMaxCells = () => Math.floor(num("previewNearCells", 512, 64, 2048));
 /** Keep the cube invisible (the block looks unchanged but is passable). */
 const nearInvisible = () => String(Config.get(Config.GLOBAL, "previewNearInvisible", true)).toLowerCase() !== "false";
+
+/** "minecraft:oak_stairs[direction=2,...]" -> "minecraft:oak_stairs" (the cube holds the block item). */
+function blockItemOf(id: string): string {
+    const text = String(id ?? "");
+    const at = text.indexOf("[");
+    return at > 0 ? text.slice(0, at) : text;
+}
 
 /** Dimension the scene lives in (the player must be in it for a near window to make sense). */
 function sourceDim(scene: Scene): number {
@@ -410,8 +430,12 @@ function detachScene(xuid: string): { ledger: GhostLedger; dimid: number; player
     }
     // Walk-through registration: the library destroys the active sulfur cubes here. Without this a
     // player who cancels while standing inside the preview would keep the cubes on their client.
-    if (scene.nearWindow > 0 || scene.nearRegistrations > 0) {
-        try { NearBlocks.clear(scene.playerName); } catch { /* cosmetic */ }
+    if (scene.nearCubes.size > 0) {
+        try {
+            NearBlocks.clearAll(Array.from(scene.nearCubes.values()).map((c) => c.id));
+        } catch { /* cosmetic */ }
+        scene.nearCubes.clear();
+        scene.nearPayload.clear();
         scene.nearWindow = 0;
     }
     scenes.delete(xuid);
@@ -632,12 +656,16 @@ export const PreviewScene = {
             windowCount: 0,
             totalSurface: 0,
             beCells: new Set<string>(),
+            nearCubes: new Map<string, { id: number; x: number; y: number; z: number }>(),
+            cellPayload: new Map<string, { id: string; blockSnbt?: string; snbt?: string }>(),
+            nearPayload: new Map<string, { id: string; blockSnbt?: string; snbt?: string }>(),
             nearWindow: 0,
             nearKey: "",
             nearAt: 0,
             nearDropped: 0,
             nearRegistrations: 0,
             nearPos: null,
+            nearScanKey: "",
             contentVersion: 0,
         };
 
@@ -702,41 +730,87 @@ export const PreviewScene = {
         if (!Number.isFinite(px) || !Number.isFinite(py) || !Number.isFinite(pz)) return;
         if (sourceDim(scene) !== pdim) return;
 
-        // NOTE: no periodic refresh. Re-registering destroys and recreates the cubes, so it must only
-        // happen when something really changed - a timer would make the window flicker every tick.
-        const key = [scene.anchor.x, scene.anchor.y, scene.anchor.z, scene.degrees, scene.mirror,
-            scene.pivot, scene.contentVersion].join("|");
-        const moved = scene.nearPos == null
-            ? Infinity
-            : Math.abs(px - scene.nearPos.x) + Math.abs(py - scene.nearPos.y) + Math.abs(pz - scene.nearPos.z);
-        const contentChanged = key !== scene.nearKey;
-        if (!contentChanged && moved < Math.max(1, radius / 2)) return;
+        const leaveR = radius * 1.3;
+        const nearSq = radius * radius;
+        const leaveSq = leaveR * leaveR;
 
+        // 1) LEAVE: a cube whose cell is now far away is destroyed and the real fake block is
+        //    re-sent through the ORIGINAL path, so states and block entities come back intact.
+        if (scene.nearCubes.size > 0) {
+            for (const [key, cube] of scene.nearCubes) {
+                const dx = px - (cube.x + 0.5);
+                const dy = py - cube.y;
+                const dz = pz - (cube.z + 0.5);
+                if (dx * dx + dy * dy + dz * dz <= leaveSq) continue;
+                NearBlocks.leave(cube.id);
+                scene.nearCubes.delete(key);
+                PreviewScene.redrawCell(scene, key, cube.x, cube.y, cube.z);
+            }
+        }
+
+        // 2) ENTER: nearest cells inside the radius, capped, one cube each.
+        //    Only when the player crossed a block boundary or the scene changed: the candidate scan
+        //    walks every applied cell, and that can be tens of thousands.
+        const scanKey = Math.floor(px) + "," + Math.floor(py) + "," + Math.floor(pz) + "|" + scene.contentVersion;
+        if (scene.nearScanKey === scanKey) return;
+        scene.nearScanKey = scanKey;
+        const room = nearMaxCells() - scene.nearCubes.size;
+        if (room <= 0) return;
         const candidates: NearCandidate[] = [];
-        for (const [cellKey, id] of scene.applied) {
-            if (String(id) === "") continue;
-            const pos = scene.everApplied.get(cellKey);
+        for (const [key, id] of scene.applied) {
+            if (String(id) === "" || scene.nearCubes.has(key)) continue;
+            const pos = scene.everApplied.get(key);
             if (pos == null) continue;
-            candidates.push({ key: cellKey, x: pos[0], y: pos[1], z: pos[2], id: String(id) });
+            candidates.push({ key, x: pos[0], y: pos[1], z: pos[2], id: String(id) });
         }
         const picked = selectNearCells(candidates, { x: px, y: py, z: pz }, {
             radius,
-            maxCells: nearMaxCells(),
-            maxBytes: PACK_MAX_BYTES,
-            exclude: scene.beCells,
+            maxCells: room,
+            maxBytes: Number.MAX_SAFE_INTEGER,   // the cubes are created one by one, no payload cap
+            allowStates: true,                   // our own restore path keeps the states intact
         });
-        scene.nearKey = key;
-        scene.nearAt = Date.now();
-        scene.nearPos = { x: px, y: py, z: pz };
         scene.nearDropped = picked.dropped;
-        scene.nearWindow = picked.cells.length;
-        if (picked.cells.length === 0) return;
-        const batchId = NearBlocks.register(scene.playerName, picked.cells, radius, nearInvisible());
-        if (batchId >= 0) {
-            scene.nearRegistrations++;
-        } else {
-            scene.nearWindow = 0;
+        for (const cell of picked.cells) {
+            const info = scene.cellPayload.get(cell.key);
+            const blockItem = blockItemOf(String(cell.id));
+            const id = NearBlocks.enter(scene.playerName, cell.x, cell.y, cell.z, scene.dimid,
+                blockItem, nearInvisible());
+            if (id > 0) {
+                scene.nearCubes.set(cell.key, { id, x: cell.x, y: cell.y, z: cell.z });
+                scene.nearRegistrations++;
+                if (info != null) scene.nearPayload.set(cell.key, info);
+            }
         }
+        scene.nearWindow = scene.nearCubes.size;
+        scene.nearKey = [scene.anchor.x, scene.anchor.y, scene.anchor.z, scene.degrees, scene.mirror,
+            scene.pivot, scene.contentVersion].join("|");
+        scene.nearPos = { x: px, y: py, z: pz };
+        scene.nearAt = Date.now();
+    },
+
+    /**
+     * Re-send one cell exactly the way it was drawn before it became a cube.
+     *
+     * Plain cells go through the per-cell path (which is what the ledger already restored anyway);
+     * stateful and block-entity cells carry their payload here, which is the whole reason the library
+     * batch route could not be used for them.
+     */
+    redrawCell(scene: Scene, key: string, x: number, y: number, z: number): void {
+        const info = scene.cellPayload.get(key) ?? scene.nearPayload.get(key);
+        if (info == null) return;
+        try {
+            if (info.blockSnbt != null && info.blockSnbt !== "") {
+                BlockView.setBlockNbt(scene.playerName, x, y, z, info.blockSnbt);
+            } else if (info.id !== "") {
+                BlockView.set(scene.playerName, x, y, z, info.id);
+            }
+            if (info.snbt != null && info.snbt !== "") {
+                BlockView.setBlockEntity(scene.playerName, x, y, z, info.snbt);
+            }
+        } catch {
+            // cosmetic
+        }
+        scene.nearPayload.delete(key);
     },
 
     /** Recompute what should be shown, queue only the difference, start pumping. */
@@ -1015,7 +1089,11 @@ export const PreviewScene = {
         }
 
         if (accepted) {
-            for (const op of batchable) markSet(scene, op.key, op.x, op.y, op.z, String((op as any).id ?? ""));
+            for (const op of batchable) {
+                const id = String((op as any).id ?? "");
+                markSet(scene, op.key, op.x, op.y, op.z, id);
+                scene.cellPayload.set(op.key, { id });
+            }
             scene.batches++;
             scene.batchCells += batchable.length;
             if (debugEnabled()) {

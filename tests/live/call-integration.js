@@ -784,23 +784,45 @@ async function runSuite() {
         const cap = require(path.join(M.root, "core", "src", "holo", "HoloCompat.js")).default.status().caps;
         assert(cap.nearPass === true, "the library exports blockBatchSetNear: " + JSON.stringify(cap));
 
-        const cells = [];
-        for (let i = 0; i < 8; i++) {
-            cells.push({ x: 20 + i, y: 140, z: 20, id: "minecraft:stone" });
+        // The walk-through cubes are ours now: create one, verify it exists, destroy it.
+        const p = spot(108);
+        fillBox(p.x, p.y, p.z, 3, 3, 3, "minecraft:air");
+        const before = NearBlocks.stats();
+        const cubeId = NearBlocks.enter(sim.realName, p.x, p.y, p.z, DIM, "minecraft:oak_stairs", true);
+        assert(cubeId > 0, "a cube was created: " + cubeId);
+        const harmed = NearBlocks.stats();
+        assert(harmed.creates === before.creates + 1, "create counted: " + JSON.stringify(harmed));
+        const destroyed = NearBlocks.leave(cubeId);
+        assert(destroyed === true, "the cube was destroyed");
+        const after = NearBlocks.stats();
+        return "nearPass=" + cap.nearPass + " cube=" + cubeId + " creates=" + after.creates +
+            " destroys=" + after.destroys + " failures=" + after.failures;
+    });
+
+    // --- do state strings and SNBT resolve to the SAME network id? ----------
+    await checkAsync("ca.stateResolve", async () => {
+        const holo = require(path.join(M.root, "core", "src", "holo", "Holo.js")).default;
+        const resolve = (s) => Number(holo.call("blockFakeResolve", s));
+        const resolveNbt = (s) => Number(holo.call("blockFakeResolveNbt", s));
+        const rows = [];
+        const cases = [
+            ["stone", "minecraft:stone", '{"name":"minecraft:stone","states":{},"version":18168865}'],
+            ["stairs-d2", "minecraft:oak_stairs[weirdo_direction=2,upside_down_bit=false,waterlogged=false]",
+                '{"name":"minecraft:oak_stairs","states":{"weirdo_direction":2,"upside_down_bit":false,"waterlogged":false},"version":18168865}'],
+            ["stairs-d0", "minecraft:oak_stairs[weirdo_direction=0]",
+                '{"name":"minecraft:oak_stairs","states":{"weirdo_direction":0},"version":18168865}'],
+            ["slab-top", "minecraft:stone_slab[top_slot_bit=true]",
+                '{"name":"minecraft:stone_slab","states":{"top_slot_bit":true},"version":18168865}'],
+        ];
+        for (const [label, stateStr, snbt] of cases) {
+            const a = resolve(stateStr);
+            const b = resolveNbt(snbt);
+            rows.push(label + " state=" + a + " snbt=" + b + (a === b ? " OK" : " DIFF"));
         }
-        // No real player online in the harness, so the library may refuse (-1) - what matters here
-        // is that the call path exists and never throws.
-        const first = NearBlocks.register(sim.realName, cells, 5, true);
-        const second = NearBlocks.register(sim.realName, cells.slice(0, 4), 5, true);
-        const st = NearBlocks.stats();
-        NearBlocks.clear(sim.realName);
-        const lib = NearBlocks.libraryStats();
-        assert(typeof first === "number", "register returns a number");
-        assert(typeof second === "number", "a second register returns a number");
-        assert(st.registrations >= 0, "stats are readable: " + JSON.stringify(st));
-        assert(NearBlocks.clear(sim.realName) !== undefined, "clear is callable");
-        return "nearPass=" + cap.nearPass + " batch1=" + first + " batch2=" + second +
-            " stats=" + JSON.stringify(st) + " nearSets=" + lib.near;
+        // Also: does the BATCH payload mark stateful entries as unresolved?
+        const packed = "20 140 20 " + cases[1][1];
+        const selfTest = String(holo.call("blockBatchSelfTest", packed) ?? "");
+        return rows.join(" | ") + " | selfTest=" + selfTest.slice(0, 100);
     });
 
     // --- /structure save|load: blocks AND entities --------------------------
