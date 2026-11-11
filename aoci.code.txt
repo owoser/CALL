@@ -4,8 +4,8 @@
 .gitattributes[FC2T]: F:强制全仓文本以 LF 检出（* text=auto eol=lf），保证 AOCI 基线字节跨平台一致 | R:- | A:- | S:改用 CRLF 检出会让 aoci 全树误判 Stale
 .gitignore[FC5T]: F:忽略 node_modules、dist 产物、CALL-CLI 的 bin/obj 与本地草稿日志，并注明 types/lse 是刻意入库 | R:code:package.json | A:- | S:types/lse 虽是 fetch-types 生成却必须入库，忽略它会同时破坏 typecheck 与类型契约
 .prettierrc[FC3T]: F:Prettier 格式约定：双引号、分号、4 空格缩进、80 列 | R:- | A:- | S:只有格式约定无强制 lint；改 tabWidth 会波及全仓 TS 缩进，应单独提交
-AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线含"靠近可穿要自管理"、发版门禁、提交闸门）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:blockBatchSetNear 不能用于带状态/方块实体（状态串带不动状态）
-CHANGELOG.md[SC8L]: F:版本史：逐版本记录修复与新增，含 16KB 截断、维度取值、状态命名空间、容器清空、靠近可穿与立方体缩放 | R:code:README.md | A:顶部 3.9.5-beta1 下的 Added/Fixed/Changed/Docs 段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
+AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线含"靠近可穿用物品显示方块模式"、发版门禁、提交闸门）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:sulfurSetScale 对可见方块无效；配置改动必须 /ca reload 才生效
+CHANGELOG.md[SC8L]: F:版本史：逐版本记录修复与新增，含 16KB 截断、维度取值、状态命名空间、容器清空、靠近可穿（物品显示方块模式）与 /ca reload | R:code:README.md | A:顶部 3.9.5-beta1 下的 Added/Fixed/Changed/Docs 段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
 LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
 README.md[SC8M]: F:对外说明：fork 缘由、版本矩阵（含可选 HologramLib）、内置工具、构建与真机测试、参考链接 | R:code:CHANGELOG.md,code:docs/user/install.md | A:Why this fork exists、References | S:版本矩阵与发版门禁口径须与 docs/ 一致，改一处两处同步
 build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
@@ -58,7 +58,7 @@ CALL-CLI.runtimeconfig.json[FV2T]: F:CALL-CLI 的 .NET 9 运行时配置（tfm n
 
 ===E:/code/LL3/Plugins/CALL/assets/===
 check.jsonc[FC5T]: F:配置校验模板：每个键的类型、默认值与说明，供 check:config 校验（含 previewNear* 四键） | R:code:assets/configs.default.jsonc | A:各键定义 | S:与模板键集合必须一致，否则 check:config 报问题
-configs.default.jsonc[FC5T]: F:默认配置模板（带注释）：键名、默认值、取值范围与用途（含 previewNearRadius/Invisible/Cells/Scale） | R:code:assets/check.jsonc,code:docs/user/config.md | A:全局/结构/预览/权限各段 | S:新增键必须同时进 check.jsonc 与 docs，否则 check:config 或 check:docs 失败
+configs.default.jsonc[FC5T]: F:默认配置模板（带注释）：键名、默认值、取值范围与用途（含 previewNear 四键，缩放语义=物品显示方块模式） | R:code:assets/check.jsonc,code:docs/user/config.md | A:全局/结构/预览/权限各段 | S:新增键必须同时进 check.jsonc 与 docs，否则 check:config 或 check:docs 失败
 help.json[FC5T]: F:游戏内帮助目录的三级键位映射（help.cN 分类→条目→翻译键），只放引用不放正文 | R:code:assets/lang/zh_CN.lang | A:help.c0…help.c3 | S:值必须是 lang 中存在的 help.*.tN 键；改文案只动语言文件，不必动本文件
 icons.json[FC5T]: F:原版物品图标名白名单（apple、bed_*、chest_boat 等），供菜单与图形界面挑选图标 | R:code:assets/item_texture.json | A:顶层数组 | S:名称须与客户端贴图名一致；此处只是名字清单，缺项会让对应图标显示为空
 item_texture.json[FC5T]: F:原版物品名→textures/items/* 贴图路径映射，供建造菜单显示物品图标 | R:code:assets/icons.json | A:顶层键值 | S:值不带 .png 且指向原版贴图；补图标需同时登记 icons.json
@@ -100,7 +100,7 @@ index.ts[EG8T]: F:插件入口：注册 onServerStarted，服务器启动后调�
 
 ===E:/code/LL3/Plugins/CALL/core/src/===
 Activity.ts[AD7T]: F:玩家生命周期编排：创建/开始/停止/销毁时恢复选区显示、清定时器、释放高亮，并按设置决定是否保留撤销与剪贴板 | R:code:core/src/user/Players.ts,code:core/src/structure/AreaDisplayerService.ts | A:onDestroy | S:onDestroy 必须回收每玩家定时器与世界高亮，否则残留逻辑会对失效句柄持续运行
-CACommand.ts[CG8L]: F:命令注册与分发：参数枚举与重载、preview/set/copy/paste/undo/redo 路由，任务进行中改为提示而非抛异常 | R:code:structure/StructureOperation.ts,code:structure/PreviewOperation.ts | A:register、各 action 分支 | S:forbidCmd 不能 throw（会打到控制台堆栈）；粘贴/撤销前必须 cancel+flushCleanup
+CACommand.ts[CM9L]: F:指令入口：/ca 全部子命令（工具/选区/结构/导入导出/权限/调试），reload 调用 Config.reloadAll() 并回报靠近可穿参数 | R:code:common/Config.ts,code:user/ToolItems.ts | A:command_callback、command_consoleCallback、normalisePositions | S:控制台/玩家分支都要覆盖；reload 不能只改内存
 app.ts[AG9L]: F:插件装配总纲：初始化、命令与事件注册（含 onChangeDim、丢/拾取认领挥动）、启动能力日志 | R:code:core/src/user/SwingWatcher.ts,code:structure/AreaOperation.ts | A:main()/init()、onChangeDim 监听、onDropItem/onTakeItem | S:丢/拾取会挥手臂，必须 noteHandled 否则触发手上工具
 
 ===E:/code/LL3/Plugins/CALL/core/src/addon/===
@@ -109,7 +109,7 @@ AddonInstaller.ts[IE7M]: F:首次启动把内置 BP/RP 复制进服务器包目�
 ===E:/code/LL3/Plugins/CALL/core/src/common/===
 Area3.ts[KG6T]: F:三维区域：两点归一化、整体平移、2D/3D 矩阵变换与包含判定 | R:code:core/src/common/Pos3.ts | A:normalize/transform2D | S:构造默认 normalize 会改写 start/end；需保留原始两角时必须传 normal=false
 BlockType.ts[DD6T]: F:方块标识规范化：空串表示「无方块」，裸名补 minecraft: 前缀并统一小写 | R:code:core/src/structure/FillOperation.ts | A:构造函数 | S:空串必须保持为空（填充语义依赖它），补前缀只对真实方块名生效
-Config.ts[FC9L]: F:配置与数据总闸：读 check.jsonc 校验、按模板合并 configs.jsonc、管理 all/op/customize/file/tag 权限模式与玩家数据路径 | R:code:assets/configs.default.jsonc,code:core/src/common/JsoncConfig.ts | A:PermissionsType 与 GLOBAL_PATH 等路径常量 | S:写入一律经 JsoncConfigFile 保留注释，直接 JSON.stringify 会抹掉模板说明
+Config.ts[CC8L]: F:配置层：Jsonc/Json 句柄、点号读写与 reloadAll（LSE 缓存值，改文件必须重载） | R:code:assets/configs.default.jsonc | A:GLOBAL、PERMISSIONS、STRUCTURES、get、set、del、reloadAll、closeAll | S:reloadAll 要覆盖所有句柄，否则改了配置不生效
 JsoncConfig.ts[FC7S]: F:带注释的配置句柄：首启由模板生成，只改真正变化的值，未变内容不重写 | R:code:core/src/common/JsoncDoc.ts | A:JsoncConfigFile、migrateToTemplate | S:只有 dirty 时才落盘；改用 LSE 自带 JsonConfigFile 会丢掉全部注释
 JsoncDoc.ts[LC7S]: F:极简 JSONC 处理：分词、按点路径定位值、就地替换单个值，其余字节保持原样 | R:code:core/src/common/JsoncConfig.ts | A:tokenize、findValue、patchJsonc | S:必须正确处理字符串里的注释符；替换只碰目标区间，不许整体重排
 Layout.ts[RC6M]: F:旧布局一次性迁移：userdata/** 与旧 config/*.json 映射到 config/、data/，只读资产丢弃 | R:code:core/src/common/Paths.ts | A:planMigration 与 USERDATA_MAP | S:规划是纯函数、执行才动盘；执行前须判目标存在性，重复执行不得覆盖
@@ -132,11 +132,11 @@ BlockView.ts[IM8M]: F:客户端方块覆盖桥：blockFakeSet 状态串、blockF
 BossBar.ts[IM6M]: F:血条封装：创建、改标题、改进度、移除，只操作自己创建的 id | R:code:core/src/holo/Holo.ts | A:BossBar.add/remove | S:绝不调用 bossBarRemoveAll，那会清掉其他插件的血条
 FakeBlocks.ts[IR9M]: F:假方块批量适配：12KB 段预算打包、按真实方块还原并区分 restored/direct/skipped（含未加载与解析失败原因）、状态串键去引号与库计数解析 | R:code:holo/Holo.ts,code:structure/BatchSender.ts | A:packCells、restoreDetailed、isPackableId、unquoteStateKeys、parseStats | S:段预算必须远低于 16KB 传参上限；读不到的格子要按原因计数，不能一律静默跳过
 Holo.ts[IR8S]: F:HologramLib 防御式桥接：一次性 ll.import 绑定，库缺失或缺 lrca 时所有调用为 no-op | R:code:core/src/holo/HoloCompat.ts | A:Holo.available/bind | S:函数必须绑定一次复用，禁止在 tick 内 ll.import；库缺失应降级而不是报错
-HoloCompat.ts[IR8L]: F:库能力探测：按导出面判定 bridge/swing/fakeStates/batch/nearPass(sulfur*+clear)/fakeEntity/snbt 等能力 | R:code:holo/Holo.ts | A:HoloCaps、CAP_EXPORTS、status、probe、describe | S:能力判定只看 ll.import 导出是否存在，不看版本号
+HoloCompat.ts[IR8L]: F:库能力探测：按导出面判定 bridge/swing/fakeStates/batch/nearPass(itemDisplay*)/nearBlockMode/fakeEntity/snbt 等能力 | R:code:holo/Holo.ts | A:HoloCaps、CAP_EXPORTS、status、probe、describe | S:能力判定只看 ll.import 导出是否存在，不看版本号
 ItemDisplay.ts[IM5S]: F:用 item display 做假方块预览：固定姿态参数并走无缝创建接口 | R:code:core/src/holo/Holo.ts | A:BLOCK_MODE、itemDisplayCreateSeamless | S:先创建再 SetMode 会重生显示并错位；坐标是底部中心，y 取整、x/z 取 +0.5
 Wireframe.ts[IU8M]: F:选区与预览线框：在客户端画 DebugShape，尺寸不变时用移动而非重建 | R:code:core/src/holo/HoloCompat.ts | A:Box、COLOR、PARK_DISTANCE | S:不要给形状设时长，旧实现在客户端留下过幽灵计时实体；标签总是原地改写
 PasteSync.ts[IR7S]: F:粘贴后客户端重画：优先从 Players.dataMap 枚举在线玩家，对半径内玩家先 blockFakeSetNbt 再 blockFakeSetBlockEntity，并分开统计在线/同维度/半径内/推送/失败 | R:code:holo/BlockView.ts,code:user/Players.ts | A:afterBlockEntity、stats | S:枚举优先用自家注册表（全局 getOnlinePlayers 曾返回 0），行尾标注 via=registry|api
-NearBlocks.ts[IR7L]: F:可穿立方体适配：进入=清假方块+生成 regular 档隐形硫磺立方体并设缩放，离开=销毁立方体由调用方还原 | R:code:holo/HoloCompat.ts,code:structure/PreviewScene.ts | A:available、reason、enter、leave、clearAll、stats | S:archetype 必须传"regular"（空串会让客户端用默认档、方块变小）；缩放 1=正常
+NearBlocks.ts[IR7L]: F:可穿视觉适配：进入=清假方块+物品显示方块模式（可缩放、只对本人可见），离开=itemDisplayDestroy 由调用方还原 | R:code:holo/HoloCompat.ts,code:structure/PreviewScene.ts | A:available、reason、blockModeAvailable、enter、leave、clearAll、stats | S:不要用硫磺立方体做尺寸（主手物品尺寸固定，setScale 无效）
 
 ===E:/code/LL3/Plugins/CALL/core/src/io/===
 ExportOperation.ts[AD5S]: F:导出命令的交互编排：进度条、结构查找、按配置调用 CLI 或内部导出 | R:code:core/src/io/ExportService.ts | A:oldStart 与新入口 | S:旧入口标了 deprecated 但仍被引用，改签名须同时清理调用点
@@ -223,7 +223,7 @@ PlayerManager.ts[RU4T]: F:区块刷新：刷新单个玩家或同维度附近玩
 Players.ts[DD8S]: F:玩家数据总表：xuid 到 CAPlayer 映射、数据加载保存与按名字查 xuid | R:code:core/src/user/CAPlayer.ts | A:dataMap、createCAPlayer | S:只缓存在线玩家，离线玩家数据必须走文件而不是 dataMap
 SettingsOperation.ts[EU7T]: F:/ca setting：读写玩家设置，禁止修改 enable、displayPos、area 三个受保护键 | R:code:core/src/temp/Data.ts | A:forbidModifyKeys | S:受保护键是防呆设计，放开会让启用开关与选区状态被脚本覆盖
 SwingWatcher.ts[IU8M]: F:左键检测（含对空挥动）：轮询 HologramLib 的 swingCount 并去重成点击事件 | R:code:core/src/holo/HoloCompat.ts | A:DEDUPE_MS、SwingWatcher | S:库缺失时该能力整体消失且只提示一次；去重窗口 100ms 防一次挥动触发两次
-ToolItems.ts[AU8L]: F:内置工具定义与调试输出（假方块/靠近可穿/挥动计数/构建戳） | R:code:holo/HoloCompat.ts,code:holo/NearBlocks.ts | A:TOOL_SPECS、debug、list | S:新增诊断必须默认静默，只在 tools debug 下输出
+ToolItems.ts[AU8L]: F:内置工具定义与调试输出（假方块/靠近可穿含半径缩放/挥动计数/构建戳） | R:code:holo/HoloCompat.ts,code:holo/NearBlocks.ts | A:TOOL_SPECS、debug、list | S:新增诊断必须默认静默，只在 tools debug 下输出
 ToolOperation.ts[CG8L]: F:工具物品动作分发：按 identifier 走选区/复制/预览/粘贴/调整等路径，粘贴前停预览并等清理，并统一打点日志 | R:code:structure/PreviewOperation.ts,code:user/ToolItems.ts | A:handle、logPath、logClick | S:粘贴前必须等预览清理完成，否则客户端会显示被还原包覆盖的残缺结构
 
 ===E:/code/LL3/Plugins/CALL/core/src/util/===
@@ -269,7 +269,7 @@ index.html[SV5T]: F:文档站外壳：本地化 docsify 资源与初始化配置
 architecture.md[SG8S]: F:平台坑机制：七条铁律、坐标语义、预览选型与实测，含 SNBT 自写序列化、取消清理时序与批量排队覆盖即时写 | R:code:docs/dev/pitfalls.md,code:docs/ARCHITECTURE.md | A:第 9 节坐标、第 10 节预览与实测表 | S:与 AGENTS.md 和 docs/ARCHITECTURE.md 重叠，改一处须三处同步
 plugin.md[SG6M]: F:形状包开发须知：文件结构、必须导出的定义、参数与命令生成流程 | R:code:docs/dev/shape.md | A:形状包开发 | S:包必须含一个 js 入口定义包名与形状数组，缺任一字段即不会被加载
 shape.md[SG6L]: F:形状包 API：export_cmd 生成函数与表单函数的签名、参数与示例 | R:code:docs/dev/plugin.md | A:导出函数 | S:签名与 Plugin.ts 的 IPlugin 契约绑定，参数顺序变更属破坏性改动
-pitfalls.md[SG9T]: F:真机台账：A–G 分类症状到根因到验证，含 C33 容器清空、C34/C35/C36 靠近可穿、C37 立方体缩放 | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式，否则下次仍靠肉眼猜
+pitfalls.md[SG9T]: F:真机台账：A–G 分类症状到根因到验证，含 C33 容器清空、C34–C36 靠近可穿、C37 微缩模型（硫磺立方体尺寸无效） | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式，否则下次仍靠肉眼猜
 release.md[SG7T]: F:发版规范：触发授权、前置闸门清单（含 check:version）、版本策略、产物约定、单次发布步骤、事故恢复与禁止项 | R:code:scripts/check-version.mjs,code:CHANGELOG.md | A:第 3 节前置清单、第 5 节发布动作、第 8 节禁止项 | S:未获维护者明确指令不得发版；发布包不入库；变更日志顶部段落须等于当前版本
 
 ===E:/code/LL3/Plugins/CALL/docs/other/===
