@@ -4,8 +4,8 @@
 .gitattributes[FC2T]: F:强制全仓文本以 LF 检出（* text=auto eol=lf），保证 AOCI 基线字节跨平台一致 | R:- | A:- | S:改用 CRLF 检出会让 aoci 全树误判 Stale
 .gitignore[FC5T]: F:忽略 node_modules、dist 产物、CALL-CLI 的 bin/obj 与本地草稿日志，并注明 types/lse 是刻意入库 | R:code:package.json | A:- | S:types/lse 虽是 fetch-types 生成却必须入库，忽略它会同时破坏 typecheck 与类型契约
 .prettierrc[FC3T]: F:Prettier 格式约定：双引号、分号、4 空格缩进、80 列 | R:- | A:- | S:只有格式约定无强制 lint；改 tabWidth 会波及全仓 TS 缩进，应单独提交
-AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线含"靠近可穿"约束、发版门禁、提交闸门）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:aoci 区块不可手改；blockBatchSetNear 每次整体替换且方块实体格禁止入选
-CHANGELOG.md[SC8L]: F:版本史：逐版本记录修复与新增，含 16KB 截断、维度取值、状态命名空间、容器清空与靠近可穿（含 FOLLOW 修复） | R:code:README.md | A:顶部 3.9.5-beta1 下的 Added/Fixed/Changed/Docs 段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
+AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线含"靠近可穿要自管理"、发版门禁、提交闸门）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:blockBatchSetNear 不能用于带状态/方块实体（状态串带不动状态）
+CHANGELOG.md[SC8L]: F:版本史：逐版本记录修复与新增，含 16KB 截断、维度取值、状态命名空间、容器清空、靠近可穿（自管理硫磺立方体） | R:code:README.md | A:顶部 3.9.5-beta1 下的 Added/Fixed/Changed/Docs 段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
 LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
 README.md[SC8M]: F:对外说明：fork 缘由、版本矩阵（含可选 HologramLib）、内置工具、构建与真机测试、参考链接 | R:code:CHANGELOG.md,code:docs/user/install.md | A:Why this fork exists、References | S:版本矩阵与发版门禁口径须与 docs/ 一致，改一处两处同步
 build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
@@ -132,11 +132,11 @@ BlockView.ts[IM8M]: F:客户端方块覆盖桥：blockFakeSet 状态串、blockF
 BossBar.ts[IM6M]: F:血条封装：创建、改标题、改进度、移除，只操作自己创建的 id | R:code:core/src/holo/Holo.ts | A:BossBar.add/remove | S:绝不调用 bossBarRemoveAll，那会清掉其他插件的血条
 FakeBlocks.ts[IR9M]: F:假方块批量适配：12KB 段预算打包、按真实方块还原并区分 restored/direct/skipped（含未加载与解析失败原因）、状态串键去引号与库计数解析 | R:code:holo/Holo.ts,code:structure/BatchSender.ts | A:packCells、restoreDetailed、isPackableId、unquoteStateKeys、parseStats | S:段预算必须远低于 16KB 传参上限；读不到的格子要按原因计数，不能一律静默跳过
 Holo.ts[IR8S]: F:HologramLib 防御式桥接：一次性 ll.import 绑定，库缺失或缺 lrca 时所有调用为 no-op | R:code:core/src/holo/HoloCompat.ts | A:Holo.available/bind | S:函数必须绑定一次复用，禁止在 tick 内 ll.import；库缺失应降级而不是报错
-HoloCompat.ts[IR8L]: F:库能力探测：按导出面判定 bridge/swing/fakeStates/batch/nearPass/fakeEntity/snbt 等能力并给出状态与原因 | R:code:holo/Holo.ts | A:HoloCaps、CAP_EXPORTS、status、probe、describe | S:能力判定只看 ll.import 导出是否存在，不看版本号
+HoloCompat.ts[IR8L]: F:库能力探测：按导出面判定 bridge/swing/fakeStates/batch/nearPass(sulfur*+clear)/fakeEntity/snbt 等能力 | R:code:holo/Holo.ts | A:HoloCaps、CAP_EXPORTS、status、probe、describe | S:能力判定只看 ll.import 导出是否存在，不看版本号
 ItemDisplay.ts[IM5S]: F:用 item display 做假方块预览：固定姿态参数并走无缝创建接口 | R:code:core/src/holo/Holo.ts | A:BLOCK_MODE、itemDisplayCreateSeamless | S:先创建再 SetMode 会重生显示并错位；坐标是底部中心，y 取整、x/z 取 +0.5
 Wireframe.ts[IU8M]: F:选区与预览线框：在客户端画 DebugShape，尺寸不变时用移动而非重建 | R:code:core/src/holo/HoloCompat.ts | A:Box、COLOR、PARK_DISTANCE | S:不要给形状设时长，旧实现在客户端留下过幽灵计时实体；标签总是原地改写
 PasteSync.ts[IR7S]: F:粘贴后客户端重画：优先从 Players.dataMap 枚举在线玩家，对半径内玩家先 blockFakeSetNbt 再 blockFakeSetBlockEntity，并分开统计在线/同维度/半径内/推送/失败 | R:code:holo/BlockView.ts,code:user/Players.ts | A:afterBlockEntity、stats | S:枚举优先用自家注册表（全局 getOnlinePlayers 曾返回 0），行尾标注 via=registry|api
-NearBlocks.ts[IR7L]: F:靠近可穿适配：注册整窗 near 集、清理（销毁硫磺立方体）与统计 | R:code:holo/HoloCompat.ts,code:structure/NearWindow.ts | A:available、reason、register、clear、stats、libraryStats | S:每次 register 会整体替换该玩家集合；一份 payload 只能一次调用发送
+NearBlocks.ts[IR7L]: F:可穿立方体适配：进入=清假方块+生成隐形硫磺立方体，离开=销毁立方体并由调用方按原载荷还原 | R:code:holo/HoloCompat.ts,code:structure/PreviewScene.ts | A:available、reason、enter、leave、clearAll、stats | S:不能用 blockBatchSetNear（批量状态串带不动状态）；每个立方体必须由我们销毁
 
 ===E:/code/LL3/Plugins/CALL/core/src/io/===
 ExportOperation.ts[AD5S]: F:导出命令的交互编排：进度条、结构查找、按配置调用 CLI 或内部导出 | R:code:core/src/io/ExportService.ts | A:oldStart 与新入口 | S:旧入口标了 deprecated 但仍被引用，改签名须同时清理调用点
@@ -191,7 +191,7 @@ PreviewHud.ts[DU6S]: F:预览 HUD 纯函数：倒计时文案与样式、手势�
 PreviewHudLock.ts[DU5T]: F:动作条占用锁：预览倒计时期间占位，选区提示让出，避免每秒互相覆盖 | R:code:core/src/structure/AreaDisplayerService.ts | A:hold/release | S:锁短时且须成对释放，泄漏会让选区提示长期不显示
 PreviewOperation.ts[AU9L]: F:预览操作会话：set/click/move/rotate/nudge/confirm/mode，confirm 先取消预览并等清理完成后才真正粘贴 | R:code:structure/PreviewScene.ts,code:structure/StructureOperation.ts | A:set、rotate、nudge、confirm（async）、cancelFor | S:confirm 必须 await flushCleanup，否则还原包带着粘贴前的方块覆盖新结构
 PreviewPlan.ts[DU8M]: F:纯规划：格子到世界坐标的映射与差量，并按真实角度重算带状态方块的 id 与 SNBT | R:code:structure/StateRemap.ts,code:structure/SurfaceExtract.ts | A:planCells、diffPlacement | S:提取恒 0°，状态重映射必须在这里做；每个 palette 条目每角度只算一次
-PreviewScene.ts[AU9L]: F:预览场景：三模式构建、计划即记账、取消先停喂再等排空；所有模式都跑 ticker 以让"靠近可穿"窗口跟随玩家，节流按 contentVersion+位移 | R:code:structure/NearWindow.ts,code:holo/NearBlocks.ts | A:build、enqueue、pump、syncNear、startTimer、detachScene、clear | S:full 模式的 ticker 只跑 syncNear；重注册会销毁重建立方体，禁止定时兜底
+PreviewScene.ts[AU9L]: F:预览场景：三模式构建、计划即记账、取消先停喂再等排空；靠近可穿窗口自管理（清格+立方体，离开按原载荷重发），进入扫描按跨方块节流 | R:code:holo/NearBlocks.ts,code:structure/NearWindow.ts | A:build、enqueue、pump、syncNear、redrawCell、detachScene、clear | S:带状态/方块实体格子必须用原载荷还原；nearCubes 必须在 detach 时全部销毁
 Rotate.ts[KD8M]: F:旋转与镜像数学：偏移变换、枢轴平移与旋转后的目标脚印 | R:code:core/src/structure/Clipboard.ts | A:rotateOffset、rotatedUnion | S:锚点固定在目标盒最小角，旋转只转盒内图案，不翻到反侧
 StructureOperation.ts[CG8L]: F:结构操作：复制/粘贴/保存/撤销/重做，撤销重做按快照记录维度回放并在跨维度时提示 | R:code:structure/StructureService.ts,code:common/Dimension.ts | A:copy、paste、pasteTransformed、undo、redo、warnOtherDimension | S:撤销必须用快照的 area.start（含 dimid），不能取玩家当前位置
 StructurePlacement.ts[IR9L]: F:逐格放置：调色板转 SNBT 写入、方块实体二次应用、容器先清空、越界与不可写校验、批量让出 | R:code:structure/ContainerClear.ts,code:holo/PasteSync.ts | A:placeLayoutAsync、placeBytesAsync、placeNbtAsync | S:容器必须先清空再覆盖（NBT 清空会触发掉落）；写入后必须回读验证
@@ -269,7 +269,7 @@ index.html[SV5T]: F:文档站外壳：本地化 docsify 资源与初始化配置
 architecture.md[SG8S]: F:平台坑机制：七条铁律、坐标语义、预览选型与实测，含 SNBT 自写序列化、取消清理时序与批量排队覆盖即时写 | R:code:docs/dev/pitfalls.md,code:docs/ARCHITECTURE.md | A:第 9 节坐标、第 10 节预览与实测表 | S:与 AGENTS.md 和 docs/ARCHITECTURE.md 重叠，改一处须三处同步
 plugin.md[SG6M]: F:形状包开发须知：文件结构、必须导出的定义、参数与命令生成流程 | R:code:docs/dev/shape.md | A:形状包开发 | S:包必须含一个 js 入口定义包名与形状数组，缺任一字段即不会被加载
 shape.md[SG6L]: F:形状包 API：export_cmd 生成函数与表单函数的签名、参数与示例 | R:code:docs/dev/plugin.md | A:导出函数 | S:签名与 Plugin.ts 的 IPlugin 契约绑定，参数顺序变更属破坏性改动
-pitfalls.md[SG9T]: F:真机台账：A–G 分类症状到根因到验证，含 C33 容器清空、C34 靠近可穿、C35 窗口不跟随/朝向错乱 | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式，否则下次仍靠肉眼猜
+pitfalls.md[SG9T]: F:真机台账：A–G 分类症状到根因到验证，含 C33 容器清空、C34/C35 靠近可穿、C36 状态串带不动状态 | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式，否则下次仍靠肉眼猜
 release.md[SG7T]: F:发版规范：触发授权、前置闸门清单（含 check:version）、版本策略、产物约定、单次发布步骤、事故恢复与禁止项 | R:code:scripts/check-version.mjs,code:CHANGELOG.md | A:第 3 节前置清单、第 5 节发布动作、第 8 节禁止项 | S:未获维护者明确指令不得发版；发布包不入库；变更日志顶部段落须等于当前版本
 
 ===E:/code/LL3/Plugins/CALL/docs/other/===
