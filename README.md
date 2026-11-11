@@ -45,12 +45,12 @@ See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
 ## Requirements
 
-| Component | Version |
-|---|---|
-| LeviLamina | `>=26.51.9 <26.61.0` |
-| LegacyScriptEngine (nodejs) | `>=0.22.3 <0.24.0` (tested on 0.22.3 and 0.22.4) |
-| BDS | 1.26.51 or newer 1.26.x |
-| HologramLib (optional) | `>=26.51.9` / `>=26.60.5` — wireframe, fake-block preview and air left-click; everything else works without it |
+| Component | Version | Needed for |
+|---|---|---|
+| LeviLamina | `>=26.51.9 <26.61.0` | required |
+| LegacyScriptEngine (nodejs) | `>=0.22.3 <0.24.0` (tested on 0.22.3 and 0.22.4) | required |
+| BDS | 1.26.51 or newer 1.26.x | required |
+| **HologramLib** | **`>=26.51.11` / `>=26.60.8`** (450-export surface) | preview, selection wireframe and air left-click; without it those degrade and everything else keeps working |
 
 CALL **must** be installed as `plugins/CALL` (folder name == manifest name).
 The `ll reload` name is `CALL`.

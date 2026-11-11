@@ -6,11 +6,12 @@
 
 ## 运行环境
 
-| 组件 | 版本 |
-|---|---|
-| Bedrock Dedicated Server | 1.26.51 |
-| LeviLamina（LL3） | 26.51.9+ |
-| legacy-script-engine-nodejs | 0.22.4+ |
+| 组件 | 版本 | 必需 |
+|---|---|---|
+| Bedrock Dedicated Server | 1.26.51+ | ✅ |
+| LeviLamina（LL3） | 26.51.9+ | ✅ |
+| legacy-script-engine-nodejs | 0.22.4+ | ✅ |
+| **HologramLib** | **26.51.11+ / 26.60.8+**（450 导出面） | ✅ 预览与选区线框依赖它；缺失时这两项降级，其余功能照常 |
 
 当前版本：**4.0.0** ｜ 许可证：**GPL-3.0-or-later**
 
@@ -28,7 +29,7 @@
 
 3.x 是针对 LL3 / LSE 0.22 重写的执行层，最重要的几点：
 
-1. **不再有 boss 条进度**（旧版的 boss 条颜色越界会踢掉客户端），改为文字提示；
+1. **进度显示可选**：旧版 boss 条颜色越界会踢客户端（已修复），现在由 `previewCountdownHud` 选择动作栏或 Boss 条；
 2. **不再传送玩家**来加载区块，改用 `/tickingarea`；
 3. **不再自动更新**；
 4. 大区域操作会更快、更稳，失败会明确告诉你原因。
