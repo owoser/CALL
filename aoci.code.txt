@@ -4,8 +4,8 @@
 .gitattributes[FC2T]: F:强制全仓文本以 LF 检出（* text=auto eol=lf），保证 AOCI 基线字节跨平台一致 | R:- | A:- | S:改用 CRLF 检出会让 aoci 全树误判 Stale
 .gitignore[FC5T]: F:忽略 node_modules、dist 产物、CALL-CLI 的 bin/obj 与本地草稿日志，并注明 types/lse 是刻意入库 | R:code:package.json | A:- | S:types/lse 虽是 fetch-types 生成却必须入库，忽略它会同时破坏 typecheck 与类型契约
 .prettierrc[FC3T]: F:Prettier 格式约定：双引号、分号、4 空格缩进、80 列 | R:- | A:- | S:只有格式约定无强制 lint；改 tabWidth 会波及全仓 TS 缩进，应单独提交
-AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线含"靠近可穿用物品显示方块模式"、发版门禁、提交闸门）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:sulfurSetScale 对可见方块无效；配置改动必须 /ca reload 才生效
-CHANGELOG.md[SC8L]: F:版本史：逐版本记录修复与新增，含 16KB 截断、维度取值、状态命名空间、容器清空、靠近可穿（物品显示+基准偏移+旋转残留）与 /ca reload | R:code:README.md | A:顶部 3.9.5-beta1 下的 Added/Fixed/Changed/Docs 段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
+AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线、发版门禁、提交闸门、日志前缀约定）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:[CALL] 前缀由宿主加；调试走 util/Log.ts 的 dbg()
+CHANGELOG.md[SC8L]: F:版本史：逐版本记录修复与新增（16KB 截断、维度、状态命名、容器清空、靠近可穿、日志前缀） | R:code:README.md | A:顶部 3.9.5-beta1 各段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
 LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
 README.md[SC8M]: F:对外说明：fork 缘由、版本矩阵（含可选 HologramLib）、内置工具、构建与真机测试、参考链接 | R:code:CHANGELOG.md,code:docs/user/install.md | A:Why this fork exists、References | S:版本矩阵与发版门禁口径须与 docs/ 一致，改一处两处同步
 build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
@@ -100,8 +100,8 @@ index.ts[EG8T]: F:插件入口：注册 onServerStarted，服务器启动后调�
 
 ===E:/code/LL3/Plugins/CALL/core/src/===
 Activity.ts[AD7T]: F:玩家生命周期编排：创建/开始/停止/销毁时恢复选区显示、清定时器、释放高亮，并按设置决定是否保留撤销与剪贴板 | R:code:core/src/user/Players.ts,code:core/src/structure/AreaDisplayerService.ts | A:onDestroy | S:onDestroy 必须回收每玩家定时器与世界高亮，否则残留逻辑会对失效句柄持续运行
-CACommand.ts[CM9L]: F:指令入口：/ca 全部子命令（工具/选区/结构/导入导出/权限/调试），reload 调用 Config.reloadAll() 并回报靠近可穿参数 | R:code:common/Config.ts,code:user/ToolItems.ts | A:command_callback、command_consoleCallback、normalisePositions | S:控制台/玩家分支都要覆盖；reload 不能只改内存
-app.ts[AG9L]: F:插件装配总纲：初始化、命令与事件注册（含 onChangeDim、丢/拾取认领挥动）、启动能力日志 | R:code:core/src/user/SwingWatcher.ts,code:structure/AreaOperation.ts | A:main()/init()、onChangeDim 监听、onDropItem/onTakeItem | S:丢/拾取会挥手臂，必须 noteHandled 否则触发手上工具
+CACommand.ts[CM9L]: F:指令入口：/ca 全部子命令，reload 调 Config.reloadAll 并回报靠近可穿参数 | R:code:core/src/common/Config.ts,code:core/src/user/ToolItems.ts | A:command_callback、command_consoleCallback、normalisePositions | S:日志不写 [CALL] 前缀（宿主已加）；reload 不能只改内存
+app.ts[AU9L]: F:插件入口：初始化、事件注册、指令注册、构建戳与周期任务 | R:code:core/src/CACommand.ts,code:core/src/user/ToolItems.ts | A:load、unload、listen 注册 | S:日志只写模块标签，控制台前缀由宿主提供
 
 ===E:/code/LL3/Plugins/CALL/core/src/addon/===
 AddonInstaller.ts[IE7M]: F:首次启动把内置 BP/RP 复制进服务器包目录，并用合并方式把包加入世界列表 | R:code:assets/addon/CALL_Tools_BP/manifest.json,code:assets/addon/CALL_Tools_RP/manifest.json | A:BP_UUID/RP_UUID、PACK_VERSION | S:启用包只在世界加载时生效，首次只能提示重启；包列表必须合并，覆盖会清掉管理员已有包
@@ -109,11 +109,11 @@ AddonInstaller.ts[IE7M]: F:首次启动把内置 BP/RP 复制进服务器包目�
 ===E:/code/LL3/Plugins/CALL/core/src/common/===
 Area3.ts[KG6T]: F:三维区域：两点归一化、整体平移、2D/3D 矩阵变换与包含判定 | R:code:core/src/common/Pos3.ts | A:normalize/transform2D | S:构造默认 normalize 会改写 start/end；需保留原始两角时必须传 normal=false
 BlockType.ts[DD6T]: F:方块标识规范化：空串表示「无方块」，裸名补 minecraft: 前缀并统一小写 | R:code:core/src/structure/FillOperation.ts | A:构造函数 | S:空串必须保持为空（填充语义依赖它），补前缀只对真实方块名生效
-Config.ts[CC8L]: F:配置层：Jsonc/Json 句柄、点号读写与 reloadAll（LSE 缓存值，改文件必须重载） | R:code:assets/configs.default.jsonc | A:GLOBAL、PERMISSIONS、STRUCTURES、get、set、del、reloadAll、closeAll | S:reloadAll 要覆盖所有句柄，否则改了配置不生效
+Config.ts[CC8L]: F:配置层：Jsonc/Json 句柄、点号读写与 reloadAll（LSE 缓存值，改文件必须重载） | R:code:core/src/assets/configs.default.jsonc | A:GLOBAL、PERMISSIONS、STRUCTURES、get、set、del、reloadAll、closeAll | S:reloadAll 要覆盖所有句柄，否则改了配置不生效
 JsoncConfig.ts[FC7S]: F:带注释的配置句柄：首启由模板生成，只改真正变化的值，未变内容不重写 | R:code:core/src/common/JsoncDoc.ts | A:JsoncConfigFile、migrateToTemplate | S:只有 dirty 时才落盘；改用 LSE 自带 JsonConfigFile 会丢掉全部注释
 JsoncDoc.ts[LC7S]: F:极简 JSONC 处理：分词、按点路径定位值、就地替换单个值，其余字节保持原样 | R:code:core/src/common/JsoncConfig.ts | A:tokenize、findValue、patchJsonc | S:必须正确处理字符串里的注释符；替换只碰目标区间，不许整体重排
 Layout.ts[RC6M]: F:旧布局一次性迁移：userdata/** 与旧 config/*.json 映射到 config/、data/，只读资产丢弃 | R:code:core/src/common/Paths.ts | A:planMigration 与 USERDATA_MAP | S:规划是纯函数、执行才动盘；执行前须判目标存在性，重复执行不得覆盖
-Paths.ts[RC9M]: F:定位插件自身目录并集中导出所有写入路径（assets/config/data/import/export），含服务器根识别 | R:code:core/src/common/Layout.ts | A:detectPluginRoot、ROOT | S:三级回退中 loader 实报路径必须优先；写死 ./plugins/call 在改名安装时全盘失效
+Paths.ts[CM8L]: F:路径常量：插件根、配置、资源、数据、导入导出与服务器 mods 目录 | R:code:core/src/common/Config.ts | A:ROOT、CONFIG、ASSETS、DATA、SERVER_ROOT | S:部署目录与仓库目录必须区分
 Pos3.ts[KG5T]: F:带维度的坐标类型：从 IntPos/FloatPos 转换、由方向角推远点、与矩阵互转 | R:code:core/src/common/Area3.ts | A:fromPos、directionToPosArr | S:必须保留 dimid，跨维度选区全靠它分流；丢维度会让选区落到主世界
 Semver.ts[LG4T]: F:点分版本比较 cmpVersion/atLeast，缺省段按 0 计，用于启动时校验原生 mod 版本 | R:code:core/src/holo/HoloCompat.ts | A:cmpVersion、atLeast | S:只比数字段且 "26.51"=="26.51.0"；预发布标记被忽略，不能用于严格排序
 Structure.ts[DD7S]: F:结构数据模型：Complex/Data 持久化形状、结构类型枚举、Structure 类与 NBT 类型别名 | R:code:core/src/io/StructureNBT.ts | A:Data、Structure | S:pid 槽位历史是数字现在是字符串，读取必须兼容两种类型
@@ -123,16 +123,16 @@ Dimension.ts[PD7T]: F:维度取值：从坐标对象的 dimid 取（Player 没�
 Selection.ts[PD7T]: F:选区状态判定：两个角是否都存在、是否同一维度（none/valid/mixed） | R:code:structure/AreaOperation.ts | A:selectionState | S:mixed 属于"过期选区"而非错误，调用方应清空而不是抛异常
 
 ===E:/code/LL3/Plugins/CALL/core/src/game/===
-Chunks.ts[RP8M]: F:操作前强制加载区块、结束后释放：tickingarea 租约、失败分类与分块调度 | R:code:core/src/game/Cmd.ts | A:ChunkLease、PREFIX | S:未加载区块会报「无法在世界外放置方块」，这是误导性错误，别误判成尺寸越界
-Cmd.ts[RW9S]: F:唯一命令执行层：用 execute 定位玩家、统一成功判定、记录失败输出，避免同步重入分发器 | R:code:core/src/game/SafeArgs.ts | A:run、runNow、runAs | S:不得在命令回调里同步重入分发器；玩家名要取实时句柄而非缓存位置
+Chunks.ts[CR8L]: F:区块租约：tickingarea 申请/释放与就绪等待，供结构读写使用 | R:code:core/src/structure/StructureService.ts | A:acquire、release、isLoaded、waitLoaded | S:租约必须成对；超限要给出可诊断日志
+Cmd.ts[CR9L]: F:指令执行封装：按维度跑 runcmd、失败原因归类与静默重试 | R:code:core/src/user/Players.ts | A:runCmd、runCmdEx | S:失败日志用模块标签，不带 [CALL]
 SafeArgs.ts[RS8M]: F:出站参数校验：血条颜色/百分比、消息类型、维度夹取，以及 Y 范围与填充体积上限 | R:code:core/src/game/Cmd.ts | A:bossBarColor、MAX_FILL_VOLUME | S:颜色 11 越界曾导致客户端断连而服务器存活，所有枚举值必须夹进 0..7
 
 ===E:/code/LL3/Plugins/CALL/core/src/holo/===
-BlockView.ts[IM8M]: F:客户端方块覆盖桥：blockFakeSet 状态串、blockFakeSetNbt 按 SNBT 铺块、方块实体推送，viewBlock 仅旧库回退 | R:code:holo/HoloCompat.ts,code:holo/PasteSync.ts | A:backend/statesExact/set/setBlockNbt/setBlockEntity | S:绝不再用 viewBlockById 写持久注册表；一次预览只能用一个覆盖族
+BlockView.ts[IB8L]: F:假方块视图：单格/批量/SNBT/方块实体下发与按玩家清理 | R:code:core/src/holo/Holo.ts,code:core/src/holo/HoloCompat.ts | A:set、clear、setBlockNbt、setBlockEntity、restore、restoreDetailed | S:状态必须走 SNBT，批量走 blockBatch*
 BossBar.ts[IM6M]: F:血条封装：创建、改标题、改进度、移除，只操作自己创建的 id | R:code:core/src/holo/Holo.ts | A:BossBar.add/remove | S:绝不调用 bossBarRemoveAll，那会清掉其他插件的血条
 FakeBlocks.ts[IR9M]: F:假方块批量适配：12KB 段预算打包、按真实方块还原并区分 restored/direct/skipped（含未加载与解析失败原因）、状态串键去引号与库计数解析 | R:code:holo/Holo.ts,code:structure/BatchSender.ts | A:packCells、restoreDetailed、isPackableId、unquoteStateKeys、parseStats | S:段预算必须远低于 16KB 传参上限；读不到的格子要按原因计数，不能一律静默跳过
-Holo.ts[IR8S]: F:HologramLib 防御式桥接：一次性 ll.import 绑定，库缺失或缺 lrca 时所有调用为 no-op | R:code:core/src/holo/HoloCompat.ts | A:Holo.available/bind | S:函数必须绑定一次复用，禁止在 tick 内 ll.import；库缺失应降级而不是报错
-HoloCompat.ts[IR8L]: F:库能力探测：按导出面判定 bridge/swing/fakeStates/batch/nearPass(itemDisplay*)/nearBlockMode/fakeEntity/snbt 等能力 | R:code:holo/Holo.ts | A:HoloCaps、CAP_EXPORTS、status、probe、describe | S:能力判定只看 ll.import 导出是否存在，不看版本号
+Holo.ts[IB9L]: F:库桥接：ll.import 调用、能力缓存与错误归类 | R:code:core/src/holo/HoloCompat.ts | A:call、available、status | S:调用前先判存在，失败不抛给上层
+HoloCompat.ts[IR8L]: F:库能力探测：按导出面判定 bridge/swing/fakeStates/batch/nearPass/nearBlockMode/fakeEntity/snbt | R:code:core/src/holo/Holo.ts | A:HoloCaps、CAP_EXPORTS、status、probe、describe | S:能力判定只看导出是否存在，不看版本号
 ItemDisplay.ts[IM5S]: F:用 item display 做假方块预览：固定姿态参数并走无缝创建接口 | R:code:core/src/holo/Holo.ts | A:BLOCK_MODE、itemDisplayCreateSeamless | S:先创建再 SetMode 会重生显示并错位；坐标是底部中心，y 取整、x/z 取 +0.5
 Wireframe.ts[IU8M]: F:选区与预览线框：在客户端画 DebugShape，尺寸不变时用移动而非重建 | R:code:core/src/holo/HoloCompat.ts | A:Box、COLOR、PARK_DISTANCE | S:不要给形状设时长，旧实现在客户端留下过幽灵计时实体；标签总是原地改写
 PasteSync.ts[IR7S]: F:粘贴后客户端重画：优先从 Players.dataMap 枚举在线玩家，对半径内玩家先 blockFakeSetNbt 再 blockFakeSetBlockEntity，并分开统计在线/同维度/半径内/推送/失败 | R:code:holo/BlockView.ts,code:user/Players.ts | A:afterBlockEntity、stats | S:枚举优先用自家注册表（全局 getOnlinePlayers 曾返回 0），行尾标注 via=registry|api
@@ -173,20 +173,20 @@ index.ts[LG6T]: F:three-math 的统一导出口，外部一律从这里 import |
 Plugin.ts[EE7S]: F:第三方 shape 包契约：IPlugin 接口、PluginInfo 元数据与 ShapePlugin/PluginTool 适配层 | R:code:core/src/plugin/PluginLoader.ts | A:IPlugin、ShapePlugin | S:接口方法名与返回结构是外部契约，改签名会让已有 shape 包静默失效
 PluginLoader.ts[EE6T]: F:扫描 shapes 目录下的 .js 并以绝对路径 require，注册到 idList 与 pluginsMap | R:code:core/src/plugin/Plugin.ts | A:loadPlugins | S:必须用绝对路径；旧代码写死 ../../../userdata/plugins/，目录搬迁后全部失效
 ShapeOperation.ts[EE5T]: F:/ca shape 子命令处理：list 与 load（按包名、索引和坐标放置形状） | R:code:core/src/plugin/ShapeService.ts | A:start/load | S:短别名 li/lo 也要保留，帮助文本按它展示；未知子命令静默忽略而非报错
-ShapeService.ts[ED6S]: F:形状包服务：读取包内结构、转换为 NBT 并在世界放置，返回可翻译信息 | R:code:core/src/plugin/PluginLoader.ts | A:coveredArea、placeNbtAsync 调用 | S:放置走分段落块，直接调结构原语会崩服；区域占用必须先算 coveredArea
+ShapeService.ts[SM8L]: F:选区形状显示：structure_block 线框的创建/移动/销毁与只销毁自己 id | R:code:core/src/structure/AreaDisplayerService.ts | A:show、move、hide、reset | S:不设 ttl；尺寸不变时移动而非重建
 
 ===E:/code/LL3/Plugins/CALL/core/src/structure/===
-AreaDisplayerService.ts[AU8L]: F:选区显示：按 areaDisplayMode 选结构方块/粒子/文字/线框，并驱动每玩家定时刷新与释放 | R:code:core/src/holo/Wireframe.ts | A:areaDisplayMode 分支与 release | S:structure_block 是唯一被实测能渲染的方式；粒子在 2.0 报过完全不可见
-AreaOperation.ts[CG8L]: F:选点流程：A/B 取点、同维度校验、选区显示与清理（dropSelection），跨维度选区按过期处理 | R:code:common/Selection.ts,code:structure/AreaDisplayerService.ts | A:start、setPosA、setPosB、hasSetArea、dropSelection、hideArea | S:跨维度选区不得抛异常，否则连取消选区都会失败
+AreaDisplayerService.ts[SM9L]: F:选区显示协调：按模式选择 shape/block 显示并处理玩家进出维度 | R:code:core/src/plugin/ShapeService.ts | A:sync、clear、refresh | S:维度变化要清理，避免跨维度残留
+AreaOperation.ts[AU8L]: F:选区操作：两点选区、展开、复制/剪切与输出提示 | R:code:core/src/common/Selection.ts,code:core/src/structure/Clipboard.ts | A:select、expand、copy、dropSelection | S:跨维度不许抛异常，要清空并提示
 BasicTranslOperation.ts[AD6M]: F:基础平移/翻转/旋转操作：对选区或结构做位移、镜像与旋转并回显结果 | R:code:core/src/structure/StructureService.ts,code:core/src/structure/Rotate.ts | A:transform 与 fillCommand 调用 | S:变换后须先算目标占用区再落块，直接按原尺寸写会覆盖邻区
-BatchSender.ts[IR7S]: F:全局分帧投递：按 previewBatchPerTick 每刻派发有限任务，任务可带 owner 供取消时精确清理 | R:code:structure/PreviewScene.ts | A:request(owner)、cancelOwner、pendingOf、drainNow、reset | S:取消预览必须先 cancelOwner，否则排队任务会在还原之后把假方块画回来
+BatchSender.ts[MS9L]: F:批量发送节拍器：per-tick 预算、按 owner 取消与排队 | R:code:core/src/holo/BlockView.ts | A:configure、request、cancelOwner | S:全局 8 包/刻，不要另开节流
 BlockEditerOperation.ts[EU4T]: F:/ca block 子命令：编辑器表单入口与按 NBT 写入单方块 | R:code:core/src/view/BlockEditerForm.ts | A:start | S:无子命令即直接编辑，menu 走表单；两条分支的 IntPos 语义相同
 ChunkOperation.ts[ER3T]: F:/ca chunk 子命令：强制刷新玩家周围区块并回显成功 | R:code:core/src/user/PlayerManager.ts | A:start | S:它只是提示刷新，真正的加载由 tickingarea 租约负责
 Clipboard.ts[DD6S]: F:剪贴板几何：从多切片结构名解析各切片真实偏移并合成包围盒 | R:code:core/src/structure/Rotate.ts | A:sliceOrigin、clipboardBox | S:偏移只能从文件名解析，用 relative() 归零会让多切片粘贴叠在同一点
 FillOperation.ts[ED6T]: F:/ca fill 命令编排：按真实执行结果决定提示文案（全成功/部分失败/整体失败） | R:code:core/src/structure/FillService.ts | A:report | S:必须按 outcome 报，全部失败时也印成功文案是已修过的缺陷
 FillService.ts[DD9M]: F:填充/清除/替换执行器：分块、逐块发命令、失败分类与结果合并，支持半砖高度 | R:code:core/src/game/Cmd.ts,code:core/src/game/SafeArgs.ts | A:FillOutcome、fillCommand | S:未加载区块与尺寸越界必须分开归类，否则把加载问题报成参数错误
 GhostLedger.ts[PD8T]: F:幽灵账本：applied/stale/everApplied 三张表与四条规则（记账、清除、欠账、拆卸集合） | R:code:structure/PreviewScene.ts | A:markSet、markCleared、markOwed、takeOwed、teardownCells、resetLedger | S:清除只删 applied，everApplied 必须保留——"包已提交"不等于"客户端已看到"，删了就是无法清理的幽灵
-NBTService.ts[PD7S]: F:结构切片读写：把区域抓成自有 .mcstructure 文件并还原回世界 | R:code:core/src/structure/StructurePlacement.ts | A:placeBytesAsync | S:不能用 mc.setStructure 或 /structure load，二者在此平台静默失败或崩服
+NBTService.ts[MN8L]: F:结构存取服务：按切片异步加载/保存，与预览/撤销衔接 | R:code:core/src/structure/StructureStore.ts | A:loadAsync、saveAsync、load | S:切片索引 ZYX，坐标用 dimid 来源
 PreviewHud.ts[DU6S]: F:预览 HUD 纯函数：倒计时文案与样式、手势判定、自动显示阈值 | R:code:core/src/structure/PreviewOperation.ts | A:gestureOf、countdownMode | S:刻意不引用引擎全局以便单测；改手势表须同步实机分支
 PreviewHudLock.ts[DU5T]: F:动作条占用锁：预览倒计时期间占位，选区提示让出，避免每秒互相覆盖 | R:code:core/src/structure/AreaDisplayerService.ts | A:hold/release | S:锁短时且须成对释放，泄漏会让选区提示长期不显示
 PreviewOperation.ts[AU9L]: F:预览操作会话：set/click/move/rotate/nudge/confirm/mode，confirm 先取消预览并等清理完成后才真正粘贴 | R:code:structure/PreviewScene.ts,code:structure/StructureOperation.ts | A:set、rotate、nudge、confirm（async）、cancelFor | S:confirm 必须 await flushCleanup，否则还原包带着粘贴前的方块覆盖新结构
