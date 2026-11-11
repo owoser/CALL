@@ -806,6 +806,73 @@ async function runSuite() {
         return "blocks+entities round-tripped through /structure (" + String(load.output) + ")";
     });
 
+    // --- ENGINE GROUND TRUTH: what a 90 degree rotation does to a state ------
+    await checkAsync("ca.engineRotationTable", async () => {
+        const codec = require(path.join(M.root, "core", "src", "io", "NbtCodec.js"));
+        const placement = require(path.join(M.root, "core", "src", "structure", "StructurePlacement.js"));
+        const Cmd = require(path.join(M.root, "core", "src", "game", "Cmd.js"));
+        const run = (c) => { try { return mc.runcmdEx(c); } catch (e) { return { success: false, output: String(e) }; } };
+        const p = spot(112);
+        fillBox(p.x - 2, p.y - 2, p.z - 2, 16, 8, 16, "minecraft:air");
+        Cmd.runNow("/fill " + (p.x - 2) + " " + (p.y - 2) + " " + (p.z - 2) + " " + (p.x + 14) + " " + (p.y - 2) + " " + (p.z + 14) + " minecraft:stone");
+
+        const statesAt = (x, y, z) => {
+            const id = "callrot_r";
+            try {
+                M.NBTService.save(id, new M.Area3(new M.Pos3(x, y, z, DIM), new M.Pos3(x, y, z, DIM)));
+                const layout = codec.parseStructureLayout(M.NBTService.readBytes(id));
+                M.NBTService.del(id);
+                const entry = layout.palette[0] ?? {};
+                const st = [];
+                for (const k of Object.keys(entry.states ?? {})) {
+                    const raw = entry.states[k];
+                    st.push(k.replace("minecraft:", "") + "=" + (raw != null && typeof raw === "object" && "value" in raw ? raw.value : raw));
+                }
+                return String(entry.name ?? "?").replace("minecraft:", "") + "[" + st.join(",") + "]";
+            } catch (e) {
+                return "readErr:" + String(e && e.message ? e.message : e).slice(0, 40);
+            }
+        };
+
+        // Place with OUR OWN writer (the path the paste uses - known to be right at 0 degrees),
+        // then ask the ENGINE what 90 degrees does to that state.
+        const one = (blockId, states) => ({
+            size: [1, 1, 1],
+            indices: new Int32Array([0]),
+            palette: [{ name: blockId, states }],
+        });
+
+        const rows = [];
+        const probe2 = async (label, blockId, key, values) => {
+            for (const v of values) {
+                const sx = p.x, sy = p.y, sz = p.z;
+                const layout = one(blockId, { [key]: v });
+                try { await placement.placeLayoutAsync(layout, new M.Pos3(sx, sy, sz, DIM), 1); } catch (e) {
+                    rows.push(label + " placeErr:" + String(e && e.message ? e.message : e).slice(0, 40)); continue;
+                }
+                const before = statesAt(sx, sy, sz);
+                if (before.indexOf("readErr") === 0 || /\[\]$/.test(before) || /^air/.test(before)) {
+                    rows.push(label + " v=" + v + " selfFail=" + before);
+                    continue;
+                }
+                const name = "callrot_" + label + "_" + String(v).replace(/[^a-z0-9]/gi, "");
+                const saved = run("/structure save " + name + " " + sx + " " + sy + " " + sz + " " + sx + " " + sy + " " + sz);
+                if (saved.success !== true) { rows.push(label + " saveFail:" + String(saved.output).slice(0, 30)); continue; }
+                Cmd.runNow("/setblock " + sx + " " + sy + " " + sz + " minecraft:air");
+                const dx = p.x + 8, dy = p.y, dz = p.z + 8;
+                const loaded = run("/structure load " + name + " " + dx + " " + dy + " " + dz + " 90_degrees");
+                rows.push(label + " v=" + String(v) + " " + before + " =>90° " +
+                    (loaded.success === true ? statesAt(dx, dy, dz) : "loadFail"));
+                Cmd.runNow("/setblock " + dx + " " + dy + " " + dz + " minecraft:air");
+            }
+        };
+
+        await probe2("trapdoor", "minecraft:oak_trapdoor", "direction", [0, 1, 2, 3]);
+        await probe2("chest", "minecraft:chest", "minecraft:cardinal_direction", ["north", "east", "south", "west"]);
+        await probe2("hsign", "minecraft:oak_hanging_sign", "facing_direction", [2, 3, 4, 5]);
+        return rows.join(" | ");
+    });
+
     // --- a cross-dimension selection is dropped, not thrown ------------------
     await checkAsync("ca.dimensionSelection", async () => {
         const AreaOperation = require(path.join(M.root, "core", "src", "structure", "AreaOperation.js")).default;

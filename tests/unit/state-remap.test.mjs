@@ -102,16 +102,21 @@ test('a NAMESPACED state key is remapped too (a chest reports minecraft:cardinal
     assert.equal(remapStates({ 'minecraft:cardinal_direction': 'up' }, 90, 'none')['minecraft:cardinal_direction'], 'up');
 });
 
-test('door / trapdoor direction follows the same four-way table', () => {
+test('door / trapdoor direction uses the STAIRS order, not the cardinal one', () => {
     const { remapStates } = load();
-    assert.equal(remapStates({ direction: 0 }, 90, 'none').direction, 1);
-    assert.equal(remapStates({ direction: 2 }, 90, 'none').direction, 3);
-    assert.equal(remapStates({ direction: 0 }, 180, 'none').direction, 2);
+    // 0=east, 1=west, 2=south, 3=north; a quarter turn clockwise sends east -> south.
+    assert.equal(remapStates({ direction: 0 }, 90, 'none').direction, 2); // east -> south
+    assert.equal(remapStates({ direction: 2 }, 90, 'none').direction, 1); // south -> west
+    assert.equal(remapStates({ direction: 0 }, 180, 'none').direction, 1); // east -> west
+    assert.equal(remapStates({ direction: 0 }, 0, 'x').direction, 1);     // mirror x: east -> west
 });
 
 test('ground_sign_direction rotates in 22.5 degree steps and mirrors', () => {
     const { remapStates } = load();
-    assert.equal(remapStates({ ground_sign_direction: 0 }, 90, 'none').ground_sign_direction, 12); // south -> west
+    // MEASURED: the engine turns 0 into 4 at 90 degrees (a hanging sign's text rides this state).
+    assert.equal(remapStates({ ground_sign_direction: 0 }, 90, 'none').ground_sign_direction, 4); // south -> west
+    assert.equal(remapStates({ ground_sign_direction: 0 }, 180, 'none').ground_sign_direction, 8);
+    assert.equal(remapStates({ ground_sign_direction: 4 }, 90, 'none').ground_sign_direction, 8);
     assert.equal(remapStates({ ground_sign_direction: 0 }, 0, 'x').ground_sign_direction, 0);  // south stays south
     assert.equal(remapStates({ ground_sign_direction: 4 }, 0, 'x').ground_sign_direction, 12); // east <-> west
     assert.equal(remapStates({ ground_sign_direction: 4 }, 0, 'z').ground_sign_direction, 4);   // east unaffected

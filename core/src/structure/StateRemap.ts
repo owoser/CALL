@@ -158,8 +158,11 @@ function remapSign(value: StateValue, degrees: Degrees, mirror: MirrorMode): Sta
     let d = current;
     if (mirror === "x" || mirror === "xz") d = (16 - d) % 16;
     if (mirror === "z" || mirror === "xz") d = (8 - d + 16) % 16;
+    // MEASURED against the engine: /structure load ... 90_degrees turns
+    // ground_sign_direction 0 into 4, i.e. +4 per quarter turn (a hanging sign's text uses this
+    // state too, which is why a rotated sign showed its text on the back face).
     const steps = (degrees / 90) % 4;
-    d = (d - 4 * steps + 16 * 4) % 16;
+    d = (d + 4 * steps) % 16;
     return rewrap(value, d);
 }
 
@@ -196,8 +199,11 @@ export function remapStates(states: StateMap | null | undefined, degrees: Degree
                 }
                 break;
             }
-            // Doors, trapdoors and fence gates: same four-way table as cardinal_direction.
-            case "direction": next = remapHorizontal(CARDINAL, original, degrees, mirror); break;
+            // Doors and trapdoors use `direction`, whose index order is NOT the cardinal one:
+            // the player report (correct at 0 degrees, wrong at every rotation) plus the engine
+            // evidence for cardinal_direction ("north" -> "east" at 90) rules the cardinal table out.
+            // It matches the stairs family instead (0=east, 1=west, 2=south, 3=north).
+            case "direction": next = remapHorizontal(STAIRS, original, degrees, mirror); break;
             case "facing_direction": next = remapFacing(original, degrees, mirror); break;
             case "torch_facing_direction": next = remapTorch(original, degrees, mirror); break;
             case "pillar_axis":
