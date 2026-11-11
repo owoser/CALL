@@ -437,6 +437,20 @@ export class ToolOperation {
         // click silently does nothing.
         let binding = matchBinding<any>(items[item.type], name);
 
+        // A click on a BLOCK arrives as the LEFT kind (onStartDestroyBlock) while a click on air
+        // arrives as the RIGHT kind. gear / copy / paste are only bound on the right, so clicking a
+        // block with them used to answer "这个工具还没有绑定" even though they worked on air. CALL's
+        // own tools are single-purpose, so let the two tables fall back to each other.
+        if (binding == null && ToolItems.isTool(String(item.type))) {
+            const other = type === ToolType.RIGHT ? ToolType.LEFT : ToolType.RIGHT;
+            const alt = ToolOperation.getItems(caPlayer, other) as any;
+            const altBinding = matchBinding<any>(alt?.[item.type], name);
+            if (altBinding != null) {
+                binding = altBinding;
+                items = alt;
+            }
+        }
+
         if (binding == null && ToolItems.isTool(String(item.type))) {
             // A tool that shipped AFTER this settings snapshot (or after this server's
             // configs.json was written) has no entry at all. Merge the shipped bindings right

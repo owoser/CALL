@@ -15,6 +15,15 @@ fixes are based on.
 
 ### Added (3.9.5-beta1, HologramLib 450)
 
+### Fixed (3.9.5-beta1, "这个工具还没有绑定" when clicking a block)
+
+- A click on a **block** arrives as the LEFT kind (`onStartDestroyBlock`) while a click on **air**
+  arrives as the RIGHT kind (`onUseItemOn`). The menu / copy / paste wands are only registered in the
+  right table, so clicking a block with them answered "这个工具还没有绑定" while air clicks worked -
+  the other three wands are in both tables, which is why only these looked broken.
+- The lookup now falls back to the other table for CALL's own tools (they are single-purpose) before
+  reporting an unbound item.
+
 ### Changed (3.9.5-beta1, a tighter config file that only binds CALL's own items)
 
 - `configs.json` went from ~940 lines of bilingual comment blocks to ~270 lines: grouped sections

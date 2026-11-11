@@ -180,6 +180,19 @@ test('block entities ride along with the paste', () => {
         'transformLayout must remap block entity indices');
 });
 
+test('a tool click falls back to the other binding table', () => {
+    const src = read('core/src/user/ToolOperation.ts');
+    // A block click arrives as LEFT, air as RIGHT; gear/copy/paste only live in the right table,
+    // so the lookup has to try the other kind before reporting "not bound".
+    assert.ok(src.includes('const other = type === ToolType.RIGHT ? ToolType.LEFT : ToolType.RIGHT'),
+        'the fallback must swap the kind');
+    assert.ok(src.includes('const altBinding = matchBinding<any>(alt?.[item.type], name)'),
+        'the fallback must look the tool up in the other table');
+    const fallback = src.indexOf('const altBinding');
+    const warn = src.indexOf('ToolOperation.warnUnbound(caPlayer, String(item.type))');
+    assert.ok(fallback > 0 && fallback < warn, 'the fallback has to run before the warning');
+});
+
 test('a content change releases the walk-through displays first', () => {
     const scene = read('core/src/structure/PreviewScene.ts');
     assert.ok(scene.includes('releaseCubes(scene)'),
