@@ -189,13 +189,13 @@ GhostLedger.ts[PD8T]: F:幽灵账本：applied/stale/everApplied 三张表与四
 NBTService.ts[MN8L]: F:结构存取服务：按切片异步加载/保存，与预览/撤销衔接 | R:code:core/src/structure/StructureStore.ts | A:loadAsync、saveAsync、load | S:切片索引 ZYX，坐标用 dimid 来源
 PreviewHud.ts[DU6S]: F:预览 HUD 纯函数：倒计时文案与样式、手势判定、自动显示阈值 | R:code:core/src/structure/PreviewOperation.ts | A:gestureOf、countdownMode | S:刻意不引用引擎全局以便单测；改手势表须同步实机分支
 PreviewHudLock.ts[DU5T]: F:动作条占用锁：预览倒计时期间占位，选区提示让出，避免每秒互相覆盖 | R:code:core/src/structure/AreaDisplayerService.ts | A:hold/release | S:锁短时且须成对释放，泄漏会让选区提示长期不显示
-PreviewOperation.ts[AU9L]: F:预览操作会话：set/click/move/rotate/nudge/confirm/mode，confirm 先取消预览并等清理完成后才真正粘贴 | R:code:structure/PreviewScene.ts,code:structure/StructureOperation.ts | A:set、rotate、nudge、confirm（async）、cancelFor | S:confirm 必须 await flushCleanup，否则还原包带着粘贴前的方块覆盖新结构
+PreviewOperation.ts[AU7L]: F:预览操作：构建/旋转/移动/粘贴前等待清理，取消与命令入口的护栏 | R:code:core/src/structure/PreviewScene.ts | A:start、cancel、cancelFor、rotate、move | S:先停喂再等排空；等待时长走 dbg
 PreviewPlan.ts[DU8M]: F:纯规划：格子到世界坐标的映射与差量，并按真实角度重算带状态方块的 id 与 SNBT | R:code:structure/StateRemap.ts,code:structure/SurfaceExtract.ts | A:planCells、diffPlacement | S:提取恒 0°，状态重映射必须在这里做；每个 palette 条目每角度只算一次
-PreviewScene.ts[AU9L]: F:预览场景：三模式构建、计划即记账、取消先停喂再等排空；靠近可穿窗口自管理，内容变化前先 releaseCubes 释放显示并按原载荷重发 | R:code:holo/NearBlocks.ts,code:structure/NearWindow.ts | A:build、enqueue、pump、syncNear、releaseCubes、redrawCell、detachScene | S:NEAR_Y_BASELINE=-0.09 是实测基准，配置只做增量；releaseCubes 必须早于差分
+PreviewScene.ts[AU9L]: F:预览场景：三模式构建、计划即记账、取消先停喂再等排空；靠近可穿自管理并在内容变化前释放显示 | R:code:core/src/holo/NearBlocks.ts,code:core/src/structure/NearWindow.ts | A:build、enqueue、pump、syncNear、releaseCubes、detachScene | S:NEAR_Y_BASELINE=-0.09 为实测基准；releaseCubes 必须早于差分
 Rotate.ts[KD8M]: F:旋转与镜像数学：偏移变换、枢轴平移与旋转后的目标脚印 | R:code:core/src/structure/Clipboard.ts | A:rotateOffset、rotatedUnion | S:锚点固定在目标盒最小角，旋转只转盒内图案，不翻到反侧
 StructureOperation.ts[CG8L]: F:结构操作：复制/粘贴/保存/撤销/重做，撤销重做按快照记录维度回放并在跨维度时提示 | R:code:structure/StructureService.ts,code:common/Dimension.ts | A:copy、paste、pasteTransformed、undo、redo、warnOtherDimension | S:撤销必须用快照的 area.start（含 dimid），不能取玩家当前位置
 StructurePlacement.ts[IR9L]: F:逐格放置：调色板转 SNBT 写入、方块实体二次应用、容器先清空、越界与不可写校验、批量让出 | R:code:structure/ContainerClear.ts,code:holo/PasteSync.ts | A:placeLayoutAsync、placeBytesAsync、placeNbtAsync | S:容器必须先清空再覆盖（NBT 清空会触发掉落）；写入后必须回读验证
-StructureService.ts[DD9L]: F:结构存取：切片遍历、区块租约、快照栈（undo/redo）与回放，缺维度的历史快照按主世界归一化 | R:code:game/Chunks.ts,code:structure/StructurePlacement.ts | A:traversal、save、load、pop、undoPush、redoPush、normalizeData | S:回放要用 st.area.start 的 dimid；容器掉落问题在放置层解决，不要在这里加清扫
+StructureService.ts[DD9L]: F:结构存取：切片遍历、区块租约、快照栈（undo/redo）与回放，缺维度快照按主世界归一化 | R:code:core/src/game/Chunks.ts,code:core/src/structure/StructurePlacement.ts | A:traversal、save、load、pop、undoPush、redoPush | S:回放用 st.area.start 的 dimid；容器掉落问题在放置层解决
 StructureStore.ts[PD8L]: F:结构磁盘布局：按玩家/名称/类型分目录，切片文件名编码 x_z 偏移 | R:code:core/src/common/Paths.ts | A:sliceFileName、folderPath、sanitizeFolder | S:旧版是 data/nbt 平铺，目录结构与 structures.json 必须同时迁移
 SurfaceExtract.ts[AU8L]: F:表面抽取：从切片取得预览方块，导出描述符与非引号状态串 SNBT | R:code:structure/StateRemap.ts | A:extractSurface、descriptorOf、blockSnbtOf | S:状态键白名单必须允许 ':'（箱子是 minecraft:cardinal_direction），否则该格退回批量通道、朝向永远默认
 TextureOperation.ts[EU3T]: F:/ca texture 子命令：把准星方块记入纹理选择器的 A/B 槽 | R:code:core/src/user/SettingsOperation.ts | A:start | S:只写 settings.texture 的 a/b 槽，方块名须先经 BlockType 规范化
@@ -215,27 +215,28 @@ Tool.ts[CG2T]: F:工具触发类型枚举：RIGHT/LEFT 字符串值，供手势�
 ===E:/code/LL3/Plugins/CALL/core/src/user/===
 BindingMigration.ts[DD6T]: F:绑定迁移：把 ${posf.*} 改写为 ${pos.*}，修掉点击面平面造成的选择偏移 | R:code:core/src/user/Bindings.ts | A:migratePosfBindings | S:posf 落在点击面平面（+Z 面会差一格），需要原始点才用 ${hit}
 Bindings.ts[CD7T]: F:绑定解析：按物品类型到显示名到命令查找，空显示名等同无自定义名；默认值合并也在此 | R:code:core/src/user/BindingMigration.ts | A:matchBinding、mergeDefaults | S:显示名为空串必须视为无自定义名，只按类型匹配会让改名魔杖点击无效
-CAPlayer.ts[DD8S]: F:每个在线玩家的会话状态：settings、点击态、选区标记、显示标志与临时结构引用 | R:code:core/src/user/Players.ts,code:core/src/temp/Data.ts | A:构造函数与 stopTimers | S:玩家销毁必须清定时器与高亮，泄漏会对着失效句柄持续运行
+CAPlayer.ts[CA8L]: F:玩家工具状态：当前模式、选区、权限与语言绑定 | R:code:core/src/user/Players.ts | A:get、set、reset | S:句柄不缓存，按 xuid 现取
 EnableOperation.ts[EU4T]: F:/ca enable 与 disable：切换玩家级启用开关并立即启停选区显示 | R:code:core/src/Activity.ts | A:on/off | S:开关是玩家级而非全局；关闭后不应再注册该玩家的定时器
 HelpOperation.ts[EU4T]: F:/ca help：读 config/help.json 生成帮助目录树并回显 | R:code:assets/help.json | A:start、readFile | S:读的是 config/ 下副本而非 assets/，副本缺失时帮助为空
 PermissionOperation.ts[EI7T]: F:/ca permission：在 customize 模式下增删查白名单并写回 userlist.json | R:code:core/src/common/Config.ts | A:check | S:非 customize 模式直接抛错，权限判定只认 Config 的 permission 值
 PlayerManager.ts[RU4T]: F:区块刷新：刷新单个玩家或同维度附近玩家的客户端区块 | R:code:core/src/temp/Constant.ts | A:refreshChunks、refreshPlayersChunks | S:只刷新客户端不加载服务端区块，附近半径取自 Constant.CHUNK
-Players.ts[DD8S]: F:玩家数据总表：xuid 到 CAPlayer 映射、数据加载保存与按名字查 xuid | R:code:core/src/user/CAPlayer.ts | A:dataMap、createCAPlayer | S:只缓存在线玩家，离线玩家数据必须走文件而不是 dataMap
+Players.ts[CA9L]: F:玩家查询与指令分发：按名称/xuid 取玩家、跑指令与调试输出 | R:code:core/src/game/Cmd.ts | A:online、runAs、debug | S:失败日志用模块标签；调试执行走 [DBG]
 SettingsOperation.ts[EU7T]: F:/ca setting：读写玩家设置，禁止修改 enable、displayPos、area 三个受保护键 | R:code:core/src/temp/Data.ts | A:forbidModifyKeys | S:受保护键是防呆设计，放开会让启用开关与选区状态被脚本覆盖
-SwingWatcher.ts[IU8M]: F:左键检测（含对空挥动）：轮询 HologramLib 的 swingCount 并去重成点击事件 | R:code:core/src/holo/HoloCompat.ts | A:DEDUPE_MS、SwingWatcher | S:库缺失时该能力整体消失且只提示一次；去重窗口 100ms 防一次挥动触发两次
-ToolItems.ts[AU8L]: F:内置工具定义与调试输出（假方块/靠近可穿含半径缩放/挥动计数/构建戳） | R:code:holo/HoloCompat.ts,code:holo/NearBlocks.ts | A:TOOL_SPECS、debug、list | S:新增诊断必须默认静默，只在 tools debug 下输出
-ToolOperation.ts[CG8L]: F:工具物品动作分发：按 identifier 走选区/复制/预览/粘贴/调整等路径，粘贴前停预览并等清理，并统一打点日志 | R:code:structure/PreviewOperation.ts,code:user/ToolItems.ts | A:handle、logPath、logClick | S:粘贴前必须等预览清理完成，否则客户端会显示被还原包覆盖的残缺结构
+SwingWatcher.ts[SW8L]: F:挥动检测：swing 计数与"工具触发/放置"去重，避免重复触发 | R:code:core/src/holo/HoloCompat.ts | A:noteHandled、count、reset、statsOf | S:与 onDropItem/onTakeItem 联动，不要重复计数
+ToolItems.ts[AU8L]: F:内置工具定义与调试输出（假方块/靠近可穿含半径缩放/挥动计数/构建戳） | R:code:core/src/holo/HoloCompat.ts,code:core/src/holo/NearBlocks.ts | A:TOOL_SPECS、debug、list | S:新增诊断默认静默，只在 tools debug 输出
+ToolOperation.ts[AU6L]: F:工具操作：注册/获取/给予工具项并绑定动作 | R:code:core/src/user/ToolItems.ts | A:give、register、handle | S:工具 id 与动作表必须一致
 
 ===E:/code/LL3/Plugins/CALL/core/src/util/===
 Common.ts[CG2T]: F:通用构造器类型别名 Constructor<T>，供 mixin 与反射式构造使用 | R:- | A:- | S:纯类型无运行时实现，改签名会影响所有依赖它的构造调用
 Error.ts[CG3T]: F:两个自定义错误：Warn 表示可恢复警告，UnreachableError 表示不可能分支 | R:code:core/src/util/Safe.ts | A:- | S:Warn 用于可降级失败，抛出后必须在上层被捕获否则等同普通异常
 JsonPatch.ts[PD5M]: F:文件级操作封装：delete/create/patch/mkDir，用 fast-json-patch 合并 JSON | R:code:core/src/util/Safe.ts | A:patch_plus、deleteFuc | S:删除是同步 unlink 并回验存在性，失败返回 false 而非抛错，调用方须检查
-Msg.ts[CM8S]: F:唯一出站消息通道：类型归一化、空消息钳制、rawtext 校验后再发送 | R:code:core/src/temp/Enums.ts | A:MsgType、tell | S:空字符串与非法 type 曾导致玩家断连，必须先钳制再发送
-Safe.ts[CR8S]: F:回调边界兜底：safeCall/runAsync 吞异常并按 tag 归因输出，附 debugMod 开关 | R:code:core/src/util/Error.ts | A:safeCall、runAsync、describeError | S:引擎回调必须经此包裹，异常漏到引擎会静默丢失或中断整条回调链
+Msg.ts[MS8L]: F:消息与广播封装：给玩家发消息、广播与静默失败 | R:code:core/src/util/Log.ts | A:send、broadcast | S:失败走 dbg，不刷屏
+Safe.ts[SS9L]: F:错误处理：描述错误、记录失败与安全调用包装 | R:code:core/src/util/Log.ts | A:describeError、logFailure、sleep | S:异常不得吞掉关键上下文
 SimpleMatrix.ts[LG3S]: F:已废弃的简单三维矩阵与变换实现，仅为兼容旧调用保留 | R:code:core/src/common/Area3.ts | A:- | S:标了 deprecated，新代码用 three-math；混用会让坐标系约定不一致
 StrFactory.ts[CU7S]: F:字符串工厂：CALL- 前缀消息、名称合法性判断与命令回显拼装 | R:code:core/src/util/Translator.ts | A:isLegalName、cmdSuccess | S:isLegalName 对 null 返回 true 是历史行为，调用方需自行判空
-Translator.ts[CL7T]: F:语言加载：扫描 lang 目录用 properties-reader 读取并按 langCode 缓存，支持 sprintf 占位 | R:code:assets/lang/zh_CN.lang | A:scanLangDir、Tr._ | S:必须惰性扫描；LSE 0.22 取目录列表会返回 undefined 并拖垮整插件
+Translator.ts[TR7L]: F:多语言：按语种加载 lang 文件、取词与回退 | R:code:core/src/common/Paths.ts | A:init、t、_、_c | S:缺词回退到中文而非抛错
 Version.ts[CG4T]: F:三段版本号类型与 fromString 解析，配合 Compare 做版本比较 | R:code:core/src/temp/Common.ts | A:fromString | S:段落缺失会得到 NaN，比较前必须校验否则比较恒为假
+Log.ts[LG9L]: F:日志约定：info/warn 只写模块标签（宿主加 [CALL]），dbg 受 debugMod 控制并以 [DBG] 标注 | R:code:core/src/common/Config.ts | A:debugMod、info、warn、dbg | S:禁止再写 [CALL] 前缀，否则控制台重复
 
 ===E:/code/LL3/Plugins/CALL/core/src/view/===
 AreaForm.ts[EU5T]: F:选区菜单：清除、显示与设置两点的交互表单 | R:code:core/src/structure/AreaOperation.ts | A:opt 分支 | S:表单只做交互，变更必须回 AreaOperation，避免两处各写一套归一化
