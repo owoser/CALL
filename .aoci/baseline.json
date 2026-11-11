@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-10T05:51:09Z",
-  "updated_at": "2026-11-11T15:30:19Z",
+  "updated_at": "2026-11-11T15:33:21Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -65,15 +65,15 @@
     },
     "README.md": {
       "role": "index",
-      "sha256": "5e2c13ef4b8e8d87777636adabfa11fdbbc93706c49c0bf3046a408c7344ebf7",
-      "size": 12343,
-      "normalized_sha256": "5e2c13ef4b8e8d87777636adabfa11fdbbc93706c49c0bf3046a408c7344ebf7"
+      "sha256": "7c184be995ff67bcbaa6860b7c1aeda358803d762c5bd2245ac66bde8e9f74f5",
+      "size": 12517,
+      "normalized_sha256": "7c184be995ff67bcbaa6860b7c1aeda358803d762c5bd2245ac66bde8e9f74f5"
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "3054088ebac99ad2d2f30a3037901df2cda8e77b9c672edb955503f842acd42e",
-      "size": 67400,
-      "normalized_sha256": "3054088ebac99ad2d2f30a3037901df2cda8e77b9c672edb955503f842acd42e"
+      "sha256": "e52de6fc9a029f7f37b20fb34593fcf48c04e4826d9940c46bdfbe1194050999",
+      "size": 67540,
+      "normalized_sha256": "e52de6fc9a029f7f37b20fb34593fcf48c04e4826d9940c46bdfbe1194050999"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -1227,15 +1227,15 @@
     },
     "docs/_navbar.md": {
       "role": "index",
-      "sha256": "3659f64fc57994778c8b9c59c2967e9c899f04bbb612b397b93ed5b389ed7e8c",
-      "size": 338,
-      "normalized_sha256": "3659f64fc57994778c8b9c59c2967e9c899f04bbb612b397b93ed5b389ed7e8c"
+      "sha256": "c85e598cf29565eb39fe8af513bcd1f3ebed7c8bb529af28363b3eceb91c3b00",
+      "size": 359,
+      "normalized_sha256": "c85e598cf29565eb39fe8af513bcd1f3ebed7c8bb529af28363b3eceb91c3b00"
     },
     "docs/_sidebar.md": {
       "role": "index",
-      "sha256": "7de910f63550645d347a199c9989924425e81d389689991997219fb44729d987",
-      "size": 1034,
-      "normalized_sha256": "7de910f63550645d347a199c9989924425e81d389689991997219fb44729d987"
+      "sha256": "e5d3076aa5ab369f93ae9129ed5d240958b110a4e11ddb69c07af689285022a4",
+      "size": 1055,
+      "normalized_sha256": "e5d3076aa5ab369f93ae9129ed5d240958b110a4e11ddb69c07af689285022a4"
     },
     "docs/dev/architecture.md": {
       "role": "index",
@@ -1320,9 +1320,9 @@
     },
     "docs/other/debug.md": {
       "role": "index",
-      "sha256": "87244d256fbd53db2c98f5286e19181793c58664b25abb3f5293f426aa9c3905",
-      "size": 1716,
-      "normalized_sha256": "87244d256fbd53db2c98f5286e19181793c58664b25abb3f5293f426aa9c3905"
+      "sha256": "2d5bcc5bb0895d7f53f0d4e06338546013f28aad66b6866a0deb55edddeb0a50",
+      "size": 2168,
+      "normalized_sha256": "2d5bcc5bb0895d7f53f0d4e06338546013f28aad66b6866a0deb55edddeb0a50"
     },
     "docs/other/limitations.md": {
       "role": "index",

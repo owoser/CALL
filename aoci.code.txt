@@ -7,7 +7,7 @@
 AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线、发版门禁、提交闸门、日志前缀约定）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:[CALL] 前缀由宿主加；调试走 util/Log.ts 的 dbg()
 CHANGELOG.md[SC8L]: F:版本史：按版本记录修复与变更，4.0.0 为"预览可穿行/容器不撒落/配置精简"正式版 | R:code:README.md | A:顶部 4.0.0 汇总段与历史段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
 LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
-README.md[RS9L]: F:仓库门面：功能简介、环境要求表（含 HologramLib 链接与安装方式）、安装与构建说明 | R:code:docs/user/install.md | A:Requirements/Install/Build 各节 | S:环境要求表必须列全前置库，版本以导出面为准
+README.md[RS9L]: F:仓库门面：功能简介、环境要求表（含 HologramLib 链接）、安装/构建说明与反馈渠道（QQ 群 + Issues） | R:code:docs/user/install.md | A:Requirements/Install/Feedback 各节 | S:环境要求表必须列全前置库；反馈渠道两处保持一致
 build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
 package-lock.json[FV3L]: F:npm 依赖锁定树（lockfileVersion 2），固定 acorn、escodegen、estraverse 等运行时依赖的精确版本 | R:code:package.json | A:packages 与 dependencies 节点 | S:顶层 version 仍是 2.0.0 与 package.json 不一致，不能据此判断发行版本
 package.json[PS9L]: F:插件包元数据与脚本入口（构建/部署/闸门/单测） | R:code:tooth.json,code:CHANGELOG.md | A:version、scripts、devDependencies | S:版本号必须与 tooth.json、CHANGELOG 一致，否则 check:version 失败
@@ -262,8 +262,8 @@ TranslatorTest.ts[TQ4T]: F:语言表单测：校验各语言里 test.* 键的取
 ARCHITECTURE.md[SG8S]: F:架构笔记：三条让整功能失效的平台 API 差异与实测规则（禁 setStructure、字节序、颜色范围等） | R:code:CHANGELOG.md,code:docs/dev/architecture.md | A:RULES 与各节编号 | S:每条都标了实测平台版本，升级 LL 或 LSE 后必须重新验证否则结论过期
 MIGRATION-2.0.md[SG7T]: F:1.6.1 到 2.0.0 迁移步骤：目录名必须为 CALL、userdata 保留、配置与结构数据沿用 | R:code:CHANGELOG.md | A:What you must do | S:装成 plugins/call 会被 LL3 拒载，文中目录名的大小写是硬要求
 _coverpage.md[DG6L]: F:文档站封面：标题、简介、当前版本与许可证 | R:code:docs/user/introduction.md | A:封面文案与版本号 | S:发版时必须同步版本号
-_navbar.md[DG5L]: F:文档站导航栏：说明/关于两组入口 | R:code:docs/_sidebar.md | A:链接列表 | S:页面改名/删除后必须同步，否则 check:docs 报死链
-_sidebar.md[DG4L]: F:文档站侧栏：用户手册/开发者手册/其他三组目录 | R:code:docs/_navbar.md | A:目录树 | S:新增页面必须登记，否则文档站不可达
+_navbar.md[DG5L]: F:文档站导航栏：说明/关于两组入口（问题反馈标注 QQ 群 / Issues） | R:code:docs/_sidebar.md | A:链接列表 | S:页面改名/删除后必须同步，否则 check:docs 报死链
+_sidebar.md[DG4L]: F:文档站侧栏：用户手册/开发者手册/其他三组目录（问题反馈标注 QQ 群 / Issues） | R:code:docs/_navbar.md | A:目录树 | S:新增页面必须登记，否则文档站不可达
 index.html[SV5T]: F:文档站外壳：本地化 docsify 资源与初始化配置，不依赖 CDN | R:code:docs/_sidebar.md | A:docsify 初始化配置 | S:必须保持全本地化，改回 CDN 会让国内访问白屏
 
 ===E:/code/LL3/Plugins/CALL/docs/dev/===
@@ -274,7 +274,7 @@ pitfalls.md[SG9T]: F:真机台账：A–G 分类症状到根因到验证，含 C
 release.md[SG7T]: F:发版规范：触发授权、前置闸门清单（含 check:version）、版本策略、产物约定、单次发布步骤、事故恢复与禁止项 | R:code:scripts/check-version.mjs,code:CHANGELOG.md | A:第 3 节前置清单、第 5 节发布动作、第 8 节禁止项 | S:未获维护者明确指令不得发版；发布包不入库；变更日志顶部段落须等于当前版本
 
 ===E:/code/LL3/Plugins/CALL/docs/other/===
-debug.md[DG7L]: F:问题反馈指引：需要的版本/环境/日志信息与"掉线"分类判断 | R:code:docs/user/known-limitations.md | A:反馈清单与掉线判断表 | S:boss 条相关描述已随 4.0.0 修复更新
+debug.md[DG7L]: F:问题反馈指引：反馈渠道（QQ 群 / Issues）、需要的版本/环境/日志信息与"掉线"分类判断 | R:code:docs/user/known-limitations.md | A:反馈渠道表与信息清单 | S:QQ 群链接与 Issues 必须同时给出
 plugins.md[SG3T]: F:第三方形状包收录页（当前仅占位说明） | R:code:docs/dev/plugin.md | A:- | S:内容为空是刻意的，新增包需在此登记下载链接
 question.md[DG3L]: F:常见问题：菜单/工具获取、选区、导入导出、更新方式与进度显示 | R:code:docs/user/tools.md,code:docs/user/config.md | A:使用操作类与后台管理类 | S:工具获取方式与版本号描述必须与当前实现一致
 update.md[DG8L]: F:更新日志页：手动更新步骤与版本速览表 | R:code:CHANGELOG.md | A:如何更新与版本表 | S:版本表要随发版追加
