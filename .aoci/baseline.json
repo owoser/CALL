@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-10T05:51:09Z",
-  "updated_at": "2026-11-11T15:02:08Z",
+  "updated_at": "2026-11-11T15:18:48Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -65,15 +65,15 @@
     },
     "README.md": {
       "role": "index",
-      "sha256": "4f761d2cadab978833f1c10ae28279ceb81f5d43e328301f5832d6f3bcb6f626",
-      "size": 12042,
-      "normalized_sha256": "4f761d2cadab978833f1c10ae28279ceb81f5d43e328301f5832d6f3bcb6f626"
+      "sha256": "deadb456a22c07c6ca09bd547a5b5f623b540ab832482da7026c814b1212205e",
+      "size": 12134,
+      "normalized_sha256": "deadb456a22c07c6ca09bd547a5b5f623b540ab832482da7026c814b1212205e"
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "c59a603b790c96c3046879f28f35c726a204f1388a6fbc26bee088e9640bef53",
-      "size": 67227,
-      "normalized_sha256": "c59a603b790c96c3046879f28f35c726a204f1388a6fbc26bee088e9640bef53"
+      "sha256": "218ef2b827241d516398335bf7c6cd5746d3765fbb3932bb61b3292ff79d4c9c",
+      "size": 67262,
+      "normalized_sha256": "218ef2b827241d516398335bf7c6cd5746d3765fbb3932bb61b3292ff79d4c9c"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -1320,9 +1320,9 @@
     },
     "docs/other/debug.md": {
       "role": "index",
-      "sha256": "b9fe9ce53b40cc95f91fe2867664d7ea54f97f6c20b5c714cda7d6bac1347f70",
-      "size": 1730,
-      "normalized_sha256": "b9fe9ce53b40cc95f91fe2867664d7ea54f97f6c20b5c714cda7d6bac1347f70"
+      "sha256": "87244d256fbd53db2c98f5286e19181793c58664b25abb3f5293f426aa9c3905",
+      "size": 1716,
+      "normalized_sha256": "87244d256fbd53db2c98f5286e19181793c58664b25abb3f5293f426aa9c3905"
     },
     "docs/other/limitations.md": {
       "role": "index",
@@ -1416,9 +1416,9 @@
     },
     "docs/user/introduction.md": {
       "role": "index",
-      "sha256": "5bb08a91ba5cb9cb5a490564b9c2e30f911cd602819a2c0ec61a5876c356d545",
-      "size": 2025,
-      "normalized_sha256": "5bb08a91ba5cb9cb5a490564b9c2e30f911cd602819a2c0ec61a5876c356d545"
+      "sha256": "a29b1e665cd7be662c76119fb30a24104eb4a75f28cfa4217531703b1c6d34c9",
+      "size": 2249,
+      "normalized_sha256": "a29b1e665cd7be662c76119fb30a24104eb4a75f28cfa4217531703b1c6d34c9"
     },
     "docs/user/known-limitations.md": {
       "role": "index",
