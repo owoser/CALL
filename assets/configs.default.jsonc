@@ -668,7 +668,11 @@
     *
     * ###Whole-clipboard parse threshold (cells)###   (new in 3.7.0)
     */
-    "previewMaxCells": 800000,
+    // Replacing a chest/barrel/hopper/... makes the engine spill its contents on the ground. Pasting or
+  // undoing over such a container therefore leaves items behind; with this on, the items that the
+  // operation itself created are removed afterwards (pre-existing drops are never touched).
+  "sweepItemDrops": true,
+  "previewMaxCells": 800000,
 
     /*
     *   ###懒解析缓存切片数###   (3.7.0 新增)

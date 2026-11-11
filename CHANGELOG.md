@@ -15,6 +15,18 @@ fixes are based on.
 
 ### Added (3.9.5-beta1, HologramLib 450)
 
+### Fixed (3.9.5-beta1, undoing a chest no longer litters the ground)
+
+- Replacing a container block makes the engine treat it as destroyed and spill its contents, so an
+  undo (or a paste) over a filled chest left items all over the floor. Emptying the container first
+  does NOT work: the emptying write is itself the trigger (measured - the clear reported success and
+  the items still appeared).
+- The items an operation creates are now collected afterwards: the window is snapshotted before the
+  placement (items keyed by BLOCK position - `Entity.id` is 0 for dropped items on this build) and
+  the new ones are removed. The window is grown by 4 blocks because ejected items fly.
+- `sweepItemDrops` (new config key, default true) controls it. Items that existed before the
+  operation are never removed.
+
 ### Docs (3.9.5-beta1, paintings are out of scope)
 
 - **Entity support (paintings, item frames, mobs) is not implemented and will not be.** The capture

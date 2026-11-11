@@ -742,6 +742,49 @@ async function runSuite() {
         return chestStates + " | actor=" + actor + " | keys=" + keys + " | cells=" + layout.indices.length;
     });
 
+    // --- the items a container spills are cleaned up afterwards --------------
+    await checkAsync("ca.containerNoSpill", async () => {
+        const sweep = require(path.join(M.root, "core", "src", "structure", "ItemSweep.js"));
+        const placement = require(path.join(M.root, "core", "src", "structure", "StructurePlacement.js"));
+        const countItems = (x, y, z, r) => (mc.getEntities(new FloatPos(x + 0.5, y + 0.5, z + 0.5, DIM), r) || [])
+            .filter((e) => String(e.type) === "minecraft:item").length;
+
+        const p = spot(100);
+        fillBox(p.x, p.y, p.z, 3, 3, 3, "minecraft:air");
+        for (const e of (mc.getEntities(new FloatPos(p.x + 0.5, p.y + 0.5, p.z + 0.5, DIM), 12) || [])) {
+            try { e.remove(); } catch { }
+        }
+        mc.setBlock(p.x, p.y, p.z, DIM, "minecraft:chest", 0);
+        const chest = mc.getBlock(p.x, p.y, p.z, DIM);
+        assert(chest != null && /chest/.test(String(chest.type)), "chest placed");
+        chest.getBlockEntity().setNbt(NBT.parseSNBT(
+            '{id:"Chest",Items:[{Name:"minecraft:stone",Count:64b,Slot:0b},{Name:"minecraft:gold_ingot",Count:7b,Slot:1b}],Findable:0b}'));
+        const held = chest.getBlockEntity().getNbt().getTag("Items");
+        assert(held != null && held.getSize() === 2, "the chest holds 2 stacks");
+
+        const box = new M.Area3(new M.Pos3(p.x, p.y, p.z, DIM), new M.Pos3(p.x + 1, p.y + 1, p.z + 1, DIM));
+        const before = countItems(p.x, p.y, p.z, 12);
+        const snapshot = sweep.snapshotItemIds(box);
+        const sweptBefore = sweep.sweepStats().swept;
+
+        // Overwrite the chest with air through the path undo/paste use.
+        const layout = { size: [1, 1, 1], indices: new Int32Array([0]), palette: [{ name: "minecraft:air", states: {} }] };
+        await placement.placeLayoutAsync(layout, new M.Pos3(p.x, p.y, p.z, DIM), 1, { writeAir: true });
+        await new Promise((r) => setTimeout(r, 400));
+
+        const spilled = countItems(p.x, p.y, p.z, 12);
+        const removed = sweep.removeNewItems(box, snapshot);
+        await new Promise((r) => setTimeout(r, 300));
+        const after = countItems(p.x, p.y, p.z, 12);
+        for (const e of (mc.getEntities(new FloatPos(p.x + 0.5, p.y + 0.5, p.z + 0.5, DIM), 12) || [])) {
+            try { e.remove(); } catch { }
+        }
+        assert(spilled > before, "replacing a filled chest DOES spill first: " + before + " -> " + spilled);
+        assert(after < spilled, "the fresh drops are gone: " + spilled + " -> " + after + " (swept=" + removed + ")");
+        assert(sweep.sweepStats().swept >= sweptBefore + removed, "the sweep counter moved");
+        return "chest spilled " + (spilled - before) + ", swept " + removed + ", left " + after;
+    });
+
     // --- /structure save|load: blocks AND entities --------------------------
     await checkAsync("ca.structureCommands", async () => {
         const Cmd = require(path.join(M.root, "core", "src", "game", "Cmd.js"));

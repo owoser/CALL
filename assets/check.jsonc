@@ -230,7 +230,12 @@
             "min": 2,
             "max": 32
         },
-        "previewMaxCells": {
+        "sweepItemDrops": {
+    "type": "boolean",
+    "default": true,
+    "description": "粘贴/撤销覆盖带物品的容器后，清掉本次操作自己产生的掉落物（不动玩家原有的掉落物）。"
+  },
+  "previewMaxCells": {
             "type": "number",
             "min": 40000,
             "max": 4000000
