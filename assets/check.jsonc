@@ -1,369 +1,312 @@
 {
-    "configs": {
-        "enable": {
-            "type": "boolean"
-        },
-        "permission": {
-            "type": "enum",
-            "values": [
-                "all",
-                "op",
-                "customize"
-            ]
-        },
-        "consoleLanguage": {
-            "type": "enum",
-            "values": [
-                "zh_CN",
-                "zh_TW",
-                "en_US",
-                "ru_RU"
-            ]
-        },
-        "autoUpdate": {
-            "type": "boolean"
-        },
-        "updateFrom": {
-            "type": "enum",
-            "values": [
-                "github",
-                "minebbs"
-            ]
-        },
-        "debugMod": {
-            "type": "boolean"
-        },
-        "displayLogo": {
-            "type": "boolean"
-        },
-        "maxSaveStructure": {
-            "type": "number",
-            "min": 0,
-            "max": 200
-        },
-        "maxUndoStep": {
-            "type": "number",
-            "min": 0,
-            "max": 100
-        },
-        "viewMaxDistance": {
-            "type": "number",
-            "min": 1,
-            "max": 300
-        },
-        "maxLoadCheckNum": {
-            "type": "number",
-            "min": 1,
-            "max": 50
-        },
-        "traversalWaitTime": {
-            "type": "number",
-            "min": 0,
-            "max": 10000
-        },
-        "fillWaitTime": {
-            "type": "number",
-            "min": 0,
-            "max": 1000
-        },
-        "default.enable": {
-            "type": "boolean"
-        },
-        "default.barReplace": {
-            "type": "number",
-            "min": 0,
-            "max": 10
-        },
-        "default.barReplaced": {
-            "type": "number",
-            "min": 0,
-            "max": 10
-        },
-        "default.saveArea": {
-            "type": "boolean"
-        },
-        "default.saveUndo": {
-            "type": "boolean"
-        },
-        "default.saveCopy": {
-            "type": "boolean"
-        },
-        "default.saveEntity": {
-            "type": "boolean"
-        },
-        "default.areaTextShow": {
-            "type": "boolean"
-        },
-        "default.displayArea": {
-            "type": "boolean"
-        },
-        "default.displayProgressBar": {
-            "type": "boolean"
-        },
-        "default.loadChuckTip": {
-            "type": "boolean"
-        },
-        "default.textureSelectorMode": {
-            "type": "boolean"
-        },
-        "areaDisplayMode": {
-            "type": "enum",
-            "values": [
-                "wireframe",
-                "particle",
-                "text",
-                "structure_block",
-                "off"
-            ]
-        },
-        "toolItems": {
-            "type": "boolean"
-        },
-        "toolAirClick": {
-            "type": "boolean"
-        },
-        "toolSwingPollMs": {
-            "type": "number",
-            "min": 100,
-            "max": 1000
-        },
-        "wireframeResetAll": {
-            "type": "boolean"
-        },
-        "wireframeTtlSeconds": {
-            "type": "number",
-            "min": 0,
-            "max": 120
-        },
-        "wireframeParkBeforeDestroy": {
-            "type": "boolean"
-        },
-        "previewTimeout": {
-            "type": "number",
-            "min": 10,
-            "max": 600
-        },
-        "previewMode": {
-            "type": "enum",
-            "values": [
-                "ghost",
-                "wireframe"
-            ]
-        },
-        "previewPivot": {
-            "type": "enum",
-            "values": [
-                "inplace",
-                "anchor"
-            ]
-        },
-        "previewMaxBlocks": {
-            "type": "number",
-            "min": 200,
-            "max": 200000
-        },
-        "previewBatchSize": {
-            "type": "number",
-            "min": 50,
-            "max": 5000
-        },
-        "previewViewDistance": {
-            "type": "number",
-            "min": 16,
-            "max": 256
-        },
-        "previewBlockScale": {
-            "type": "string"
-        },
-        "previewBlockOffsetY": {
-            "type": "string"
-        },
-        "previewBlockYCorrection": {
-            "type": "number",
-            "min": -8,
-            "max": 8
-        },
-        "holoMaxRenderDistance": {
-            "type": "number",
-            "min": 16,
-            "max": 512
-        },
-        "areaTextTipInterval": {
-            "type": "number",
-            "min": 250,
-            "max": 10000
-        },
-        "maxPlaceBlocks": {
-            "type": "number",
-            "min": 1000,
-            "max": 200000
-        },
-        "placeBatchBlocks": {
-            "type": "number",
-            "min": 50,
-            "max": 5000
-        },
-        "maxRestoreBlocks": {
-            "type": "number",
-            "min": 40000,
-            "max": 20000000
-        },
-        "chunkLoader": {
-            "type": "enum",
-            "values": [
-                "tickingarea",
-                "none"
-            ]
-        },
-        "chunkLoadTimeout": {
-            "type": "number",
-            "min": 500,
-            "max": 60000
-        },
-        "previewRadius": {
-            "type": "number",
-            "min": 16,
-            "max": 192
-        },
-        "previewUpdateDistance": {
-            "type": "number",
-            "min": 2,
-            "max": 32
-        },
-        "silentContainerClear": {
-    "type": "boolean",
-    "default": true,
-    "description": "粘贴/撤销覆盖带物品的容器前，用容器 API 清空其内容，避免替换方块时把物品全掉到地上。"
-  },
-  "previewNearRadius": {
-    "type": "number",
-    "default": 5,
-    "description": "预览时玩家靠近多少格内的假方块变成可穿过的硫磺立方体；0 = 关闭。"
-  },
-  "previewNearInvisible": {
-    "type": "boolean",
-    "default": true,
-    "description": "可穿过的立方体是否隐身（true = 方块看着没变，但能直接穿过去）。"
-  },
-  "previewNearScale": {
-    "type": "number",
-    "default": 1,
-    "description": "靠近可穿的硫磺立方体缩放，1 = 正常大小（0.0625 - 10）。方块看着像微缩模型时调大。"
-  },
-  "previewNearYOffset": {
-    "type": "number",
-    "default": 0,
-    "description": "可穿方块模型的额外垂直偏移（单位：格），叠加在内置实测基准 -0.09 之上；0 = 与真方块齐平。"
-  },
-  "previewNearCells": {
-    "type": "number",
-    "default": 512,
-    "description": "单次注册的可穿格子上限（库每次调用会整体替换该玩家的集合，且受字符串参数上限约束）。"
-  },
-  "previewMaxCells": {
-            "type": "number",
-            "min": 40000,
-            "max": 4000000
-        },
-        "previewSliceCache": {
-            "type": "number",
-            "min": 2,
-            "max": 64
-        },
-        "previewPrefetch": {
-            "type": "number",
-            "min": 0,
-            "max": 64
-        },
-        "previewOutline": {
-            "type": "boolean"
-        },
-        "previewOutlineStep": {
-            "type": "number",
-            "min": 2,
-            "max": 32
-        },
-        "previewTickBudgetMs": {
-            "type": "number",
-            "min": 2,
-            "max": 20
-        },
-        "previewBatchMode": {
-            "type": "enum",
-            "values": ["auto", "off"]
-        },
-        "previewBatchCells": {
-            "type": "number",
-            "min": 128,
-            "max": 4096
-        },
-        "previewBatchImmediate": {
-            "type": "number",
-            "min": 0,
-            "max": 1024
-        },
-        "previewBatchPerTick": {
-            "type": "number",
-            "min": 2,
-            "max": 8
-        },
-        "previewResendSeconds": {
-            "type": "number",
-            "min": 0,
-            "max": 120
-        },
-        "previewBatchQueueMax": {
-            "type": "number",
-            "min": 0,
-            "max": 128
-        },
-        "previewBlockEntity": {
-            "type": "boolean"
-        },
-        "previewBlockEntityMax": {
-            "type": "number",
-            "min": 0,
-            "max": 512
-        },
-        "pasteSyncBlockEntities": {
-            "type": "enum",
-            "values": [
-                "off",
-                "fake"
-            ]
-        },
-        "pasteSyncRadius": {
-            "type": "number",
-            "min": 16,
-            "max": 256
-        },
-        "pasteSyncMax": {
-            "type": "number",
-            "min": 0,
-            "max": 4096
-        },
-        "previewCountdown": {
-            "type": "enum",
-            "values": [
-                "auto",
-                "always",
-                "off"
-            ]
-        },
-        "previewCountdownHud": {
-            "type": "enum",
-            "values": [
-                "auto",
-                "bar",
-                "actionbar"
-            ]
-        },
-        "previewBossBarRebuild": {
-            "type": "boolean"
-        },
-        "suvivalModeActive": {
-            "type": "boolean"
-        }
+  "version": 10,
+  "configs": {
+    "enable": {
+      "type": "boolean"
     },
-    "version": 9
+    "permission": {
+      "type": "enum",
+      "values": [
+        "all",
+        "op",
+        "customize"
+      ]
+    },
+    "suvivalModeActive": {
+      "type": "boolean"
+    },
+    "consoleLanguage": {
+      "type": "enum",
+      "values": [
+        "zh_CN",
+        "zh_TW",
+        "en_US",
+        "ru_RU"
+      ]
+    },
+    "autoUpdate": {
+      "type": "boolean"
+    },
+    "updateFrom": {
+      "type": "enum",
+      "values": [
+        "github",
+        "minebbs"
+      ]
+    },
+    "debugMod": {
+      "type": "boolean"
+    },
+    "displayLogo": {
+      "type": "boolean"
+    },
+    "maxSaveStructure": {
+      "type": "number"
+    },
+    "maxUndoStep": {
+      "type": "number",
+      "min": 0,
+      "max": 50
+    },
+    "maxPlaceBlocks": {
+      "type": "number"
+    },
+    "placeBatchBlocks": {
+      "type": "number"
+    },
+    "maxRestoreBlocks": {
+      "type": "number"
+    },
+    "traversalWaitTime": {
+      "type": "number"
+    },
+    "fillWaitTime": {
+      "type": "number"
+    },
+    "chunkLoader": {
+      "type": "enum",
+      "values": [
+        "tickingarea"
+      ]
+    },
+    "chunkLoadTimeout": {
+      "type": "number"
+    },
+    "maxLoadCheckNum": {
+      "type": "number"
+    },
+    "toolItems": {
+      "type": "boolean"
+    },
+    "toolAirClick": {
+      "type": "boolean"
+    },
+    "toolSwingPollMs": {
+      "type": "number"
+    },
+    "areaDisplayMode": {
+      "type": "enum",
+      "values": [
+        "wireframe",
+        "none"
+      ]
+    },
+    "areaTextTipInterval": {
+      "type": "number"
+    },
+    "viewMaxDistance": {
+      "type": "number"
+    },
+    "wireframeResetAll": {
+      "type": "boolean"
+    },
+    "wireframeTtlSeconds": {
+      "type": "number"
+    },
+    "wireframeParkBeforeDestroy": {
+      "type": "boolean"
+    },
+    "previewMode": {
+      "type": "enum",
+      "values": [
+        "ghost",
+        "fake"
+      ]
+    },
+    "previewCountdown": {
+      "type": "enum",
+      "values": [
+        "always",
+        "never",
+        "op"
+      ]
+    },
+    "previewCountdownHud": {
+      "type": "enum",
+      "values": [
+        "auto",
+        "hud",
+        "bossbar"
+      ]
+    },
+    "previewTimeout": {
+      "type": "number",
+      "min": 0,
+      "max": 3600
+    },
+    "previewPivot": {
+      "type": "enum",
+      "values": [
+        "inplace",
+        "corner"
+      ]
+    },
+    "previewMaxBlocks": {
+      "type": "number"
+    },
+    "previewRadius": {
+      "type": "number"
+    },
+    "previewUpdateDistance": {
+      "type": "number"
+    },
+    "previewViewDistance": {
+      "type": "number"
+    },
+    "previewSliceCache": {
+      "type": "number"
+    },
+    "previewPrefetch": {
+      "type": "number"
+    },
+    "previewOutline": {
+      "type": "boolean"
+    },
+    "previewOutlineStep": {
+      "type": "number"
+    },
+    "previewTickBudgetMs": {
+      "type": "number"
+    },
+    "previewResendSeconds": {
+      "type": "number"
+    },
+    "previewBatchMode": {
+      "type": "enum",
+      "values": [
+        "auto",
+        "on",
+        "off"
+      ]
+    },
+    "previewBatchCells": {
+      "type": "number",
+      "min": 1,
+      "max": 1024
+    },
+    "previewBatchImmediate": {
+      "type": "number"
+    },
+    "previewBatchPerTick": {
+      "type": "number",
+      "min": 1,
+      "max": 8
+    },
+    "previewBatchQueueMax": {
+      "type": "number"
+    },
+    "previewBatchSize": {
+      "type": "number"
+    },
+    "previewBossBarRebuild": {
+      "type": "boolean"
+    },
+    "previewBlockEntity": {
+      "type": "boolean"
+    },
+    "previewBlockEntityMax": {
+      "type": "number"
+    },
+    "previewBlockScale": {
+      "type": "string"
+    },
+    "previewBlockOffsetY": {
+      "type": "string"
+    },
+    "previewBlockYCorrection": {
+      "type": "number"
+    },
+    "holoMaxRenderDistance": {
+      "type": "number"
+    },
+    "previewNearRadius": {
+      "type": "number",
+      "min": 0,
+      "max": 16
+    },
+    "previewNearInvisible": {
+      "type": "boolean"
+    },
+    "previewNearScale": {
+      "type": "number",
+      "min": 0.0625,
+      "max": 10
+    },
+    "previewNearYOffset": {
+      "type": "number",
+      "min": -1,
+      "max": 1
+    },
+    "previewNearCells": {
+      "type": "number",
+      "min": 64,
+      "max": 2048
+    },
+    "previewMaxCells": {
+      "type": "number",
+      "min": 40000,
+      "max": 4000000
+    },
+    "pasteSyncBlockEntities": {
+      "type": "enum",
+      "values": [
+        "fake",
+        "none"
+      ]
+    },
+    "pasteSyncRadius": {
+      "type": "number"
+    },
+    "pasteSyncMax": {
+      "type": "number"
+    },
+    "silentContainerClear": {
+      "type": "boolean"
+    },
+    "default.enable": {
+      "type": "boolean"
+    },
+    "default.barReplace": {
+      "type": "number"
+    },
+    "default.barReplaced": {
+      "type": "number"
+    },
+    "default.saveArea": {
+      "type": "boolean"
+    },
+    "default.saveUndo": {
+      "type": "boolean"
+    },
+    "default.saveCopy": {
+      "type": "boolean"
+    },
+    "default.saveEntity": {
+      "type": "boolean"
+    },
+    "default.areaTextShow": {
+      "type": "boolean"
+    },
+    "default.displayArea": {
+      "type": "boolean"
+    },
+    "default.displayProgressBar": {
+      "type": "boolean"
+    },
+    "default.loadChuckTip": {
+      "type": "boolean"
+    },
+    "default.textureSelectorMode": {
+      "type": "boolean"
+    },
+    "default.texture": {
+      "type": "object"
+    },
+    "default.items": {
+      "type": "object"
+    },
+    "default.area": {
+      "type": "object"
+    }
+  }
 }

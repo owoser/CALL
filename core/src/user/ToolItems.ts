@@ -279,13 +279,35 @@ export class ToolItems {
      * Only the ids we ship are touched, and only when the entry is missing, so a player who
      * rebound (or removed) something keeps their choice.
      */
+    /**
+     * Drop bindings for items CALL does not ship.
+     *
+     * The old template bound vanilla items (stick, clock, wooden_axe, ...), so right-clicking a stick
+     * still opened a menu on servers that upgraded. Only `call:*` ids are honoured now; anything else
+     * is removed from the player's settings (and from configs.json on startup).
+     */
+    public static stripForeignBindings(settings: any): number {
+        let removed = 0;
+        for (const kind of ["onUseItemOn", "onStartDestroyBlock"]) {
+            const table = settings?.items?.[kind];
+            if (table == null || typeof table !== "object") continue;
+            for (const id of Object.keys(table)) {
+                if (id.startsWith("call:")) continue;
+                delete table[id];
+                removed++;
+            }
+        }
+        return removed;
+    }
+
     public static migrateBindings(settings: any): boolean {
         const posfFixed = ToolItems.migratePosfBindings(settings) > 0;
+        const foreign = ToolItems.stripForeignBindings(settings) > 0;
         // The SHIPPED template is the source of truth for our own items: `default.items` in
         // configs.json is written once and never grows, so a tool released later would have
         // no binding to copy no matter how often the player reconnects.
         const merged = mergeToolBindings(settings, { items: Config.toolBindingDefaults() }, TOOL_IDS);
-        return merged || posfFixed;
+        return merged || posfFixed || foreign;
     }
 
     /**
@@ -303,6 +325,13 @@ export class ToolItems {
             // Old configs bound their wands with `${posf.x}` (the FACE plane of the clicked
             // block), which is why every wand selected the neighbouring block. Rewrite those
             // bindings once; the player copies in `players.*` are migrated on their next click.
+            // Vanilla bindings from the old template are removed for good (the click path only
+            // honours call:* ids, so leaving them in the file would just be dead config).
+            const stripped = ToolItems.stripForeignBindings({ items: live });
+            if (stripped > 0) {
+                Config.set(Config.GLOBAL, "default.items", live);
+                try { logger.info("已从 default.items 移除 " + stripped + " 条非 CALL 物品绑定"); } catch { /* early */ }
+            }
             const fixed = migratePosfBindings({ items: live });
             if (fixed > 0) {
                 Config.set(Config.GLOBAL, "default.items", live);

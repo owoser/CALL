@@ -15,6 +15,17 @@ fixes are based on.
 
 ### Added (3.9.5-beta1, HologramLib 450)
 
+### Changed (3.9.5-beta1, a tighter config file that only binds CALL's own items)
+
+- `configs.json` went from ~940 lines of bilingual comment blocks to ~270 lines: grouped sections
+  (基础 / 结构 / 工具 / 选区 / 预览 / 粘贴), one Chinese line per key, and a compact `default` block.
+  `version` is now 10, so an existing file is merged in place (your values win).
+- **Vanilla item bindings are gone.** The old template bound `minecraft:stick`, `clock`,
+  `wooden_axe` and friends, so right-clicking a stick still opened a menu. Only `call:*` ids are
+  honoured now; startup removes the leftovers from `default.items` and every player's settings.
+- `assets/check.jsonc` is regenerated from the template (one spec per key, enums/ranges kept), so
+  the two files can no longer drift into the mixed shape they had.
+
 ### Changed (3.9.5-beta1, console log prefixes)
 
 - The host already prints `[CALL] ` in front of every line, so our messages no longer repeat it:
