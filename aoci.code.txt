@@ -5,7 +5,7 @@
 .gitignore[FC5T]: F:忽略 node_modules、dist 产物、CALL-CLI 的 bin/obj 与本地草稿日志，并注明 types/lse 是刻意入库 | R:code:package.json | A:- | S:types/lse 虽是 fetch-types 生成却必须入库，忽略它会同时破坏 typecheck 与类型契约
 .prettierrc[FC3T]: F:Prettier 格式约定：双引号、分号、4 空格缩进、80 列 | R:- | A:- | S:只有格式约定无强制 lint；改 tabWidth 会波及全仓 TS 缩进，应单独提交
 AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线、发版门禁、提交闸门、日志前缀约定）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:[CALL] 前缀由宿主加；调试走 util/Log.ts 的 dbg()
-CHANGELOG.md[SC8L]: F:版本史：逐版本记录修复与变更（截断、维度、状态命名、容器清空、靠近可穿、日志前缀、配置精简） | R:code:README.md | A:顶部 3.9.5-beta1 各段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
+CHANGELOG.md[SC8L]: F:版本史：逐版本记录修复与变更（截断、维度、状态命名、容器清空、靠近可穿、日志前缀、配置精简、工具绑定兜底） | R:code:README.md | A:顶部 3.9.5-beta1 各段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
 LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
 README.md[SC8M]: F:对外说明：fork 缘由、版本矩阵（含可选 HologramLib）、内置工具、构建与真机测试、参考链接 | R:code:CHANGELOG.md,code:docs/user/install.md | A:Why this fork exists、References | S:版本矩阵与发版门禁口径须与 docs/ 一致，改一处两处同步
 build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
@@ -224,7 +224,7 @@ Players.ts[CA9L]: F:玩家查询与指令分发：按名称/xuid 取玩家、跑
 SettingsOperation.ts[EU7T]: F:/ca setting：读写玩家设置，禁止修改 enable、displayPos、area 三个受保护键 | R:code:core/src/temp/Data.ts | A:forbidModifyKeys | S:受保护键是防呆设计，放开会让启用开关与选区状态被脚本覆盖
 SwingWatcher.ts[SW8L]: F:挥动检测：swing 计数与"工具触发/放置"去重，避免重复触发 | R:code:core/src/holo/HoloCompat.ts | A:noteHandled、count、reset、statsOf | S:与 onDropItem/onTakeItem 联动，不要重复计数
 ToolItems.ts[AU8L]: F:内置工具物品与绑定维护：默认绑定合并、${posf} 迁移、清理非 call:* 绑定、调试输出 | R:code:core/src/holo/HoloCompat.ts,code:core/src/common/Config.ts | A:TOOL_IDS、migrateBindings、stripForeignBindings、healDefaultBindings、debug | S:只认 call:* 物品；原版物品绑定必须被清除而不是保留
-ToolOperation.ts[AU6L]: F:工具操作：注册/获取/给予工具项并绑定动作 | R:code:core/src/user/ToolItems.ts | A:give、register、handle | S:工具 id 与动作表必须一致
+ToolOperation.ts[TU9L]: F:工具点击：绑定查找（两张表互为兜底）、命令翻译与执行、绑定/解绑指令与未绑定提示 | R:code:core/src/user/ToolItems.ts | A:onClick、matchBinding、bind、unbind、warnUnbound、cmdsTranslator | S:点方块=LEFT 表、点空气=RIGHT 表，CALL 工具必须互相兜底否则误报未绑定
 
 ===E:/code/LL3/Plugins/CALL/core/src/util/===
 Common.ts[CG2T]: F:通用构造器类型别名 Constructor<T>，供 mixin 与反射式构造使用 | R:- | A:- | S:纯类型无运行时实现，改签名会影响所有依赖它的构造调用
@@ -270,7 +270,7 @@ index.html[SV5T]: F:文档站外壳：本地化 docsify 资源与初始化配置
 architecture.md[SG8S]: F:平台坑机制：七条铁律、坐标语义、预览选型与实测，含 SNBT 自写序列化、取消清理时序与批量排队覆盖即时写 | R:code:docs/dev/pitfalls.md,code:docs/ARCHITECTURE.md | A:第 9 节坐标、第 10 节预览与实测表 | S:与 AGENTS.md 和 docs/ARCHITECTURE.md 重叠，改一处须三处同步
 plugin.md[SG6M]: F:形状包开发须知：文件结构、必须导出的定义、参数与命令生成流程 | R:code:docs/dev/shape.md | A:形状包开发 | S:包必须含一个 js 入口定义包名与形状数组，缺任一字段即不会被加载
 shape.md[SG6L]: F:形状包 API：export_cmd 生成函数与表单函数的签名、参数与示例 | R:code:docs/dev/plugin.md | A:导出函数 | S:签名与 Plugin.ts 的 IPlugin 契约绑定，参数顺序变更属破坏性改动
-pitfalls.md[SG9T]: F:真机台账：A–G 分类症状到根因到验证，含 C33 容器清空、C34–C39 靠近可穿、C40 旋转残留 | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式，否则下次仍靠肉眼猜
+pitfalls.md[SG9T]: F:真机台账：A–G 分类症状到根因到验证，含 C33 容器清空、C34–C40 靠近可穿/残留、C41 工具绑定兜底 | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式，否则下次仍靠肉眼猜
 release.md[SG7T]: F:发版规范：触发授权、前置闸门清单（含 check:version）、版本策略、产物约定、单次发布步骤、事故恢复与禁止项 | R:code:scripts/check-version.mjs,code:CHANGELOG.md | A:第 3 节前置清单、第 5 节发布动作、第 8 节禁止项 | S:未获维护者明确指令不得发版；发布包不入库；变更日志顶部段落须等于当前版本
 
 ===E:/code/LL3/Plugins/CALL/docs/other/===

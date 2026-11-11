@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-10T05:51:09Z",
-  "updated_at": "2026-11-11T13:55:45Z",
+  "updated_at": "2026-11-11T14:36:33Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -53,9 +53,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "733dc4c1978f020817ae460c7f0ee5921d2a60e89489ff063faafda51f19a1f5",
-      "size": 109270,
-      "normalized_sha256": "733dc4c1978f020817ae460c7f0ee5921d2a60e89489ff063faafda51f19a1f5"
+      "sha256": "d99bd58742154aedb39a656a47318b2671cb1379d68b5b0f38bf8089897a65b8",
+      "size": 109873,
+      "normalized_sha256": "d99bd58742154aedb39a656a47318b2671cb1379d68b5b0f38bf8089897a65b8"
     },
     "LICENSE": {
       "role": "index",
@@ -71,9 +71,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "91d15f28d37430feaf41a518018f2ea7c2579a45f0b822541ff841c1533e3dd1",
-      "size": 67650,
-      "normalized_sha256": "91d15f28d37430feaf41a518018f2ea7c2579a45f0b822541ff841c1533e3dd1"
+      "sha256": "32ce935e919ac4f791dc8ca69fa5a04d362368cedce99809197957ad0b8e87e0",
+      "size": 67847,
+      "normalized_sha256": "32ce935e919ac4f791dc8ca69fa5a04d362368cedce99809197957ad0b8e87e0"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -1042,9 +1042,9 @@
     },
     "core/src/user/ToolOperation.ts": {
       "role": "index",
-      "sha256": "20df848f74fa8d47c2c649e6350d9519e216fcbeac0e27e5d8a21907a28af0d6",
-      "size": 22512,
-      "normalized_sha256": "d85e8b26fe1e58f061d1f549e2fd164c318ebb4f17acc96b9aa37592f60d0f67"
+      "sha256": "76da0a329320edfdea8de564fdf0664b4d99219aa41d1bb3eb83821a5a9ee4e6",
+      "size": 23354,
+      "normalized_sha256": "733273cb7b6c33974ef41b8e63bc7c22e8cbb26fd46ad35431352f90d466598d"
     },
     "core/src/util/Common.ts": {
       "role": "index",
@@ -1245,9 +1245,9 @@
     },
     "docs/dev/pitfalls.md": {
       "role": "index",
-      "sha256": "4c99ecf92afbfe93231469f706066a61be0315d0e8d9cd728db38da6bce46238",
-      "size": 29255,
-      "normalized_sha256": "4c99ecf92afbfe93231469f706066a61be0315d0e8d9cd728db38da6bce46238"
+      "sha256": "a47b8f51b2ca5d9df11d21518e1786f02e36f329180fb33c21d411aa2628c79f",
+      "size": 29872,
+      "normalized_sha256": "a47b8f51b2ca5d9df11d21518e1786f02e36f329180fb33c21d411aa2628c79f"
     },
     "docs/dev/plugin.md": {
       "role": "index",
@@ -1836,9 +1836,9 @@
     },
     "tests/unit/wiring.test.mjs": {
       "role": "observe",
-      "sha256": "a5df5796dc44de60a2e917ee9eaa2018e866b576501f3d6cef7ee51f5a0fcf05",
-      "size": 19426,
-      "normalized_sha256": "a5df5796dc44de60a2e917ee9eaa2018e866b576501f3d6cef7ee51f5a0fcf05"
+      "sha256": "607256a988734c86d73c8ad342ec55c9f9540a8b440d7c026871d8f0b2588f88",
+      "size": 20269,
+      "normalized_sha256": "607256a988734c86d73c8ad342ec55c9f9540a8b440d7c026871d8f0b2588f88"
     },
     "tooth.json": {
       "role": "index",
