@@ -282,6 +282,23 @@ const UseItem = "onUseItem";
 
         // Left-click detection (see SwingWatcher): HologramLib counts client swings, we turn a
         // swing that was not followed by a block/entity click into "clicked air".
+        // Dropping (Q) and picking up also swing the arm, and the swing was read as "left click on
+        // air", which fired whatever tool the player was holding. Both are ordinary inventory
+        // actions: claim the swing so the ticker does not dispatch it.
+        for (const eventName of ["onDropItem", "onTakeItem"]) {
+            try {
+                mc.listen(eventName as any, (player: Player) => {
+                    safeCall(eventName, () => {
+                        if (player == null) return;
+                        const caPlayer = Players.getCAPlayer(player.xuid);
+                        if (caPlayer != null) SwingWatcher.noteHandled(caPlayer);
+                    });
+                });
+            } catch {
+                // older LSE without the event: the ticker just sees the extra swing
+            }
+        }
+
         mc.listen("onAttackBlock", (player: Player) => {
             safeCall("onAttackBlock.note", () => {
                 const caPlayer = player == null ? null : Players.getCAPlayer(player.xuid);

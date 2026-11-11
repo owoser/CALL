@@ -701,6 +701,63 @@ async function runSuite() {
         return "banner round-tripped with patterns: " + pastedSnbt.slice(0, 90);
     });
 
+    // --- engine facts: block state keys, entity capture, /structure ----------
+    await checkAsync("ca.stateKeysProbe", async () => {
+        const Cmd = require(path.join(M.root, "core", "src", "game", "Cmd.js"));
+        const p = spot(36);
+        fillBox(p.x, p.y, p.z, 6, 2, 6, "minecraft:air");
+        Cmd.runNow("/setblock " + (p.x + 1) + " " + p.y + " " + (p.z + 1) + " minecraft:chest replace");
+        const chest = mc.getBlock(p.x + 1, p.y, p.z + 1, DIM);
+        const chestStates = chest == null ? "(null)" : String(chest.type) + statesOf(chest);
+        assert(/"minecraft:cardinal_direction"\s*=/.test(chestStates),
+            "chest state key is namespaced (StateRemap must strip minecraft:): " + chestStates);
+
+        // The engine captures entities into the structure NBT even though NbtCodec ignores them.
+        const area = new M.Area3(new M.Pos3(p.x, p.y, p.z, DIM), new M.Pos3(p.x + 5, p.y + 1, p.z + 5, DIM));
+        M.NBTService.save("calltest_probe", area);
+        const bytes = M.NBTService.readBytes("calltest_probe");
+        M.NBTService.del("calltest_probe");
+        assert(bytes.toString("latin1").indexOf("entities") >= 0,
+            "the captured structure carries an entities key");
+        const codec = require(path.join(M.root, "core", "src", "io", "NbtCodec.js"));
+        const layout = codec.parseStructureLayout(bytes);
+        assert(layout.indices.length > 0, "the layout parses (entities are simply not read yet)");
+        return chestStates + " | entities key present, layout cells=" + layout.indices.length;
+    });
+
+    // --- /structure save|load: blocks AND entities --------------------------
+    await checkAsync("ca.structureCommands", async () => {
+        const Cmd = require(path.join(M.root, "core", "src", "game", "Cmd.js"));
+        const p = spot(64);
+        const run = (c) => { try { return mc.runcmdEx(c); } catch (e) { return { success: false, output: String(e) }; } };
+        fillBox(p.x, p.y - 1, p.z, 10, 6, 10, "minecraft:air");
+        Cmd.runNow("/fill " + (p.x - 1) + " " + (p.y - 1) + " " + (p.z - 1) + " " + (p.x + 8) + " " + (p.y - 1) + " " + (p.z + 8) + " minecraft:stone");
+        Cmd.runNow("/fill " + (p.x + 1) + " " + p.y + " " + (p.z + 1) + " " + (p.x + 3) + " " + p.y + " " + (p.z + 3) + " minecraft:gold_block");
+
+        const save = run("/structure save calltest_s1 " + (p.x + 1) + " " + p.y + " " + (p.z + 1) + " " + (p.x + 3) + " " + p.y + " " + (p.z + 3));
+        assert(save.success === true, "/structure save must work: " + String(save.output));
+
+        Cmd.runNow("/fill " + (p.x + 1) + " " + p.y + " " + (p.z + 1) + " " + (p.x + 3) + " " + p.y + " " + (p.z + 3) + " minecraft:air");
+        const load = run("/structure load calltest_s1 " + (p.x + 1) + " " + (p.y + 3) + " " + (p.z + 1));
+        assert(load.success === true, "/structure load must work: " + String(load.output));
+        const blk = mc.getBlock(p.x + 2, p.y + 3, p.z + 2, DIM);
+        assert(blk != null && /gold_block/.test(String(blk.type)), "the loaded block is back: " + String(blk && blk.type));
+
+        // Entities: save with includesEntities, delete the entity, load it back.
+        const stand = mc.spawnMob("minecraft:armor_stand", p.x + 6.5, p.y, p.z + 2.5, DIM);
+        assert(stand != null, "an armor stand could be spawned for the entity round-trip");
+        const save2 = run("/structure save calltest_s2 " + (p.x + 5) + " " + p.y + " " + (p.z + 1) + " " + (p.x + 7) + " " + (p.y + 2) + " " + (p.z + 4) + " true");
+        assert(save2.success === true, "entity save: " + String(save2.output));
+        try { stand.remove(); } catch { }
+        const load2 = run("/structure load calltest_s2 " + (p.x + 5) + " " + p.y + " " + (p.z + 6) + " 0_degrees none true");
+        assert(load2.success === true, "entity load: " + String(load2.output));
+        const back = (mc.getEntities(new FloatPos(p.x + 6.5, p.y + 1, p.z + 7.5, DIM), 8) || [])
+            .filter((e) => /armor_stand/.test(String(e.type)));
+        assert(back.length > 0, "the entity came back through /structure save + load");
+        for (const e of back) { try { e.remove(); } catch { } }
+        return "blocks+entities round-tripped through /structure (" + String(load.output) + ")";
+    });
+
     // --- a cross-dimension selection is dropped, not thrown ------------------
     await checkAsync("ca.dimensionSelection", async () => {
         const AreaOperation = require(path.join(M.root, "core", "src", "structure", "AreaOperation.js")).default;

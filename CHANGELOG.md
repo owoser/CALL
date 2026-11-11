@@ -25,6 +25,22 @@ fixes are based on.
 - **`/ca tools debug`** now prints the HologramLib capability matrix and resolves a sample stair
   through both resolvers, which is what told us the string resolver is name-only.
 
+### Fixed (3.9.5-beta1, namespaced states, drop/pickup, waiting)
+
+- **A namespaced state key was dropped, which is why a chest always faced one way.** `blockSnbtOf()`
+  filters keys with `[A-Za-z0-9_.-]`, so `minecraft:cardinal_direction` (what a chest actually
+  reports - measured) never reached the SNBT. With no states left the cell fell back to the batch
+  path and the client drew the default orientation. The ':' is now allowed, the remap strips the
+  namespace before its table lookup, `cardinal_direction` accepts the STRING form ("north"/...),
+  and `direction` (doors, trapdoors, fence gates) uses the same four-way table.
+- **Dropping or picking up an item no longer fires the held tool.** Both swing the arm, and the
+  swing ticker read that as a left click on air. `onDropItem` / `onTakeItem` now claim the swing the
+  same way a right click does.
+- **"Operation in progress" is a message, not an exception.** It used to be `throw`n inside the
+  command callback, so every impatient click printed a stack trace in the console (the tool path
+  runs commands through `Player.runcmd`). It is a player-facing tip now, and the tool dispatch
+  catches whatever else escapes.
+
 ### Fixed (3.9.5-beta1, selections and rollbacks across dimensions)
 
 - **Changing dimension no longer breaks selecting.** A selection keeps one corner per click; a

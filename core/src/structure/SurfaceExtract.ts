@@ -92,7 +92,10 @@ export function blockSnbtOf(entry: { name: string; states?: Record<string, any> 
     if (states == null || Object.keys(states).length === 0) return "";
     const pairs: string[] = [];
     for (const key of Object.keys(states)) {
-        if (!/^[A-Za-z0-9_.\-]+$/.test(key)) continue;
+        // A state key may be NAMESPACED: a chest reports "minecraft:cardinal_direction", and
+        // dropping it (the ':' used to fail this filter) left the entry with no states at all, so the
+        // cell fell back to the batch path and always faced the same way.
+        if (!/^[A-Za-z0-9_.:\-]+$/.test(key)) continue;
         const raw = (states as any)[key];
         const tag = raw != null && typeof raw === "object" && "type" in raw ? raw : null;
         const value = tag != null ? tag.value : raw;
@@ -127,7 +130,10 @@ export function descriptorOf(entry: { name: string; states?: Record<string, any>
         else if (kind === 5 || kind === 6) text = String(Number(value));
         else text = String(value);
         // A key with a separator would corrupt the descriptor: drop that state instead.
-        if (!/^[A-Za-z0-9_.\-]+$/.test(key)) continue;
+        // A state key may be NAMESPACED: a chest reports "minecraft:cardinal_direction", and
+        // dropping it (the ':' used to fail this filter) left the entry with no states at all, so the
+        // cell fell back to the batch path and always faced the same way.
+        if (!/^[A-Za-z0-9_.:\-]+$/.test(key)) continue;
         parts.push(key + "=" + text);
     }
     return name + "[" + parts.join(",") + "]";

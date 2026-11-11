@@ -564,9 +564,11 @@ export default class CACommand {
         }
         const caPlayer = Players.fetchCAPlayer(ori.player.xuid);
         if (caPlayer.forbidCmd) {
-            throw new Error(
-                Tr._(player.langCode, "dynamic.app.command_playerCallback.wait")
-            );
+            // A long operation is running. This is an EXPECTED condition, not a bug: throwing it
+            // printed a stack trace for every impatient click (the tool path runs commands through
+            // `Player.runcmd`, so the throw surfaced in the console). Tell the player and stop.
+            output.error(Tr._(player.langCode, "dynamic.app.command_playerCallback.wait"));
+            return;
         }
 
         switch (res.action) {

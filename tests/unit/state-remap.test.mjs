@@ -88,6 +88,27 @@ test('torch facing names turn too', () => {
     assert.equal(remapStates({ torch_facing_direction: 'top' }, 90, 'none').torch_facing_direction, 'top');
 });
 
+test('a NAMESPACED state key is remapped too (a chest reports minecraft:cardinal_direction)', () => {
+    const { remapStates } = load();
+    // Bare key: 0 south, 1 west, 2 north, 3 east; 90 degrees clockwise -> south becomes west.
+    assert.equal(remapStates({ cardinal_direction: 0 }, 90, 'none').cardinal_direction, 1);
+    // The namespace must not hide it from the table.
+    assert.equal(remapStates({ 'minecraft:cardinal_direction': 0 }, 90, 'none')['minecraft:cardinal_direction'], 1);
+    // ... and the value may be the STRING form.
+    assert.equal(remapStates({ 'minecraft:cardinal_direction': 'south' }, 90, 'none')['minecraft:cardinal_direction'], 'west');
+    assert.equal(remapStates({ 'minecraft:cardinal_direction': 'north' }, 180, 'none')['minecraft:cardinal_direction'], 'south');
+    assert.equal(remapStates({ 'minecraft:cardinal_direction': 'east' }, 0, 'x')['minecraft:cardinal_direction'], 'west');
+    // An untouched namespace key keeps its original value.
+    assert.equal(remapStates({ 'minecraft:cardinal_direction': 'up' }, 90, 'none')['minecraft:cardinal_direction'], 'up');
+});
+
+test('door / trapdoor direction follows the same four-way table', () => {
+    const { remapStates } = load();
+    assert.equal(remapStates({ direction: 0 }, 90, 'none').direction, 1);
+    assert.equal(remapStates({ direction: 2 }, 90, 'none').direction, 3);
+    assert.equal(remapStates({ direction: 0 }, 180, 'none').direction, 2);
+});
+
 test('ground_sign_direction rotates in 22.5 degree steps and mirrors', () => {
     const { remapStates } = load();
     assert.equal(remapStates({ ground_sign_direction: 0 }, 90, 'none').ground_sign_direction, 12); // south -> west
@@ -104,7 +125,8 @@ test('typed (NBT) values keep their type wrapper', () => {
 
 test('unknown directional keys are left alone, not guessed', () => {
     const { remapStates } = load();
-    assert.equal(remapStates({ direction: 2 }, 90, 'none').direction, 2);
+    // `direction` USED to be here; doors/trapdoors confirmed the four-way table, so it is mapped now.
+    assert.equal(remapStates({ rail_direction: 2 }, 90, 'none').rail_direction, 2);
     assert.equal(remapStates({ waterlogged: true }, 90, 'none').waterlogged, true);
 });
 

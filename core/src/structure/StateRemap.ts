@@ -29,7 +29,27 @@ export const MAPPED_KEYS = [
 ] as const;
 
 /** Directional-looking keys we deliberately leave alone until their semantics are confirmed. */
-export const UNMAPPED = ["direction", "rail_direction", "lever_direction", "repeater_direction"] as const;
+export const UNMAPPED = ["rail_direction", "lever_direction", "repeater_direction"] as const;
+
+/**
+ * Bedrock namespaces some state keys: a chest reports `minecraft:cardinal_direction` while stairs
+ * use bare `weirdo_direction`. Matching the exact string therefore missed every namespaced block -
+ * the "chest/trapdoor rotation does nothing" report - so the namespace is stripped for the lookup.
+ */
+const NAMESPACE = /^[A-Za-z0-9_.]+:(.+)$/;
+function bareKey(key: string): string {
+    const m = NAMESPACE.exec(key);
+    return m == null ? key : m[1];
+}
+
+/** Cardinal directions as STRINGS: "minecraft:cardinal_direction" carries "north"/"south"/... */
+const CARDINAL_NAMES: Record<string, number> = { south: 0, west: 1, north: 2, east: 3 };
+const CARDINAL_NAME_LIST = ["south", "west", "north", "east"];
+function cardinalFromName(value: any): number | null {
+    if (typeof value !== "string") return null;
+    const n = CARDINAL_NAMES[value.toLowerCase()];
+    return n == null ? null : n;
+}
 
 function raw(value: StateValue): any {
     if (value != null && typeof value === "object" && "value" in (value as any) && "type" in (value as any)) {
@@ -163,10 +183,21 @@ export function remapStates(states: StateMap | null | undefined, degrees: Degree
     let out: StateMap | null = null;
     for (const key of keys) {
         const original = states[key];
+        const bare = bareKey(key);
         let next: StateValue = original;
-        switch (key) {
+        switch (bare) {
             case "weirdo_direction": next = remapHorizontal(STAIRS, original, degrees, mirror); break;
-            case "cardinal_direction": next = remapHorizontal(CARDINAL, original, degrees, mirror); break;
+            case "cardinal_direction": {
+                const named = cardinalFromName(raw(original));
+                if (named == null) next = remapHorizontal(CARDINAL, original, degrees, mirror);
+                else {
+                    const idx = asInt(remapHorizontal(CARDINAL, named, degrees, mirror));
+                    next = idx == null || idx < 0 ? original : rewrap(original, CARDINAL_NAME_LIST[idx]);
+                }
+                break;
+            }
+            // Doors, trapdoors and fence gates: same four-way table as cardinal_direction.
+            case "direction": next = remapHorizontal(CARDINAL, original, degrees, mirror); break;
             case "facing_direction": next = remapFacing(original, degrees, mirror); break;
             case "torch_facing_direction": next = remapTorch(original, degrees, mirror); break;
             case "pillar_axis":
