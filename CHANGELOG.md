@@ -18,14 +18,15 @@ fixes are based on.
 ### Fixed (3.9.5-beta1, undoing a chest no longer litters the ground)
 
 - Replacing a container block makes the engine treat it as destroyed and spill its contents, so an
-  undo (or a paste) over a filled chest left items all over the floor. Emptying the container first
-  does NOT work: the emptying write is itself the trigger (measured - the clear reported success and
-  the items still appeared).
-- The items an operation creates are now collected afterwards: the window is snapshotted before the
-  placement (items keyed by BLOCK position - `Entity.id` is 0 for dropped items on this build) and
-  the new ones are removed. The window is grown by 4 blocks because ejected items fly.
-- `sweepItemDrops` (new config key, default true) controls it. Items that existed before the
-  operation are never removed.
+  undo (or a paste) over a filled chest left items all over the floor. Rewriting the block entity NBT
+  first does NOT help: that write is itself the trigger (measured - the clear reported success and
+  the items still appeared, and a window sweep was written before this was understood).
+- The container is now emptied through the **container API** (`Block.hasContainer()` +
+  `getContainer().removeItem()`) right before the block is replaced. Nothing is destroyed, so nothing
+  drops. Only container cells pay for it; `silentContainerClear` (default true) turns it off.
+- Considered and rejected: a global `doTileDrops` toggle (would rob other players), iListenAttentively
+  (native-only, exposes no LSE binding here), and LSE's `onMobSpawn` (measured: it does not fire for
+  container spills).
 
 ### Docs (3.9.5-beta1, paintings are out of scope)
 

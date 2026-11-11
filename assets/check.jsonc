@@ -230,10 +230,10 @@
             "min": 2,
             "max": 32
         },
-        "sweepItemDrops": {
+        "silentContainerClear": {
     "type": "boolean",
     "default": true,
-    "description": "粘贴/撤销覆盖带物品的容器后，清掉本次操作自己产生的掉落物（不动玩家原有的掉落物）。"
+    "description": "粘贴/撤销覆盖带物品的容器前，用容器 API 清空其内容，避免替换方块时把物品全掉到地上。"
   },
   "previewMaxCells": {
             "type": "number",

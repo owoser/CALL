@@ -668,10 +668,11 @@
     *
     * ###Whole-clipboard parse threshold (cells)###   (new in 3.7.0)
     */
-    // Replacing a chest/barrel/hopper/... makes the engine spill its contents on the ground. Pasting or
-  // undoing over such a container therefore leaves items behind; with this on, the items that the
-  // operation itself created are removed afterwards (pre-existing drops are never touched).
-  "sweepItemDrops": true,
+    // Replacing a chest/barrel/hopper/... makes the engine spill its contents on the ground, so pasting
+  // or undoing over one used to leave items everywhere. With this on, the container is emptied
+  // through the container API right before its block is replaced: nothing drops. Set to false only
+  // if you WANT the vanilla spill.
+  "silentContainerClear": true,
   "previewMaxCells": 800000,
 
     /*

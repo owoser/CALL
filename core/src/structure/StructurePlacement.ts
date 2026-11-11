@@ -95,6 +95,7 @@ export function coveredArea(pos: Pos3, size: Vec3Tuple): Area3 {
 
 import { StructureLayout, NbtTypedValue, parseStructureLayout, snbtOf, toLseTag, transformLayout, TransformOptions } from "../io/NbtCodec";
 import { describeError, logFailure } from "../util/Safe";
+import { clearContainerForWrite } from "./ContainerClear";
 
 // --------------------------------------------------- per-block placement (bytes)
 /**
@@ -297,6 +298,15 @@ export interface PlaceOptions extends TransformOptions {
     writeAir?: boolean;
 }
 
+/** `silentContainerClear` (default true): empty a container before its block is replaced. */
+function silentContainerClear(): boolean {
+    try {
+        return Config.get(Config.GLOBAL, "silentContainerClear", true) !== false;
+    } catch {
+        return true;
+    }
+}
+
 /**
  * Write a parsed structure into the world with its minimum corner at `pos`,
  * yielding to the scheduler every `batch` blocks.
@@ -366,6 +376,17 @@ export async function placeLayoutAsync(
                 if (!shouldWriteTarget(block.type, name, hasStates)) {
                     skipped++;
                 } else {
+                    // A container that still holds items spills them the moment its block is
+                    // replaced. Empty it through the CONTAINER API first (rewriting the block entity
+                    // NBT does NOT work - that write is itself the trigger); only container cells pay
+                    // for this, everything else is untouched.
+                    if (silentContainerClear()) {
+                        try {
+                            clearContainerForWrite(block);
+                        } catch {
+                            // the write below must happen either way
+                        }
+                    }
                     try {
                         const ok = block.setNbt(blockNbt) === true;
                         let target = mc.getBlock(targetX, targetY, targetZ, pos.dimid) ?? block;

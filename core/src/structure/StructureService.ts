@@ -13,7 +13,6 @@ import NBTService from "./NBTService";
 import Tr from "../util/Translator";
 import { MsgType, online, tell } from "../util/Msg";
 import { describeError, logFailure, sleep } from "../util/Safe";
-import { removeNewItems, snapshotItemIds } from "./ItemSweep";
 import { acquire, isLoaded, waitLoaded } from "../game/Chunks";
 import { clipboardMin } from "./Clipboard";
 import StructureStore, { StoreKind, sliceFileName } from "./StructureStore";
@@ -388,31 +387,6 @@ export default class StructureService {
             }
         }
 
-        // Replacing a container makes the engine spill its contents. Emptying it first does NOT
-        // help (the emptying write is itself the trigger - measured), so the spilled items are
-        // collected AFTER the operation and only the ones that did not exist before are removed.
-        const sweepBox = (() => {
-            let minX = Infinity, minY = Infinity, minZ = Infinity;
-            let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
-            for (const row of areas) {
-                for (const slice of row) {
-                    if (slice == null) continue;
-                    minX = Math.min(minX, slice.start.x, slice.end.x);
-                    minY = Math.min(minY, slice.start.y, slice.end.y);
-                    minZ = Math.min(minZ, slice.start.z, slice.end.z);
-                    maxX = Math.max(maxX, slice.start.x, slice.end.x);
-                    maxY = Math.max(maxY, slice.start.y, slice.end.y);
-                    maxZ = Math.max(maxZ, slice.start.z, slice.end.z);
-                }
-            }
-            if (!Number.isFinite(minX)) return null;
-            return new Area3(
-                new Pos3(minX, minY, minZ, posInt.dimid),
-                new Pos3(maxX, maxY, maxZ, posInt.dimid)
-            );
-        })();
-        const itemsBefore = sweepBox != null && sweepEnabled() ? snapshotItemIds(sweepBox) : null;
-
         await StructureService.traversal(
             caPlayer,
             areas,
@@ -434,19 +408,6 @@ export default class StructureService {
             },
             Number(Config.get(Config.GLOBAL, "traversalWaitTime", 20)) || 20
         );
-
-        if (itemsBefore != null && sweepBox != null) {
-            try {
-                const removed = removeNewItems(sweepBox, itemsBefore);
-                if (removed > 0) {
-                    if (Config.get(Config.GLOBAL, "debugMod", false) === true) {
-                        logger.info("[CALL][structure] 已清掉本次操作产生的 " + removed + " 个掉落物");
-                    }
-                }
-            } catch (e) {
-                logFailure("StructureService.sweepItems", e);
-            }
-        }
 
         return failedSlices;
     }
