@@ -33,10 +33,12 @@ import Area3 from "../common/Area3";
 import { Structure } from "../common/Structure";
 import BlockView from "../holo/BlockView";
 import HoloCompat from "../holo/HoloCompat";
-import { FakeBlocks, packCells } from "../holo/FakeBlocks";
+import { FakeBlocks, packCells, PACK_MAX_BYTES } from "../holo/FakeBlocks";
 import BatchSender, { TICK_MS } from "./BatchSender";
 import { canInheritLedger, shouldWaitForDrain } from "./CleanupGate";
 import { dimensionOf } from "../common/Dimension";
+import NearBlocks from "../holo/NearBlocks";
+import { NearCandidate, selectNearCells } from "./NearWindow";
 import { GhostLedger, markCleared, markOwed, markSet, resetLedger, takeOwed, teardownCells } from "./GhostLedger";
 import { MsgType, online, tell } from "../util/Msg";
 import StrFactory from "../util/StrFactory";
@@ -124,6 +126,15 @@ interface Scene extends GhostLedger {
     /** Batched sets the library refused (-1) and cells the encoder had to drop. */
     batchRejected: number;
     batchSkipped: number;
+    /** Cells that carry block-entity data - the near-switch keeps them SOLID. */
+    beCells: Set<string>;
+    /** Near-switch (walk-through) bookkeeping. */
+    nearWindow: number;
+    nearKey: string;
+    nearAt: number;
+    nearDropped: number;
+    nearRegistrations: number;
+    nearPos: { x: number; y: number; z: number } | null;
     /** Block entity payloads accepted / refused-or-over-budget for this preview. */
     entitiesSent: number;
     entitiesDropped: number;
@@ -199,10 +210,25 @@ function drawCells(scene: Scene, ops: PlanOp[]): void {
         markSet(scene, op.key, op.x, op.y, op.z, id);
         scene.cellQueued++;
         if (op.snbt != null && op.snbt !== "") {
+            // Kept so the near-switch never picks this cell: leaving the radius re-sends the bare
+            // block and the block entity (chest contents, sign text) would be wiped on the client.
+            scene.beCells.add(op.key);
             if (BlockView.setBlockEntity(scene.playerName, op.x, op.y, op.z, op.snbt)) scene.entitiesSent++;
             else scene.entitiesDropped++;
         }
     }
+}
+
+/** Walk-through window radius (0 = feature off). */
+const nearRadius = () => Math.floor(num("previewNearRadius", 5, 0, 16));
+/** Cells one registration may carry. */
+const nearMaxCells = () => Math.floor(num("previewNearCells", 512, 64, 2048));
+/** Keep the cube invisible (the block looks unchanged but is passable). */
+const nearInvisible = () => String(Config.get(Config.GLOBAL, "previewNearInvisible", true)).toLowerCase() !== "false";
+
+/** Dimension the scene lives in (the player must be in it for a near window to make sense). */
+function sourceDim(scene: Scene): number {
+    return scene.dimid;
 }
 
 /** Draw block entities (banner patterns, sign text, chests) on top of the fake blocks. */
@@ -379,6 +405,12 @@ function detachScene(xuid: string): { ledger: GhostLedger; dimid: number; player
         BatchSender.cancelOwner("preview:" + xuid);
     } catch {
         // best effort
+    }
+    // Walk-through registration: the library destroys the active sulfur cubes here. Without this a
+    // player who cancels while standing inside the preview would keep the cubes on their client.
+    if (scene.nearWindow > 0 || scene.nearRegistrations > 0) {
+        try { NearBlocks.clear(scene.playerName); } catch { /* cosmetic */ }
+        scene.nearWindow = 0;
     }
     scenes.delete(xuid);
     return {
@@ -597,6 +629,13 @@ export const PreviewScene = {
             emptyTipShown: false,
             windowCount: 0,
             totalSurface: 0,
+            beCells: new Set<string>(),
+            nearWindow: 0,
+            nearKey: "",
+            nearAt: 0,
+            nearDropped: 0,
+            nearRegistrations: 0,
+            nearPos: null,
         };
 
         if (info.cells > maxCells()) {
@@ -632,6 +671,69 @@ export const PreviewScene = {
         PreviewScene.startTimer(xuid);
         PreviewScene.refreshWindow(xuid, true);
         return { ok: true, blocks: extracted.blocks.length, visible: extracted.visible, truncated: false, mode: scene.mode };
+    },
+
+    /**
+     * Register the cells around the player as "walk-through".
+     *
+     * The library replaces the WHOLE set per call and destroys the active cubes while doing it, so
+     * this is throttled hard: only when the player moved more than radius/2 (or crossed a block),
+     * when the scene changed, or when the feature was just switched on.
+     */
+    syncNear(scene: Scene): void {
+        const radius = nearRadius();
+        if (radius <= 0 || !NearBlocks.available()) return;
+        if (scene.cancelled) return;
+
+        const player = online(scene.xuid);
+        if (player == null) return;
+        let px = 0, py = 0, pz = 0, pdim = 0;
+        try {
+            px = Number(player.pos.x);
+            py = Number(player.pos.y);
+            pz = Number(player.pos.z);
+            pdim = Number(player.pos.dimid);
+        } catch {
+            return;
+        }
+        if (!Number.isFinite(px) || !Number.isFinite(py) || !Number.isFinite(pz)) return;
+        if (sourceDim(scene) !== pdim) return;
+
+        const key = [scene.anchor.x, scene.anchor.y, scene.anchor.z, scene.degrees, scene.mirror,
+            scene.pivot, scene.applied.size, scene.nearWindow].join("|");
+        const now = Date.now();
+        const moved = scene.nearPos == null
+            ? Infinity
+            : Math.abs(px - scene.nearPos.x) + Math.abs(py - scene.nearPos.y) + Math.abs(pz - scene.nearPos.z);
+        const contentChanged = key !== scene.nearKey;
+        const should = contentChanged || moved >= Math.max(1, radius / 2) || now - scene.nearAt > 4000;
+        if (!should) return;
+
+        const candidates: NearCandidate[] = [];
+        for (const [cellKey, id] of scene.applied) {
+            if (String(id) === "") continue;
+            const pos = scene.everApplied.get(cellKey);
+            if (pos == null) continue;
+            candidates.push({ key: cellKey, x: pos[0], y: pos[1], z: pos[2], id: String(id) });
+        }
+        const picked = selectNearCells(candidates, { x: px, y: py, z: pz }, {
+            radius,
+            maxCells: nearMaxCells(),
+            maxBytes: PACK_MAX_BYTES,
+            exclude: scene.beCells,
+        });
+        scene.nearKey = key;
+        scene.nearAt = now;
+        scene.nearPos = { x: px, y: py, z: pz };
+        scene.nearDropped = picked.dropped;
+        scene.nearWindow = picked.cells.length;
+        if (picked.cells.length === 0) return;
+        const batchId = NearBlocks.register(scene.playerName, picked.cells, radius, nearInvisible());
+        if (batchId >= 0) {
+            scene.nearRegistrations++;
+        } else {
+            scene.nearWindow = 0;
+        }
     },
 
     /** Recompute what should be shown, queue only the difference, start pumping. */
@@ -836,6 +938,7 @@ export const PreviewScene = {
 
         if (scene.queue.length === 0) {
             scene.building = false;
+            try { PreviewScene.syncNear(scene); } catch { /* cosmetic */ }
             return;
         }
 
@@ -871,6 +974,9 @@ export const PreviewScene = {
         }
         scene.building = false;
         PreviewScene.logBurst(scene);
+        // The queue just finished: this is the cheapest moment to (re)register the walk-through
+        // window, and the throttle inside syncNear keeps it from happening every tick.
+        try { PreviewScene.syncNear(scene); } catch { /* cosmetic */ }
     },
 
     /**
@@ -1239,6 +1345,7 @@ export const PreviewScene = {
                 PreviewScene.clear(xuid);
                 return;
             }
+            try { PreviewScene.syncNear(live); } catch { /* cosmetic */ }
             PreviewScene.refreshWindow(xuid, false);
         }, WINDOW_TICK_MS);
     },

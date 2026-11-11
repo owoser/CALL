@@ -777,6 +777,32 @@ async function runSuite() {
         return "chest with 2 stacks replaced, spilled=" + (after - before) + ", containers cleared=" + cc.containerClearedCount();
     });
 
+    // --- the near ("walk through") adapter is wired to the library ----------
+    await checkAsync("ca.nearBlocks", async () => {
+        const NearBlocks = require(path.join(M.root, "core", "src", "holo", "NearBlocks.js")).default;
+        const caps = M.HoloCompat ? M.HoloCompat.status().caps : null;
+        const cap = require(path.join(M.root, "core", "src", "holo", "HoloCompat.js")).default.status().caps;
+        assert(cap.nearPass === true, "the library exports blockBatchSetNear: " + JSON.stringify(cap));
+
+        const cells = [];
+        for (let i = 0; i < 8; i++) {
+            cells.push({ x: 20 + i, y: 140, z: 20, id: "minecraft:stone" });
+        }
+        // No real player online in the harness, so the library may refuse (-1) - what matters here
+        // is that the call path exists and never throws.
+        const first = NearBlocks.register(sim.realName, cells, 5, true);
+        const second = NearBlocks.register(sim.realName, cells.slice(0, 4), 5, true);
+        const st = NearBlocks.stats();
+        NearBlocks.clear(sim.realName);
+        const lib = NearBlocks.libraryStats();
+        assert(typeof first === "number", "register returns a number");
+        assert(typeof second === "number", "a second register returns a number");
+        assert(st.registrations >= 0, "stats are readable: " + JSON.stringify(st));
+        assert(NearBlocks.clear(sim.realName) !== undefined, "clear is callable");
+        return "nearPass=" + cap.nearPass + " batch1=" + first + " batch2=" + second +
+            " stats=" + JSON.stringify(st) + " nearSets=" + lib.near;
+    });
+
     // --- /structure save|load: blocks AND entities --------------------------
     await checkAsync("ca.structureCommands", async () => {
         const Cmd = require(path.join(M.root, "core", "src", "game", "Cmd.js"));

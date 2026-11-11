@@ -48,6 +48,7 @@
 - **状态串的键不能加引号**：库的解析器只给值去引号，`["weirdo_direction"=2]` 会被整条拒绝——必须写 `[weirdo_direction=2]`。
 - **方块实体先本体后数据**：`blockFakeSetNbt`/`blockBatchSet` 把方块放上去，再 `blockFakeSetBlockEntity` 发 BlockActorData；顺序反了客户端直接忽略。
 - **批量预算**：≤1024 格/包、库全局 8 包/刻；统一走 `BatchSender`，不要另开节流。
+- **靠近可穿（`blockBatchSetNear`）**：每次调用会**整体替换**该玩家的 near 集（先销毁活跃硫磺立方体），所以必须一次发完整窗口并按"玩家移动/场景变化"节流；**方块实体格（箱子/告示牌/旗帜）禁止入选**——离开只重发方块本体，会丢内容；窗口受 12KB 参数预算约束。
 - **顺序**：先清理（clear）再下发（set）；`GhostLedger.applied` 不可整体清空，未确认的清理进 `stale` 重试。
 - **线框**：不设 ttl；尺寸不变时移动而非重建；只销毁自己的 id。
 - **参数**：只按名称注册的函数调用；超 i32 的整数按大数传（`bossBarGetInfo` 曾因 variant 类型不匹配刷屏）。

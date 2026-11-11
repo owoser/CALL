@@ -15,6 +15,20 @@ fixes are based on.
 
 ### Added (3.9.5-beta1, HologramLib 450)
 
+### Added (3.9.5-beta1, walk through the preview)
+
+- **Nearby preview blocks can be walked through.** `blockBatchSetNear` turns the cells around the
+  player (default 5 blocks) into passable, invisible sulfur cubes and puts the fake block back once
+  the player leaves (1.3x hysteresis), so entering a big preview no longer stutters.
+- The library **replaces the whole near set per call** and destroys the active cubes while doing it,
+  so the window is sent as one payload and only re-registered when the player moved more than
+  radius/2 or the scene changed; `previewNearCells` (default 512) plus the 12 KB argument budget cap
+  it, and the payload is never assembled per cell.
+- **Block-entity cells stay solid on purpose**: leaving the radius re-sends the bare block, which
+  would wipe a chest's contents or a sign's text on the client.
+- Config: `previewNearRadius` (0 = off), `previewNearInvisible`, `previewNearCells`;
+  `/ca tools debug` reports the registration count and the library's `nearSets`.
+
 ### Fixed (3.9.5-beta1, undoing a chest no longer litters the ground)
 
 - Replacing a container block makes the engine treat it as destroyed and spill its contents, so an

@@ -182,7 +182,7 @@ test('block entities ride along with the paste', () => {
 
 test('the preview sends through the batch API', () => {
     const scene = read('core/src/structure/PreviewScene.ts');
-    assert.ok(scene.includes('import { FakeBlocks, packCells }'), 'the scene must use the batch adapter');
+    assert.ok(scene.includes('import { FakeBlocks, packCells'), 'the scene must use the batch adapter');
     assert.ok(scene.includes('import BatchSender'), 'submissions must be paced');
     assert.ok(scene.includes('submitSets(') && scene.includes('submitClears('),
         'set and clear must both have a batched path');

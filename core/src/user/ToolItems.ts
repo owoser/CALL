@@ -463,6 +463,16 @@ export class ToolItems {
             // diagnostics only
         }
         try {
+            const NearBlocks = require("../holo/NearBlocks").default;
+            const st = NearBlocks.stats();
+            const lib = NearBlocks.libraryStats();
+            lines.push("靠近可穿: " + (NearBlocks.available() ? "可用" : "不可用 · " + NearBlocks.reason())
+                + " · 注册=" + st.registrations + " 次/最近 " + st.lastCells + " 格"
+                + " · 库 nearSets=" + lib.near);
+        } catch {
+            // diagnostics only
+        }
+        try {
             const s = SwingWatcher.statsOf();
             lines.push("左键空气: 已触发 " + s.dispatched
                 + " / 吞掉(右键或放置) " + s.swallowedHandled

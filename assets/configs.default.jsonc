@@ -674,6 +674,15 @@
   // if you WANT the vanilla spill.
   "silentContainerClear": true,
   "previewMaxCells": 800000,
+  // Walk through the preview: fake blocks within this many blocks of the player temporarily turn
+  // into passable sulfur cubes (client-side), so entering a big preview no longer causes a stutter.
+  // 0 disables the whole feature.
+  "previewNearRadius": 5,
+  // true = the cube is invisible: the block looks unchanged but you can walk through it.
+  "previewNearInvisible": true,
+  // Cap on how many cells may be registered at once (the library replaces the whole set per call and
+  // scans it every 4 ticks, and the packed payload travels through a ~16 KB string argument).
+  "previewNearCells": 512,
 
     /*
     *   ###懒解析缓存切片数###   (3.7.0 新增)
