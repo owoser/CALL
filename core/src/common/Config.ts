@@ -490,6 +490,32 @@ export default class Config {
         return Config.set(config, parentPath, parent);
     }
 
+    /**
+     * Re-read every config file from disk.
+     *
+     * The handles are created once at module load and LSE keeps their values in memory, so editing
+     * configs.json does NOTHING until this runs - which is why "/ca reload" exists (it used to throw
+     * "this command is deprecated" and left the edited values unapplied).
+     */
+    public static reloadAll(): { ok: boolean; failed: string[] } {
+        const failed: string[] = [];
+        for (const [name, handle] of [
+            ["configs.json", Config.GLOBAL],
+            ["permissions.json", Config.PERMISSIONS],
+            ["players.json", Config.PLAYERS_SETTINGS],
+            ["structures.json", Config.STRUCTURES],
+            ["check.json", Config.CHECK],
+            ["item_textures.json", Config.ITEM_TEXTURES],
+        ] as Array<[string, any]>) {
+            try {
+                if (typeof handle?.reload === "function" && handle.reload() === false) failed.push(name);
+            } catch {
+                failed.push(name);
+            }
+        }
+        return { ok: failed.length === 0, failed };
+    }
+
     public static closeAll() {
         [
             Config.GLOBAL,

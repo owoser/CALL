@@ -898,8 +898,19 @@ export default class CACommand {
                 ExportOperation.start(res);
                 return;
             case "reload":
-                case "r":
-                    throw new Error("this command is deprecated")
+            case "r": {
+                // Re-reading the files is the whole point: LSE caches the values, so an edited
+                // configs.json stays invisible until reload() runs (the old code threw instead).
+                const result = Config.reloadAll();
+                const near = Config.get(Config.GLOBAL, "previewNearRadius", 5);
+                const scale = Config.get(Config.GLOBAL, "previewNearScale", 1);
+                if (result.ok) {
+                    output.success("配置已重新加载（靠近可穿: 半径=" + near + " 缩放=" + scale + "）");
+                } else {
+                    output.error("部分配置重载失败: " + result.failed.join(", "));
+                }
+                return;
+            }
             default:
                 throw new Error(
                     Tr._c("console.app.command_consoleCallback.cmdError")

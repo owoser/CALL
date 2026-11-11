@@ -15,6 +15,23 @@ fixes are based on.
 
 ### Added (3.9.5-beta1, HologramLib 450)
 
+### Fixed (3.9.5-beta1, the walk-through visual is a full block)
+
+- The sulfur cube renders its block as a **held item**, so it is always item-sized: measured,
+  `sulfurSetScale(id, 3)` returns true and the picture does not change at all (the scale only moves
+  the invisible cube body). That is why `previewNearScale` from 1 to 2 looked like a no-op.
+- The walk-through visual is now an **item display in block mode**
+  (`itemDisplayCreateAdvanced` + `itemDisplaySetMode(id, 2)` + `itemDisplaySetScale` +
+  `itemDisplaySetVisiblePlayer`), which renders the full block model and honours the scale; it is
+  destroyed on leave like before. `previewNearScale` now really changes the size.
+
+### Fixed (3.9.5-beta1, /ca reload silently did nothing)
+
+- `/ca reload` threw `this command is deprecated`, so an edited `configs.json` was never re-read
+  (LSE caches the file values) - people changed a key, saw no effect, and had to restart.
+- It now calls `Config.reloadAll()` (every config handle) and reports the walk-through radius/scale
+  it picked up.
+
 ### Fixed (3.9.5-beta1, a walk-through chest looked like a miniature)
 
 - `sulfurCreate` was called with an EMPTY `archetype`, which leaves the client on its own default

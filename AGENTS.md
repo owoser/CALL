@@ -48,7 +48,7 @@
 - **状态串的键不能加引号**：库的解析器只给值去引号，`["weirdo_direction"=2]` 会被整条拒绝——必须写 `[weirdo_direction=2]`。
 - **方块实体先本体后数据**：`blockFakeSetNbt`/`blockBatchSet` 把方块放上去，再 `blockFakeSetBlockEntity` 发 BlockActorData；顺序反了客户端直接忽略。
 - **批量预算**：≤1024 格/包、库全局 8 包/刻；统一走 `BatchSender`，不要另开节流。
-- **靠近可穿不要用 `blockBatchSetNear`**：它会把整窗用**批量状态串**重发，而状态串**带不动方块状态**（实测 `blockFakeResolve("...oak_stairs[weirdo_direction=2]")` 与 direction=0 返回同一网络 id，SNBT 才对）→ 楼梯朝向被打乱、方块实体内容丢失。改用自管理：`blockFakeClear` + `sulfurCreate`（隐形立方体吞方块）+ 离开时 `sulfurDestroy` 并用**原路径**（SNBT / block entity）还原。
+- **靠近可穿不要用 `blockBatchSetNear`**：它会把整窗用**批量状态串**重发，而状态串**带不动方块状态**（实测 `blockFakeResolve("...oak_stairs[weirdo_direction=2]")` 与 direction=0 返回同一网络 id，SNBT 才对）→ 楼梯朝向被打乱、方块实体内容丢失。改用自管理：`blockFakeClear` + **物品显示方块模式**（`itemDisplayCreateAdvanced` + `itemDisplaySetMode(id,2)` + `itemDisplaySetScale`）+ 离开时 `itemDisplayDestroy` 并用**原路径**（SNBT / block entity）还原。**不要用硫磺立方体做尺寸**：它把方块当主手物品渲染，`sulfurSetScale` 返回 true 但画面不变（实测）。
 - **顺序**：先清理（clear）再下发（set）；`GhostLedger.applied` 不可整体清空，未确认的清理进 `stale` 重试。
 - **线框**：不设 ttl；尺寸不变时移动而非重建；只销毁自己的 id。
 - **参数**：只按名称注册的函数调用；超 i32 的整数按大数传（`bossBarGetInfo` 曾因 variant 类型不匹配刷屏）。

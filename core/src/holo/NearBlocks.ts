@@ -18,53 +18,68 @@
 import HoloCompat from "./HoloCompat";
 import holo from "./Holo";
 
-const stats = { cubes: 0, creates: 0, destroys: 0, failures: 0 };
+const stats = { cubes: 0, creates: 0, destroys: 0, failures: 0, blockMode: 0, fallback: 0 };
 
+/**
+ * Blocks in block mode are drawn at roughly half a block by the client, so 1.0 (the library's C++
+ * default) still looks small; the caller passes previewNearScale to compensate.
+ */
 export const NearBlocks = {
     available(): boolean {
         return HoloCompat.status().caps.nearPass === true;
     },
 
     reason(): string {
-        return NearBlocks.available() ? "" : "库缺少 sulfurCreate/sulfurDestroy";
+        const caps = HoloCompat.status().caps;
+        if (!caps.nearPass) return "库缺少 itemDisplayCreateAdvanced/itemDisplayDestroy";
+        if (!caps.nearBlockMode) return "库缺少 itemDisplaySetMode（无法用方块模式）";
+        return "";
+    },
+
+    /** Block mode needs setMode + setScale; without them the item display renders as a flat item. */
+    blockModeAvailable(): boolean {
+        const caps = HoloCompat.status().caps;
+        return caps.nearPass === true && caps.nearBlockMode === true;
     },
 
     /**
-     * Turn one cell into a passable cube. Returns the display id, or 0 on failure.
+     * Turn one cell into a passable visual block.
      *
-     * \`blockItem\` is the block's id ("minecraft:oak_stairs"); the cube shows its block model.
+     * Item display in BLOCK mode is the only primitive that renders a full block AND takes a scale
+     * that actually applies: a sulfur cube's held item stays item-sized no matter what
+     * (\`sulfurSetScale\` returns true, the visible block does not change - measured).
      */
     enter(playerName: string, x: number, y: number, z: number, dimid: number, blockItem: string, invisible: boolean, scale = 1): number {
         if (!NearBlocks.available()) return 0;
         try {
             holo.call("blockFakeClear", playerName, x, y, z);
-            // "regular" is what the library's own near-switch passes; an EMPTY archetype leaves the
-            // client on its own default, which renders the held block as a MINIATURE (the reported
-            // "chest turns into a tiny model"). Scale is set explicitly too: 1 = normal size.
-            const id = Number(holo.call("sulfurCreate",
-                x + 0.5, y, z + 0.5, dimid, blockItem, 1, 0, "", "regular", invisible));
-            if (Number.isFinite(id) && id >= 0) {
-                const wanted = Number(scale);
-                if (Number.isFinite(wanted) && wanted > 0) {
-                    try { holo.call("sulfurSetScale", id, wanted); } catch { /* default is 1 */ }
-                }
-                stats.creates++;
-                stats.cubes++;
-                return id;
+            const wanted = Number.isFinite(Number(scale)) && Number(scale) > 0 ? Number(scale) : 1;
+            const id = Number(holo.call("itemDisplayCreateAdvanced",
+                x + 0.5, y, z + 0.5, dimid, blockItem, 0,
+                "0", "0", "0", "0", "0", "0", String(wanted)));
+            if (!Number.isFinite(id) || id < 0) {
+                stats.failures++;
+                return 0;
             }
-            stats.failures++;
-            return 0;
+            if (NearBlocks.blockModeAvailable()) {
+                try { holo.call("itemDisplaySetMode", id, 2); stats.blockMode++; } catch { /* keep auto */ }
+                try { holo.call("itemDisplaySetScale", id, String(wanted)); } catch { /* default */ }
+            }
+            try { holo.call("itemDisplaySetVisiblePlayer", id, playerName); } catch { /* everyone */ }
+            stats.creates++;
+            stats.cubes++;
+            return id;
         } catch {
             stats.failures++;
             return 0;
         }
     },
 
-    /** Remove one cube (the caller re-sends the real fake block afterwards). */
+    /** Remove one walk-through visual (the caller re-sends the real fake block afterwards). */
     leave(id: number): boolean {
         if (!NearBlocks.available() || id < 0) return false;
         try {
-            const ok = holo.call("sulfurDestroy", id) !== false;
+            const ok = holo.call("itemDisplayDestroy", id) !== false;
             if (ok) {
                 stats.destroys++;
                 stats.cubes = Math.max(0, stats.cubes - 1);
@@ -78,14 +93,14 @@ export const NearBlocks = {
         }
     },
 
-    /** Destroy every cube we still track (teardown / dimension change). */
+    /** Destroy every visual we still track (teardown / dimension change). */
     clearAll(ids: number[]): number {
         let n = 0;
         for (const id of ids) if (NearBlocks.leave(id)) n++;
         return n;
     },
 
-    stats(): { cubes: number; creates: number; destroys: number; failures: number } {
+    stats(): { cubes: number; creates: number; destroys: number; failures: number; blockMode: number } {
         return { ...stats };
     },
 };

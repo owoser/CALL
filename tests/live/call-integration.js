@@ -790,12 +790,22 @@ async function runSuite() {
         const before = NearBlocks.stats();
         const cubeId = NearBlocks.enter(sim.realName, p.x, p.y, p.z, DIM, "minecraft:oak_stairs", true, 1);
         assert(cubeId > 0, "a cube was created: " + cubeId);
+        // Decisive: does the scale call actually reach the display? (a silent -1/false here is why a
+        // bigger previewNearScale showed no change on the client)
+        const holo2 = require(path.join(M.root, "core", "src", "holo", "Holo.js")).default;
+        const exists = holo2.call("itemDisplayExists", cubeId);
+        const setScale = holo2.call("itemDisplaySetScale", cubeId, "1.5");
+        const setMode = holo2.call("itemDisplaySetMode", cubeId, 2);
+        assert(exists === true, "the display exists: " + exists);
+        assert(setMode === true, "block mode accepted: " + setMode);
+        assert(setScale === true, "scale accepted: " + setScale);
         const harmed = NearBlocks.stats();
         assert(harmed.creates === before.creates + 1, "create counted: " + JSON.stringify(harmed));
         const destroyed = NearBlocks.leave(cubeId);
         assert(destroyed === true, "the cube was destroyed");
         const after = NearBlocks.stats();
-        return "nearPass=" + cap.nearPass + " cube=" + cubeId + " creates=" + after.creates +
+        return "nearPass=" + cap.nearPass + " blockMode=" + cap.nearBlockMode + " cube=" + cubeId +
+            " setMode=" + setMode + " setScale=" + setScale + " creates=" + after.creates +
             " destroys=" + after.destroys + " failures=" + after.failures;
     });
 

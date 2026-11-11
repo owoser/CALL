@@ -466,9 +466,12 @@ export class ToolItems {
             const NearBlocks = require("../holo/NearBlocks").default;
             const st = NearBlocks.stats();
             const lib = NearBlocks.libraryStats();
+            const radius = Config.get(Config.GLOBAL, "previewNearRadius", 5);
+            const scale = Config.get(Config.GLOBAL, "previewNearScale", 1);
+            const invisible = Config.get(Config.GLOBAL, "previewNearInvisible", true);
             lines.push("靠近可穿: " + (NearBlocks.available() ? "可用" : "不可用 · " + NearBlocks.reason())
-                + " · 注册=" + st.registrations + " 次/最近 " + st.lastCells + " 格"
-                + " · 库 nearSets=" + lib.near);
+                + " · 半径=" + radius + " 缩放=" + scale + " 隐身=" + invisible
+                + " · 立方体=" + st.cubes + "（建 " + st.creates + " / 销 " + st.destroys + " / 失败 " + st.failures + "）");
         } catch {
             // diagnostics only
         }

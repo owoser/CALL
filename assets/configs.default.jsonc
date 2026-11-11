@@ -683,8 +683,8 @@
   // Cap on how many cells may be registered at once (the library replaces the whole set per call and
   // scans it every 4 ticks, and the packed payload travels through a ~16 KB string argument).
   "previewNearCells": 512,
-  // Size of the walk-through cube itself: 1 = normal (the library default), 0.0625 - 10.
-  // Raise it if a bag/chest looks like a miniature while the player walks through it.
+  // Size of the walk-through visual (a block-mode item display). 1 = a normal-looking block;
+  // if a specific block still looks like a miniature, nudge this (0.5 - 2).
   "previewNearScale": 1,
 
     /*
