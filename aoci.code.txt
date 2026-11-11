@@ -5,13 +5,13 @@
 .gitignore[FC5T]: F:忽略 node_modules、dist 产物、CALL-CLI 的 bin/obj 与本地草稿日志，并注明 types/lse 是刻意入库 | R:code:package.json | A:- | S:types/lse 虽是 fetch-types 生成却必须入库，忽略它会同时破坏 typecheck 与类型契约
 .prettierrc[FC3T]: F:Prettier 格式约定：双引号、分号、4 空格缩进、80 列 | R:- | A:- | S:只有格式约定无强制 lint；改 tabWidth 会波及全仓 TS 缩进，应单独提交
 AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线、发版门禁、提交闸门、日志前缀约定）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:[CALL] 前缀由宿主加；调试走 util/Log.ts 的 dbg()
-CHANGELOG.md[SC8L]: F:版本史：逐版本记录修复与变更（截断、维度、状态命名、容器清空、靠近可穿、日志前缀、配置精简、工具绑定兜底） | R:code:README.md | A:顶部 3.9.5-beta1 各段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
+CHANGELOG.md[SC8L]: F:版本史：按版本记录修复与变更，4.0.0 为"预览可穿行/容器不撒落/配置精简"正式版 | R:code:README.md | A:顶部 4.0.0 汇总段与历史段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
 LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
 README.md[SC8M]: F:对外说明：fork 缘由、版本矩阵（含可选 HologramLib）、内置工具、构建与真机测试、参考链接 | R:code:CHANGELOG.md,code:docs/user/install.md | A:Why this fork exists、References | S:版本矩阵与发版门禁口径须与 docs/ 一致，改一处两处同步
 build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
 package-lock.json[FV3L]: F:npm 依赖锁定树（lockfileVersion 2），固定 acorn、escodegen、estraverse 等运行时依赖的精确版本 | R:code:package.json | A:packages 与 dependencies 节点 | S:顶层 version 仍是 2.0.0 与 package.json 不一致，不能据此判断发行版本
-package.json[FV9T]: F:工程定义与脚本入口：类型检查、构建、部署、单测、活测，以及配置、文档、版本一致性与图标校验 | R:code:scripts/check-version.mjs,code:package-lock.json | A:scripts 与 dependencies | S:engines 要求 Node>=18；新增运行时依赖会显著增大安装包
-tooth.json[OV6T]: F:lip 包清单（当前 3.9.5-beta1）：tooth 标识、版本、作者、标签与文件映射 | R:code:tooth_template.json | A:version 与 files | S:由构建从模板生成，手改会被覆盖；version 必须与 package.json 对齐
+package.json[PS9L]: F:插件包元数据与脚本入口（构建/部署/闸门/单测） | R:code:tooth.json,code:CHANGELOG.md | A:version、scripts、devDependencies | S:版本号必须与 tooth.json、CHANGELOG 一致，否则 check:version 失败
+tooth.json[PS9L]: F:LeviLamina 插件清单：版本、平台基线、依赖与打包平台 | R:code:package.json | A:version、dependencies、platform | S:版本必须与 package.json、CHANGELOG 一致
 tooth_template.json[OV5T]: F:lip 包清单模板，version 处为 {{VERSION}} 占位，由构建脚本替换 | R:code:scripts/build.mjs | A:{{VERSION}} 占位 | S:占位符拼错会让发行清单里出现字面量版本号
 tsconfig.build.json[FV7T]: F:出包编译配置：在基础配置上开启 emit，输出 dist/call，去注释且无 sourcemap | R:code:tsconfig.json | A:outDir 与 removeComments | S:应与 tsconfig.json 只差 emit 相关项，否则 CI 与本地类型口径不一致
 tsconfig.json[FV8T]: F:基础 TS 配置：ES2020、CommonJS、Node 解析，供编辑器与 typecheck 使用且不产包 | R:code:tsconfig.build.json | A:compilerOptions 与 types/lse 引用 | S:只做类型检查，出包由 tsconfig.build.json 决定，改这里不改产物
@@ -57,8 +57,8 @@ CALL-CLI.deps.json[FV3T]: F:.NET 9 win-x64 运行依赖清单：CALL-CLI 依赖 
 CALL-CLI.runtimeconfig.json[FV2T]: F:CALL-CLI 的 .NET 9 运行时配置（tfm net9.0，关闭二进制序列化与元数据更新） | R:code:assets/bin/CALL-CLI.deps.json | A:runtimeOptions | S:目标机必须装 .NET 9 运行时；升 TFM 需整组重新 publish 所有 bin 资产
 
 ===E:/code/LL3/Plugins/CALL/assets/===
-check.jsonc[FC5T]: F:配置校验模板：一 key 一 spec（type/enum/min/max），由模板生成，供 check:config 与启动自检 | R:code:core/src/assets/configs.default.jsonc | A:configs 下 80 条 spec | S:必须与模板 key 集合、version 完全一致；spec 必须放在 configs 内
-configs.default.jsonc[FC5T]: F:默认配置模板（分组+单行中文注释，约 270 行）：基础/结构/工具/选区/预览/粘贴；items 只绑定 call:* | R:code:core/src/assets/check.jsonc,code:docs/user/config.md | A:version=10 与各分组键 | S:行尾不能写 // 注释（check-docs 解析器不认）；改键必须 version+1
+check.jsonc[FC5T]: F:配置校验模板：一 key 一 spec（type/enum/min/max），由模板生成，供 check:config 与启动自检 | R:code:core/src/assets/configs.default.jsonc | A:configs 下 78 条 spec | S:必须与模板 key 集合、version 完全一致；spec 必须在 configs 内
+configs.default.jsonc[FC5T]: F:默认配置模板（分组+单行中文注释，约 270 行）：基础/结构/工具/选区/预览/粘贴；items 只绑定 call:*；无 autoUpdate | R:code:core/src/assets/check.jsonc,code:docs/user/config.md | A:version=10 与各分组键 | S:行尾不能写 // 注释；改键必须 version+1
 help.json[FC5T]: F:游戏内帮助目录的三级键位映射（help.cN 分类→条目→翻译键），只放引用不放正文 | R:code:assets/lang/zh_CN.lang | A:help.c0…help.c3 | S:值必须是 lang 中存在的 help.*.tN 键；改文案只动语言文件，不必动本文件
 icons.json[FC5T]: F:原版物品图标名白名单（apple、bed_*、chest_boat 等），供菜单与图形界面挑选图标 | R:code:assets/item_texture.json | A:顶层数组 | S:名称须与客户端贴图名一致；此处只是名字清单，缺项会让对应图标显示为空
 item_texture.json[FC5T]: F:原版物品名→textures/items/* 贴图路径映射，供建造菜单显示物品图标 | R:code:assets/icons.json | A:顶层键值 | S:值不带 .png 且指向原版贴图；补图标需同时登记 icons.json
@@ -261,9 +261,9 @@ TranslatorTest.ts[TQ4T]: F:语言表单测：校验各语言里 test.* 键的取
 ===E:/code/LL3/Plugins/CALL/docs/===
 ARCHITECTURE.md[SG8S]: F:架构笔记：三条让整功能失效的平台 API 差异与实测规则（禁 setStructure、字节序、颜色范围等） | R:code:CHANGELOG.md,code:docs/dev/architecture.md | A:RULES 与各节编号 | S:每条都标了实测平台版本，升级 LL 或 LSE 后必须重新验证否则结论过期
 MIGRATION-2.0.md[SG7T]: F:1.6.1 到 2.0.0 迁移步骤：目录名必须为 CALL、userdata 保留、配置与结构数据沿用 | R:code:CHANGELOG.md | A:What you must do | S:装成 plugins/call 会被 LL3 拒载，文中目录名的大小写是硬要求
-_coverpage.md[SG3T]: F:docsify 封面：项目名、一句话定位与 logo | R:code:docs/index.html | A:- | S:logo 指向 docs/image/ 下的文件，改名会让封面图 404
-_navbar.md[SG4T]: F:docsify 顶部导航：说明与关于两组入口，链到用户文档 | R:code:docs/_sidebar.md | A:- | S:导航项路径必须与侧边栏一致，否则移动端入口缺失
-_sidebar.md[DG7L]: F:文档侧边栏导航 | R:code:docs/user/known-limitations.md | A:各分节条目 | S:新增页面必须在此登记，否则 check:docs 报未链接
+_coverpage.md[DG6L]: F:文档站封面：标题、简介、当前版本与许可证 | R:code:docs/user/introduction.md | A:封面文案与版本号 | S:发版时必须同步版本号
+_navbar.md[DG5L]: F:文档站导航栏：说明/关于两组入口 | R:code:docs/_sidebar.md | A:链接列表 | S:页面改名/删除后必须同步，否则 check:docs 报死链
+_sidebar.md[DG4L]: F:文档站侧栏：用户手册/开发者手册/其他三组目录 | R:code:docs/_navbar.md | A:目录树 | S:新增页面必须登记，否则文档站不可达
 index.html[SV5T]: F:文档站外壳：本地化 docsify 资源与初始化配置，不依赖 CDN | R:code:docs/_sidebar.md | A:docsify 初始化配置 | S:必须保持全本地化，改回 CDN 会让国内访问白屏
 
 ===E:/code/LL3/Plugins/CALL/docs/dev/===
@@ -274,20 +274,19 @@ pitfalls.md[SG9T]: F:真机台账：A–G 分类症状到根因到验证，含 C
 release.md[SG7T]: F:发版规范：触发授权、前置闸门清单（含 check:version）、版本策略、产物约定、单次发布步骤、事故恢复与禁止项 | R:code:scripts/check-version.mjs,code:CHANGELOG.md | A:第 3 节前置清单、第 5 节发布动作、第 8 节禁止项 | S:未获维护者明确指令不得发版；发布包不入库；变更日志顶部段落须等于当前版本
 
 ===E:/code/LL3/Plugins/CALL/docs/other/===
-debug.md[SG5T]: F:问题反馈指引：需附版本、运行环境、复现步骤、日志片段、崩溃转储与 debugMod 诊断行 | R:code:docs/other/question.md | A:- | S:坐标与点击类问题必须附 debugMod 日志，否则无法定位
-limitations.md[SG6T]: F:已知限制清单：方块实体内容不恢复、部分结构无法完整还原等能力边界 | R:code:docs/other/question.md | A:结构还原 | S:这是能力边界不是缺陷；修复后必须删条目，否则用户按限制行事
+debug.md[DG7L]: F:问题反馈指引：日志位置、需要附上的信息与常见误判 | R:code:docs/user/known-limitations.md | A:反馈清单 | S:版本号相关描述要随发版更新
 plugins.md[SG3T]: F:第三方形状包收录页（当前仅占位说明） | R:code:docs/dev/plugin.md | A:- | S:内容为空是刻意的，新增包需在此登记下载链接
-question.md[SG6S]: F:常见问题：菜单打开方式、选区与快捷键、结构过大等高频疑问 | R:code:docs/user/function/menu.md | A:使用操作类 | S:答案与默认配置耦合（如默认菜单键是钟），改默认值须同步本文
-update.md[SG5T]: F:更新说明：从 release 下载覆盖并保留 userdata 的步骤 | R:code:CHANGELOG.md | A:如何更新 | S:覆盖时必须保留 userdata，否则配置与已存结构全部丢失
+question.md[DG3L]: F:常见问题：菜单/工具获取、选区、导入导出、更新方式与进度显示 | R:code:docs/user/tools.md,code:docs/user/config.md | A:使用操作类与后台管理类 | S:工具获取方式与版本号描述必须与当前实现一致
+update.md[DG8L]: F:更新日志页：手动更新步骤与版本速览表 | R:code:CHANGELOG.md | A:如何更新与版本表 | S:版本表要随发版追加
 
 ===E:/code/LL3/Plugins/CALL/docs/user/===
-config.md[DG9L]: F:配置参考：分组说明 + 每键含义（含 previewNear 五键与 silentContainerClear），并提示已精简/只认 call:* | R:code:core/src/assets/configs.default.jsonc | A:基础/结构/预览各表 | S:新增键必须同时进 check.jsonc 与模板
+config.md[DG9L]: F:配置参考：分组说明 + 每键含义（含 previewNear 五键与 silentContainerClear），提示已精简/只认 call:* | R:code:core/src/assets/configs.default.jsonc | A:基础/结构/预览各表 | S:新增键必须同时进 check.jsonc 与模板
 format.md[SG6T]: F:文档格式约定：指令参数记法 param:type 与参数类型表 | R:code:docs/user/function/area.md | A:参数类型表 | S:全站命令示例按此记法书写，另立一套会让示例与实现脱节
-install.md[SG7T]: F:安装说明：BDS、LL、LSE 版本矩阵与可选 HologramLib 26.51.11+/26.60.8+ 要求及安装步骤 | R:code:docs/user/tools.md | A:环境要求 | S:库能力按导出面判定（需 450 条），版本矩阵只是安装指引
-introduction.md[DG8L]: F:入门导读：安装后的阅读顺序与功能概览 | R:code:docs/user/install.md,code:docs/user/known-limitations.md | A:阅读顺序列表 | S:新增文档页要同步这里的目录
-migrate.md[SG7T]: F:1.x 与 2.0 升级到 3.x：结论是数据不用迁移，四个数据文件均兼容 | R:code:docs/MIGRATION-2.0.md | A:结论数据不用迁移 | S:升级是覆盖程序并保留 userdata；删 userdata 等于清空全部存档
-tools.md[DG8L]: F:工具与预览说明：各魔杖用法、预览三种模式、靠近可穿与"实体不参与" | R:code:docs/user/known-limitations.md | A:选区/复制/预览/粘贴各节 | S:预览行为变化要同步这里与 config.md
-known-limitations.md[DO8T]: F:已知限制：画/展示框与实体为何不支持（含五条实测通路）与手动补放建议 | R:code:docs/user/tools.md,code:AGENTS.md | A:画/展示框、实体两节 | S:改动限制前必须先有新的实测证据，不能凭猜测改文档
+install.md[DG2L]: F:安装说明：目录布局、依赖、首次启动与物品包生效步骤 | R:code:docs/user/introduction.md | A:安装/升级/验证步骤 | S:启动日志示例里的版本号随发版更新
+introduction.md[DG1L]: F:插件介绍：能力概览、当前版本与许可证 | R:code:README.md | A:功能列表与版本行 | S:发版时同步版本号
+migrate.md[DG2S]: F:升级指南：目录布局迁移、配置键变更与已知限制提示 | R:code:docs/user/config.md | A:1.x/2.0→3.x→4.0.0 步骤 | S:autoUpdate 等已删键要在文中说明
+tools.md[DG8S]: F:工具物品说明：六个工具的用法、靠近可穿（previewNear*）、点击空气、粘贴入口与结构存放 | R:code:docs/user/config.md,code:docs/user/known-limitations.md | A:工具表与各专题段 | S:工具数量/绑定方式变化要同步；靠近可穿参数必须与配置模板一致
+known-limitations.md[SG9T]: F:已知限制总表：画/展示框、容器内容不复制、含水方块、规模上限与区块加载 | R:code:docs/user/tools.md | A:各限制分节 | S:与实现保持一致；原先分散的 limitations 页已并入本页
 
 ===E:/code/LL3/Plugins/CALL/docs/user/function/===
 area.md[SG6T]: F:选区使用说明：a/b 两点设置、清除与显示选区 | R:code:core/src/structure/AreaOperation.ts | A:设置选区a点 | S:不给坐标时取脚下方块，与实现里向下扫描非空气块的规则一致
