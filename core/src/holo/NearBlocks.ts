@@ -34,13 +34,20 @@ export const NearBlocks = {
      *
      * \`blockItem\` is the block's id ("minecraft:oak_stairs"); the cube shows its block model.
      */
-    enter(playerName: string, x: number, y: number, z: number, dimid: number, blockItem: string, invisible: boolean): number {
+    enter(playerName: string, x: number, y: number, z: number, dimid: number, blockItem: string, invisible: boolean, scale = 1): number {
         if (!NearBlocks.available()) return 0;
         try {
             holo.call("blockFakeClear", playerName, x, y, z);
+            // "regular" is what the library's own near-switch passes; an EMPTY archetype leaves the
+            // client on its own default, which renders the held block as a MINIATURE (the reported
+            // "chest turns into a tiny model"). Scale is set explicitly too: 1 = normal size.
             const id = Number(holo.call("sulfurCreate",
-                x + 0.5, y, z + 0.5, dimid, blockItem, 1, 0, "", "", invisible));
+                x + 0.5, y, z + 0.5, dimid, blockItem, 1, 0, "", "regular", invisible));
             if (Number.isFinite(id) && id >= 0) {
+                const wanted = Number(scale);
+                if (Number.isFinite(wanted) && wanted > 0) {
+                    try { holo.call("sulfurSetScale", id, wanted); } catch { /* default is 1 */ }
+                }
                 stats.creates++;
                 stats.cubes++;
                 return id;

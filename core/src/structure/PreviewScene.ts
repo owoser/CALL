@@ -240,6 +240,11 @@ const nearRadius = () => Math.floor(num("previewNearRadius", 5, 0, 16));
 const nearMaxCells = () => Math.floor(num("previewNearCells", 512, 64, 2048));
 /** Keep the cube invisible (the block looks unchanged but is passable). */
 const nearInvisible = () => String(Config.get(Config.GLOBAL, "previewNearInvisible", true)).toLowerCase() !== "false";
+/** Size of the walk-through cube; 1 = normal (the library's own default). */
+const nearScale = () => {
+    const value = Number(Config.get(Config.GLOBAL, "previewNearScale", 1));
+    return Number.isFinite(value) && value >= 0.0625 && value <= 10 ? value : 1;
+};
 
 /** "minecraft:oak_stairs[direction=2,...]" -> "minecraft:oak_stairs" (the cube holds the block item). */
 function blockItemOf(id: string): string {
@@ -774,7 +779,7 @@ export const PreviewScene = {
             const info = scene.cellPayload.get(cell.key);
             const blockItem = blockItemOf(String(cell.id));
             const id = NearBlocks.enter(scene.playerName, cell.x, cell.y, cell.z, scene.dimid,
-                blockItem, nearInvisible());
+                blockItem, nearInvisible(), nearScale());
             if (id > 0) {
                 scene.nearCubes.set(cell.key, { id, x: cell.x, y: cell.y, z: cell.z });
                 scene.nearRegistrations++;

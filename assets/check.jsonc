@@ -245,6 +245,11 @@
     "default": true,
     "description": "可穿过的立方体是否隐身（true = 方块看着没变，但能直接穿过去）。"
   },
+  "previewNearScale": {
+    "type": "number",
+    "default": 1,
+    "description": "靠近可穿的硫磺立方体缩放，1 = 正常大小（0.0625 - 10）。方块看着像微缩模型时调大。"
+  },
   "previewNearCells": {
     "type": "number",
     "default": 512,

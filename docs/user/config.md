@@ -77,6 +77,7 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 | `silentContainerClear` | `true` | `true` / `false` | 粘贴/撤销**覆盖带物品的容器**前，先通过容器 API 逐格清空内容，这样替换方块时**不会把物品掉在地上**。设为 `false` 恢复原版（物品会掉出来） |
 | `previewNearRadius` | `5` | 0 – 16 | 预览时玩家靠近多少格内的假方块**变成可穿过的硫磺立方体**（走进大建筑不再卡）。`0` = 关闭，恢复全部实心 |
 | `previewNearInvisible` | `true` | `true` / `false` | 可穿过的立方体是否隐身。`true`：方块外观不变但能直接穿过；`false`：能看到一只吞着方块的"怪" |
+| `previewNearScale` | `1` | 0.0625 – 10 | 可穿过立方体的缩放。`1` = 正常大小；若穿行时方块看起来像**微缩模型**就调大（例如 1.5） |
 | `previewNearCells` | `512` | 64 – 2048 | 单次注册的可穿格子上限（库每次调用整体替换集合，且受参数长度限制） |
 | `previewMaxCells` | `800000` | 40000 – 4000000 | 选区格子数 ≤ 它：整块解析后按窗口显示；超过：自动切**按 64 切片懒解析**（任意大建筑都能看） |
 | `previewSliceCache` | `8` | 2 – 64 | 懒解析模式缓存多少个已解析切片（LRU，只淘汰没有在显示的） |

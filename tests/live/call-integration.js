@@ -788,7 +788,7 @@ async function runSuite() {
         const p = spot(108);
         fillBox(p.x, p.y, p.z, 3, 3, 3, "minecraft:air");
         const before = NearBlocks.stats();
-        const cubeId = NearBlocks.enter(sim.realName, p.x, p.y, p.z, DIM, "minecraft:oak_stairs", true);
+        const cubeId = NearBlocks.enter(sim.realName, p.x, p.y, p.z, DIM, "minecraft:oak_stairs", true, 1);
         assert(cubeId > 0, "a cube was created: " + cubeId);
         const harmed = NearBlocks.stats();
         assert(harmed.creates === before.creates + 1, "create counted: " + JSON.stringify(harmed));

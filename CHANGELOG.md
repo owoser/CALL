@@ -15,6 +15,15 @@ fixes are based on.
 
 ### Added (3.9.5-beta1, HologramLib 450)
 
+### Fixed (3.9.5-beta1, a walk-through chest looked like a miniature)
+
+- `sulfurCreate` was called with an EMPTY `archetype`, which leaves the client on its own default
+  model; the library's own near-switch passes `"regular"`. Containers and other furniture therefore
+  rendered as a tiny model while the player walked through them. The cube is now created with
+  `"regular"` and an explicit `sulfurSetScale(id, previewNearScale)` (default 1 = normal size).
+- New config key `previewNearScale` (0.0625 - 10, default 1) to tune the size if a specific block
+  still looks off.
+
 ### Fixed (3.9.5-beta1, stateful blocks and containers can be walked through too)
 
 - **`blockBatchSetNear` was the wrong primitive.** It re-sends the whole window through the batch
