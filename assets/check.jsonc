@@ -252,8 +252,8 @@
   },
   "previewNearYOffset": {
     "type": "number",
-    "default": 8,
-    "description": "可穿方块模型的垂直偏移（模型单位，1/16 格）；8 = 半格，正好落在方块格里。"
+    "default": 0,
+    "description": "可穿方块模型的额外垂直偏移（单位：格，0 = 正好居中在方块格内）。"
   },
   "previewNearCells": {
     "type": "number",

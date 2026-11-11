@@ -54,14 +54,14 @@ export const NearBlocks = {
         try {
             holo.call("blockFakeClear", playerName, x, y, z);
             const wanted = Number.isFinite(Number(scale)) && Number(scale) > 0 ? Number(scale) : 1;
-            // Offsets are MODEL units (1/16 block). The display's pivot is the MODEL CENTRE, so a
-            // block placed at (x, y) renders half a block low; +8 = +0.5 block puts it back into the
-            // cell. (The library's own default is offsetY "-4" for a floating item, which is what made
-            // the walk-through block sit visibly below the real block.)
-            const lift = Number.isFinite(Number(yOffset)) ? Number(yOffset) : 8;
+            // The display is anchored at the MODEL CENTRE, so the block only lines up with its cell
+            // when the anchor sits at the cell's centre - hence y + 0.5. The model-space offset is left
+            // at 0 on purpose: its unit is not a block, and guessing it is what sent the blocks flying
+            // over the player's head. yOffset here is a plain BLOCK offset for fine tuning.
+            const lift = Number.isFinite(Number(yOffset)) ? Number(yOffset) : 0;
             const id = Number(holo.call("itemDisplayCreateAdvanced",
-                x + 0.5, y, z + 0.5, dimid, blockItem, 0,
-                "0", String(lift), "0", "0", "0", "0", String(wanted)));
+                x + 0.5, y + 0.5 + lift, z + 0.5, dimid, blockItem, 0,
+                "0", "0", "0", "0", "0", "0", String(wanted)));
             if (!Number.isFinite(id) || id < 0) {
                 stats.failures++;
                 return 0;

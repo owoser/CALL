@@ -15,6 +15,15 @@ fixes are based on.
 
 ### Added (3.9.5-beta1, HologramLib 450)
 
+### Fixed (3.9.5-beta1, the walk-through block's height)
+
+- Its anchor is the model CENTRE, so it has to be placed at the CELL centre: the create call now uses
+  `(x+0.5, y+0.5, z+0.5)` instead of guessing a model-space offset. (The previous attempt treated
+  `offY` as 1/16-block units and lifted the blocks over the player's head - the unit is not a block
+  fraction.)
+- `previewNearYOffset` is now a plain **block** offset (default 0 = perfectly centred, -1..1 for the
+  odd block that still looks off).
+
 ### Fixed (3.9.5-beta1, the walk-through block sat half a cell too low)
 
 - An item display is anchored at the model's CENTRE, and the library's own default pose is

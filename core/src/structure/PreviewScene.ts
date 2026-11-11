@@ -240,10 +240,10 @@ const nearRadius = () => Math.floor(num("previewNearRadius", 5, 0, 16));
 const nearMaxCells = () => Math.floor(num("previewNearCells", 512, 64, 2048));
 /** Keep the cube invisible (the block looks unchanged but is passable). */
 const nearInvisible = () => String(Config.get(Config.GLOBAL, "previewNearInvisible", true)).toLowerCase() !== "false";
-/** Vertical offset in model units (1/16 block); 8 = half a block, which centres the model in its cell. */
+/** Extra vertical offset in BLOCKS (0 = the model is centred in its cell). Fine tuning only. */
 const nearYOffset = () => {
-    const value = Number(Config.get(Config.GLOBAL, "previewNearYOffset", 8));
-    return Number.isFinite(value) && value >= -16 && value <= 16 ? value : 8;
+    const value = Number(Config.get(Config.GLOBAL, "previewNearYOffset", 0));
+    return Number.isFinite(value) && value >= -1 && value <= 1 ? value : 0;
 };
 /** Size of the walk-through cube; 1 = normal (the library's own default). */
 const nearScale = () => {
