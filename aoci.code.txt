@@ -5,7 +5,7 @@
 .gitignore[FC5T]: F:忽略 node_modules、dist 产物、CALL-CLI 的 bin/obj 与本地草稿日志，并注明 types/lse 是刻意入库 | R:code:package.json | A:- | S:types/lse 虽是 fetch-types 生成却必须入库，忽略它会同时破坏 typecheck 与类型契约
 .prettierrc[FC3T]: F:Prettier 格式约定：双引号、分号、4 空格缩进、80 列 | R:- | A:- | S:只有格式约定无强制 lint；改 tabWidth 会波及全仓 TS 缩进，应单独提交
 AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线含"靠近可穿用物品显示方块模式"、发版门禁、提交闸门）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:sulfurSetScale 对可见方块无效；配置改动必须 /ca reload 才生效
-CHANGELOG.md[SC8L]: F:版本史：逐版本记录修复与新增，含 16KB 截断、维度取值、状态命名空间、容器清空、靠近可穿（物品显示方块模式+格子中心锚点）与 /ca reload | R:code:README.md | A:顶部 3.9.5-beta1 下的 Added/Fixed/Changed/Docs 段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
+CHANGELOG.md[SC8L]: F:版本史：逐版本记录修复与新增，含 16KB 截断、维度取值、状态命名空间、容器清空、靠近可穿（物品显示+基准偏移+旋转残留）与 /ca reload | R:code:README.md | A:顶部 3.9.5-beta1 下的 Added/Fixed/Changed/Docs 段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
 LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
 README.md[SC8M]: F:对外说明：fork 缘由、版本矩阵（含可选 HologramLib）、内置工具、构建与真机测试、参考链接 | R:code:CHANGELOG.md,code:docs/user/install.md | A:Why this fork exists、References | S:版本矩阵与发版门禁口径须与 docs/ 一致，改一处两处同步
 build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
@@ -57,8 +57,8 @@ CALL-CLI.deps.json[FV3T]: F:.NET 9 win-x64 运行依赖清单：CALL-CLI 依赖 
 CALL-CLI.runtimeconfig.json[FV2T]: F:CALL-CLI 的 .NET 9 运行时配置（tfm net9.0，关闭二进制序列化与元数据更新） | R:code:assets/bin/CALL-CLI.deps.json | A:runtimeOptions | S:目标机必须装 .NET 9 运行时；升 TFM 需整组重新 publish 所有 bin 资产
 
 ===E:/code/LL3/Plugins/CALL/assets/===
-check.jsonc[FC5T]: F:配置校验模板：每个键的类型、默认值与说明，供 check:config 校验（含 previewNear 五键，Y 偏移单位为格） | R:code:assets/configs.default.jsonc | A:各键定义 | S:与模板键集合必须一致，否则 check:config 报问题
-configs.default.jsonc[FC5T]: F:默认配置模板（带注释）：键名、默认值、取值范围与用途（含 previewNear 五键；Y 偏移 0=居中，单位格） | R:code:assets/check.jsonc,code:docs/user/config.md | A:全局/结构/预览/权限各段 | S:新增键必须同时进 check.jsonc 与 docs
+check.jsonc[FC5T]: F:配置校验模板：每个键的类型、默认值与说明，供 check:config 校验（含 previewNear 五键，Y 偏移是叠加基准的增量） | R:code:assets/configs.default.jsonc | A:各键定义 | S:与模板键集合必须一致，否则 check:config 报问题
+configs.default.jsonc[FC5T]: F:默认配置模板（带注释）：键名、默认值、取值范围与用途（含 previewNear 五键，Y 偏移 0=已齐平，增量叠加内置 -0.09） | R:code:assets/check.jsonc,code:docs/user/config.md | A:全局/结构/预览/权限各段 | S:新增键必须同时进 check.jsonc 与 docs
 help.json[FC5T]: F:游戏内帮助目录的三级键位映射（help.cN 分类→条目→翻译键），只放引用不放正文 | R:code:assets/lang/zh_CN.lang | A:help.c0…help.c3 | S:值必须是 lang 中存在的 help.*.tN 键；改文案只动语言文件，不必动本文件
 icons.json[FC5T]: F:原版物品图标名白名单（apple、bed_*、chest_boat 等），供菜单与图形界面挑选图标 | R:code:assets/item_texture.json | A:顶层数组 | S:名称须与客户端贴图名一致；此处只是名字清单，缺项会让对应图标显示为空
 item_texture.json[FC5T]: F:原版物品名→textures/items/* 贴图路径映射，供建造菜单显示物品图标 | R:code:assets/icons.json | A:顶层键值 | S:值不带 .png 且指向原版贴图；补图标需同时登记 icons.json
@@ -191,7 +191,7 @@ PreviewHud.ts[DU6S]: F:预览 HUD 纯函数：倒计时文案与样式、手势�
 PreviewHudLock.ts[DU5T]: F:动作条占用锁：预览倒计时期间占位，选区提示让出，避免每秒互相覆盖 | R:code:core/src/structure/AreaDisplayerService.ts | A:hold/release | S:锁短时且须成对释放，泄漏会让选区提示长期不显示
 PreviewOperation.ts[AU9L]: F:预览操作会话：set/click/move/rotate/nudge/confirm/mode，confirm 先取消预览并等清理完成后才真正粘贴 | R:code:structure/PreviewScene.ts,code:structure/StructureOperation.ts | A:set、rotate、nudge、confirm（async）、cancelFor | S:confirm 必须 await flushCleanup，否则还原包带着粘贴前的方块覆盖新结构
 PreviewPlan.ts[DU8M]: F:纯规划：格子到世界坐标的映射与差量，并按真实角度重算带状态方块的 id 与 SNBT | R:code:structure/StateRemap.ts,code:structure/SurfaceExtract.ts | A:planCells、diffPlacement | S:提取恒 0°，状态重映射必须在这里做；每个 palette 条目每角度只算一次
-PreviewScene.ts[AU9L]: F:预览场景：三模式构建、计划即记账、取消先停喂再等排空；靠近可穿窗口自管理（清格+物品显示，按原载荷还原，缩放/偏移可配，偏移单位=格） | R:code:holo/NearBlocks.ts,code:structure/NearWindow.ts | A:build、enqueue、pump、syncNear、redrawCell、detachScene | S:nearCubes 必须在 detach 全部销毁；带状态/方块实体格用原载荷还原
+PreviewScene.ts[AU9L]: F:预览场景：三模式构建、计划即记账、取消先停喂再等排空；靠近可穿窗口自管理，内容变化前先 releaseCubes 释放显示并按原载荷重发 | R:code:holo/NearBlocks.ts,code:structure/NearWindow.ts | A:build、enqueue、pump、syncNear、releaseCubes、redrawCell、detachScene | S:NEAR_Y_BASELINE=-0.09 是实测基准，配置只做增量；releaseCubes 必须早于差分
 Rotate.ts[KD8M]: F:旋转与镜像数学：偏移变换、枢轴平移与旋转后的目标脚印 | R:code:core/src/structure/Clipboard.ts | A:rotateOffset、rotatedUnion | S:锚点固定在目标盒最小角，旋转只转盒内图案，不翻到反侧
 StructureOperation.ts[CG8L]: F:结构操作：复制/粘贴/保存/撤销/重做，撤销重做按快照记录维度回放并在跨维度时提示 | R:code:structure/StructureService.ts,code:common/Dimension.ts | A:copy、paste、pasteTransformed、undo、redo、warnOtherDimension | S:撤销必须用快照的 area.start（含 dimid），不能取玩家当前位置
 StructurePlacement.ts[IR9L]: F:逐格放置：调色板转 SNBT 写入、方块实体二次应用、容器先清空、越界与不可写校验、批量让出 | R:code:structure/ContainerClear.ts,code:holo/PasteSync.ts | A:placeLayoutAsync、placeBytesAsync、placeNbtAsync | S:容器必须先清空再覆盖（NBT 清空会触发掉落）；写入后必须回读验证
@@ -269,7 +269,7 @@ index.html[SV5T]: F:文档站外壳：本地化 docsify 资源与初始化配置
 architecture.md[SG8S]: F:平台坑机制：七条铁律、坐标语义、预览选型与实测，含 SNBT 自写序列化、取消清理时序与批量排队覆盖即时写 | R:code:docs/dev/pitfalls.md,code:docs/ARCHITECTURE.md | A:第 9 节坐标、第 10 节预览与实测表 | S:与 AGENTS.md 和 docs/ARCHITECTURE.md 重叠，改一处须三处同步
 plugin.md[SG6M]: F:形状包开发须知：文件结构、必须导出的定义、参数与命令生成流程 | R:code:docs/dev/shape.md | A:形状包开发 | S:包必须含一个 js 入口定义包名与形状数组，缺任一字段即不会被加载
 shape.md[SG6L]: F:形状包 API：export_cmd 生成函数与表单函数的签名、参数与示例 | R:code:docs/dev/plugin.md | A:导出函数 | S:签名与 Plugin.ts 的 IPlugin 契约绑定，参数顺序变更属破坏性改动
-pitfalls.md[SG9T]: F:真机台账：A–G 分类症状到根因到验证，含 C33 容器清空、C34–C38 靠近可穿、C39 偏移单位误判 | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式，否则下次仍靠肉眼猜
+pitfalls.md[SG9T]: F:真机台账：A–G 分类症状到根因到验证，含 C33 容器清空、C34–C39 靠近可穿、C40 旋转残留 | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式，否则下次仍靠肉眼猜
 release.md[SG7T]: F:发版规范：触发授权、前置闸门清单（含 check:version）、版本策略、产物约定、单次发布步骤、事故恢复与禁止项 | R:code:scripts/check-version.mjs,code:CHANGELOG.md | A:第 3 节前置清单、第 5 节发布动作、第 8 节禁止项 | S:未获维护者明确指令不得发版；发布包不入库；变更日志顶部段落须等于当前版本
 
 ===E:/code/LL3/Plugins/CALL/docs/other/===
@@ -280,7 +280,7 @@ question.md[SG6S]: F:常见问题：菜单打开方式、选区与快捷键、�
 update.md[SG5T]: F:更新说明：从 release 下载覆盖并保留 userdata 的步骤 | R:code:CHANGELOG.md | A:如何更新 | S:覆盖时必须保留 userdata，否则配置与已存结构全部丢失
 
 ===E:/code/LL3/Plugins/CALL/docs/user/===
-config.md[DG9L]: F:配置参考：键名、默认值、取值范围与影响（含 previewNear 五键，Y 偏移单位格） | R:code:assets/configs.default.jsonc | A:全局/结构/预览各表 | S:新增键必须同时进 check.jsonc 与模板，否则 check:config 失败
+config.md[DG9L]: F:配置参考：键名、默认值、取值范围与影响（含 previewNear 五键，Y 偏移叠加内置基准） | R:code:assets/configs.default.jsonc | A:全局/结构/预览各表 | S:新增键必须同时进 check.jsonc 与模板，否则 check:config 失败
 format.md[SG6T]: F:文档格式约定：指令参数记法 param:type 与参数类型表 | R:code:docs/user/function/area.md | A:参数类型表 | S:全站命令示例按此记法书写，另立一套会让示例与实现脱节
 install.md[SG7T]: F:安装说明：BDS、LL、LSE 版本矩阵与可选 HologramLib 26.51.11+/26.60.8+ 要求及安装步骤 | R:code:docs/user/tools.md | A:环境要求 | S:库能力按导出面判定（需 450 条），版本矩阵只是安装指引
 introduction.md[DG8L]: F:入门导读：安装后的阅读顺序与功能概览 | R:code:docs/user/install.md,code:docs/user/known-limitations.md | A:阅读顺序列表 | S:新增文档页要同步这里的目录
