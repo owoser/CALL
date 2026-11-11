@@ -50,7 +50,7 @@ See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 | LeviLamina | `>=26.51.9 <26.61.0` | required |
 | LegacyScriptEngine (nodejs) | `>=0.22.3 <0.24.0` (tested on 0.22.3 and 0.22.4) | required |
 | BDS | 1.26.51 or newer 1.26.x | required |
-| **HologramLib** | **`>=26.51.11` / `>=26.60.8`** (450-export surface) | preview, selection wireframe and air left-click; without it those degrade and everything else keeps working |
+| [**HologramLib**](https://github.com/Ieckseyr/HologramLib/releases) | **`>=26.51.11` / `>=26.60.8`** (450-export surface) | preview, selection wireframe and air left-click; without it those degrade and everything else keeps working. Install with `lip install github.com/Ieckseyr/HologramLib`, or drop the matching `LeviLamina-HologramLib-26.51.11.zip` / `-26.60.8.zip` folder into `mods/` |
 
 CALL **must** be installed as `plugins/CALL` (folder name == manifest name).
 The `ll reload` name is `CALL`.
