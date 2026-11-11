@@ -4,8 +4,8 @@
 .gitattributes[FC2T]: F:强制全仓文本以 LF 检出（* text=auto eol=lf），保证 AOCI 基线字节跨平台一致 | R:- | A:- | S:改用 CRLF 检出会让 aoci 全树误判 Stale
 .gitignore[FC5T]: F:忽略 node_modules、dist 产物、CALL-CLI 的 bin/obj 与本地草稿日志，并注明 types/lse 是刻意入库 | R:code:package.json | A:- | S:types/lse 虽是 fetch-types 生成却必须入库，忽略它会同时破坏 typecheck 与类型契约
 .prettierrc[FC3T]: F:Prettier 格式约定：双引号、分号、4 空格缩进、80 列 | R:- | A:- | S:只有格式约定无强制 lint；改 tabWidth 会波及全仓 TS 缩进，应单独提交
-AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实含"实体不支持"、库红线、发版门禁、提交闸门）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:aoci 区块不可手改；画/展示框不做，别用协议实体补（会崩客户端）
-CHANGELOG.md[SC8L]: F:版本史：逐版本记录修复，含 16KB 打包截断、维度取值、状态命名空间、实体不支持与容器先清空再覆盖 | R:code:README.md | A:顶部 3.9.5-beta1 下的 Added/Fixed/Changed/Docs 段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
+AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线含"靠近可穿"约束、发版门禁、提交闸门）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:aoci 区块不可手改；blockBatchSetNear 每次整体替换且方块实体格禁止入选
+CHANGELOG.md[SC8L]: F:版本史：逐版本记录修复与新增，含 16KB 截断、维度取值、状态命名空间、容器清空与"靠近可穿" | R:code:README.md | A:顶部 3.9.5-beta1 下的 Added/Fixed/Changed/Docs 段 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
 LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
 README.md[SC8M]: F:对外说明：fork 缘由、版本矩阵（含可选 HologramLib）、内置工具、构建与真机测试、参考链接 | R:code:CHANGELOG.md,code:docs/user/install.md | A:Why this fork exists、References | S:版本矩阵与发版门禁口径须与 docs/ 一致，改一处两处同步
 build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
@@ -57,8 +57,8 @@ CALL-CLI.deps.json[FV3T]: F:.NET 9 win-x64 运行依赖清单：CALL-CLI 依赖 
 CALL-CLI.runtimeconfig.json[FV2T]: F:CALL-CLI 的 .NET 9 运行时配置（tfm net9.0，关闭二进制序列化与元数据更新） | R:code:assets/bin/CALL-CLI.deps.json | A:runtimeOptions | S:目标机必须装 .NET 9 运行时；升 TFM 需整组重新 publish 所有 bin 资产
 
 ===E:/code/LL3/Plugins/CALL/assets/===
-check.jsonc[FC5T]: F:配置校验模板：每个键的类型、默认值与说明，供 check:config 校验，含 silentContainerClear | R:code:assets/configs.default.jsonc | A:silentContainerClear 等键定义 | S:与模板键集合必须一致，否则 check:config 报问题
-configs.default.jsonc[FC5T]: F:默认配置模板（带注释）：键名、默认值、取值范围与用途，含 silentContainerClear | R:code:assets/check.jsonc,code:docs/user/config.md | A:全局/结构/预览/权限各段 | S:新增键必须同时进 check.jsonc 与 docs，否则 check:config 或 check:docs 失败
+check.jsonc[FC5T]: F:配置校验模板：每个键的类型、默认值与说明，供 check:config 校验（含 previewNear* 三键） | R:code:assets/configs.default.jsonc | A:各键定义 | S:与模板键集合必须一致，否则 check:config 报问题
+configs.default.jsonc[FC5T]: F:默认配置模板（带注释）：键名、默认值、取值范围与用途（含 previewNearRadius/Invisible/Cells） | R:code:assets/check.jsonc,code:docs/user/config.md | A:全局/结构/预览/权限各段 | S:新增键必须同时进 check.jsonc 与 docs，否则 check:config 或 check:docs 失败
 help.json[FC5T]: F:游戏内帮助目录的三级键位映射（help.cN 分类→条目→翻译键），只放引用不放正文 | R:code:assets/lang/zh_CN.lang | A:help.c0…help.c3 | S:值必须是 lang 中存在的 help.*.tN 键；改文案只动语言文件，不必动本文件
 icons.json[FC5T]: F:原版物品图标名白名单（apple、bed_*、chest_boat 等），供菜单与图形界面挑选图标 | R:code:assets/item_texture.json | A:顶层数组 | S:名称须与客户端贴图名一致；此处只是名字清单，缺项会让对应图标显示为空
 item_texture.json[FC5T]: F:原版物品名→textures/items/* 贴图路径映射，供建造菜单显示物品图标 | R:code:assets/icons.json | A:顶层键值 | S:值不带 .png 且指向原版贴图；补图标需同时登记 icons.json
@@ -132,10 +132,11 @@ BlockView.ts[IM8M]: F:客户端方块覆盖桥：blockFakeSet 状态串、blockF
 BossBar.ts[IM6M]: F:血条封装：创建、改标题、改进度、移除，只操作自己创建的 id | R:code:core/src/holo/Holo.ts | A:BossBar.add/remove | S:绝不调用 bossBarRemoveAll，那会清掉其他插件的血条
 FakeBlocks.ts[IR9M]: F:假方块批量适配：12KB 段预算打包、按真实方块还原并区分 restored/direct/skipped（含未加载与解析失败原因）、状态串键去引号与库计数解析 | R:code:holo/Holo.ts,code:structure/BatchSender.ts | A:packCells、restoreDetailed、isPackableId、unquoteStateKeys、parseStats | S:段预算必须远低于 16KB 传参上限；读不到的格子要按原因计数，不能一律静默跳过
 Holo.ts[IR8S]: F:HologramLib 防御式桥接：一次性 ll.import 绑定，库缺失或缺 lrca 时所有调用为 no-op | R:code:core/src/holo/HoloCompat.ts | A:Holo.available/bind | S:函数必须绑定一次复用，禁止在 tick 内 ll.import；库缺失应降级而不是报错
-HoloCompat.ts[IR8M]: F:库能力闸门：按导出面探测 swing、状态串、批量、方块实体与 SNBT，版本串仅用于日志 | R:code:core/src/holo/Holo.ts,code:core/src/holo/BlockView.ts | A:status()、caps、probe()、removeReliable() | S:442 与 450 导出都自称 ABI 1.37.0，禁止用发布号判能力
+HoloCompat.ts[IR8L]: F:库能力探测：按导出面判定 bridge/swing/fakeStates/batch/nearPass/fakeEntity/snbt 等能力并给出状态与原因 | R:code:holo/Holo.ts | A:HoloCaps、CAP_EXPORTS、status、probe、describe | S:能力判定只看 ll.import 导出是否存在，不看版本号
 ItemDisplay.ts[IM5S]: F:用 item display 做假方块预览：固定姿态参数并走无缝创建接口 | R:code:core/src/holo/Holo.ts | A:BLOCK_MODE、itemDisplayCreateSeamless | S:先创建再 SetMode 会重生显示并错位；坐标是底部中心，y 取整、x/z 取 +0.5
 Wireframe.ts[IU8M]: F:选区与预览线框：在客户端画 DebugShape，尺寸不变时用移动而非重建 | R:code:core/src/holo/HoloCompat.ts | A:Box、COLOR、PARK_DISTANCE | S:不要给形状设时长，旧实现在客户端留下过幽灵计时实体；标签总是原地改写
 PasteSync.ts[IR7S]: F:粘贴后客户端重画：优先从 Players.dataMap 枚举在线玩家，对半径内玩家先 blockFakeSetNbt 再 blockFakeSetBlockEntity，并分开统计在线/同维度/半径内/推送/失败 | R:code:holo/BlockView.ts,code:user/Players.ts | A:afterBlockEntity、stats | S:枚举优先用自家注册表（全局 getOnlinePlayers 曾返回 0），行尾标注 via=registry|api
+NearBlocks.ts[IR7L]: F:靠近可穿适配：注册整窗 near 集、清理（销毁硫磺立方体）与统计 | R:code:holo/HoloCompat.ts,code:structure/NearWindow.ts | A:available、reason、register、clear、stats、libraryStats | S:每次 register 会整体替换该玩家集合；一份 payload 只能一次调用发送
 
 ===E:/code/LL3/Plugins/CALL/core/src/io/===
 ExportOperation.ts[AD5S]: F:导出命令的交互编排：进度条、结构查找、按配置调用 CLI 或内部导出 | R:code:core/src/io/ExportService.ts | A:oldStart 与新入口 | S:旧入口标了 deprecated 但仍被引用，改签名须同时清理调用点
@@ -190,7 +191,7 @@ PreviewHud.ts[DU6S]: F:预览 HUD 纯函数：倒计时文案与样式、手势�
 PreviewHudLock.ts[DU5T]: F:动作条占用锁：预览倒计时期间占位，选区提示让出，避免每秒互相覆盖 | R:code:core/src/structure/AreaDisplayerService.ts | A:hold/release | S:锁短时且须成对释放，泄漏会让选区提示长期不显示
 PreviewOperation.ts[AU9L]: F:预览操作会话：set/click/move/rotate/nudge/confirm/mode，confirm 先取消预览并等清理完成后才真正粘贴 | R:code:structure/PreviewScene.ts,code:structure/StructureOperation.ts | A:set、rotate、nudge、confirm（async）、cancelFor | S:confirm 必须 await flushCleanup，否则还原包带着粘贴前的方块覆盖新结构
 PreviewPlan.ts[DU8M]: F:纯规划：格子到世界坐标的映射与差量，并按真实角度重算带状态方块的 id 与 SNBT | R:code:structure/StateRemap.ts,code:structure/SurfaceExtract.ts | A:planCells、diffPlacement | S:提取恒 0°，状态重映射必须在这里做；每个 palette 条目每角度只算一次
-PreviewScene.ts[AU9L]: F:预览场景：三模式构建、计划即记账、重建继承账本、取消先停喂再等排空并双次还原，维度取自 pos.dimid，并提供 flushCleanup 与 activeScene | R:code:common/Dimension.ts,code:structure/CleanupGate.ts,code:holo/FakeBlocks.ts | A:build、enqueue、detachScene、clear、drainCleanup、flushCleanup、activeScene | S:场景维度必须用 dimensionOf；可读=0 时必须报错而不是静默跳过
+PreviewScene.ts[AU9L]: F:预览场景：三模式构建、计划即记账、重建继承账本、取消先停喂再等排空，并向库注册"靠近可穿"窗口（节流+清理） | R:code:structure/NearWindow.ts,code:holo/NearBlocks.ts | A:build、enqueue、pump、syncNear、detachScene、clear、flushCleanup | S:syncNear 必须节流（整体替换会销毁重建立方体）；取消前要 NearBlocks.clear
 Rotate.ts[KD8M]: F:旋转与镜像数学：偏移变换、枢轴平移与旋转后的目标脚印 | R:code:core/src/structure/Clipboard.ts | A:rotateOffset、rotatedUnion | S:锚点固定在目标盒最小角，旋转只转盒内图案，不翻到反侧
 StructureOperation.ts[CG8L]: F:结构操作：复制/粘贴/保存/撤销/重做，撤销重做按快照记录维度回放并在跨维度时提示 | R:code:structure/StructureService.ts,code:common/Dimension.ts | A:copy、paste、pasteTransformed、undo、redo、warnOtherDimension | S:撤销必须用快照的 area.start（含 dimid），不能取玩家当前位置
 StructurePlacement.ts[IR9L]: F:逐格放置：调色板转 SNBT 写入、方块实体二次应用、容器先清空、越界与不可写校验、批量让出 | R:code:structure/ContainerClear.ts,code:holo/PasteSync.ts | A:placeLayoutAsync、placeBytesAsync、placeNbtAsync | S:容器必须先清空再覆盖（NBT 清空会触发掉落）；写入后必须回读验证
@@ -201,6 +202,7 @@ TextureOperation.ts[EU3T]: F:/ca texture 子命令：把准星方块记入纹理
 StateRemap.ts[PD8L]: F:方向状态重映射：按引擎实测表旋转/镜像 weirdo_direction、cardinal_direction（含字符串与命名空间）、facing_direction、torch、pillar、ground_sign、direction | R:code:core/src/io/NbtCodec.ts,code:structure/PreviewPlan.ts | A:remapStates、mappedKeysOf、MAPPED_KEYS | S:命名空间键先剥前缀再查表；direction 用楼梯族顺序；ground_sign_direction 是 +4/90°
 CleanupGate.ts[KD8T]: F:取消清理的两个纯判定：库队列未排空是否继续等，以及重建能否继承上一场景的账本 | R:code:structure/PreviewScene.ts | A:shouldWaitForDrain、canInheritLedger | S:期限必须存在，否则卡住的队列会永久挂住取消；不同维度或不同玩家不得继承，只能还原
 ContainerClear.ts[PD7T]: F:覆盖容器前用容器 API 逐格清空并计数，避免替换方块时物品掉一地 | R:code:structure/StructurePlacement.ts | A:emptyContainerAt、clearContainerForWrite、containerClearedCount | S:必须走 getContainer().removeItem()，用 NBT 把容器写空本身就会触发掉落
+NearWindow.ts[PD7T]: F:可穿窗口选择：按半径/距离取最近格子，按数量与字节预算截断，排除方块实体格 | R:code:structure/PreviewScene.ts | A:selectNearCells、NearCandidate、NearWindowOptions | S:方块实体格禁止入选（离开只重发方块本体，会丢内容）
 
 ===E:/code/LL3/Plugins/CALL/core/src/temp/===
 Common.ts[CG3T]: F:通用小枚举：比较结果 Compare 与文件打开模式 FileMode | R:- | A:Compare | S:取值直接映射比较与 IO 语义（-1/0/1），不要重排枚值
@@ -221,7 +223,7 @@ PlayerManager.ts[RU4T]: F:区块刷新：刷新单个玩家或同维度附近玩
 Players.ts[DD8S]: F:玩家数据总表：xuid 到 CAPlayer 映射、数据加载保存与按名字查 xuid | R:code:core/src/user/CAPlayer.ts | A:dataMap、createCAPlayer | S:只缓存在线玩家，离线玩家数据必须走文件而不是 dataMap
 SettingsOperation.ts[EU7T]: F:/ca setting：读写玩家设置，禁止修改 enable、displayPos、area 三个受保护键 | R:code:core/src/temp/Data.ts | A:forbidModifyKeys | S:受保护键是防呆设计，放开会让启用开关与选区状态被脚本覆盖
 SwingWatcher.ts[IU8M]: F:左键检测（含对空挥动）：轮询 HologramLib 的 swingCount 并去重成点击事件 | R:code:core/src/holo/HoloCompat.ts | A:DEDUPE_MS、SwingWatcher | S:库缺失时该能力整体消失且只提示一次；去重窗口 100ms 防一次挥动触发两次
-ToolItems.ts[AU9L]: F:工具物品判定与诊断：/ca tools debug 打印构建戳、库能力矩阵、库队列/丢包/坏项、方块实体普查与取消清理计数 | R:code:core/src/addon/AddonInstaller.ts,code:holo/HoloCompat.ts | A:TOOL_SPECS、debug() | S:identifier 必须与 assets/addon 下 items/*.json 一致，改名会认不出工具
+ToolItems.ts[AU8L]: F:内置工具定义与调试输出（假方块/靠近可穿/挥动计数/构建戳） | R:code:holo/HoloCompat.ts,code:holo/NearBlocks.ts | A:TOOL_SPECS、debug、list | S:新增诊断必须默认静默，只在 tools debug 下输出
 ToolOperation.ts[CG8L]: F:工具物品动作分发：按 identifier 走选区/复制/预览/粘贴/调整等路径，粘贴前停预览并等清理，并统一打点日志 | R:code:structure/PreviewOperation.ts,code:user/ToolItems.ts | A:handle、logPath、logClick | S:粘贴前必须等预览清理完成，否则客户端会显示被还原包覆盖的残缺结构
 
 ===E:/code/LL3/Plugins/CALL/core/src/util/===
@@ -267,7 +269,7 @@ index.html[SV5T]: F:文档站外壳：本地化 docsify 资源与初始化配置
 architecture.md[SG8S]: F:平台坑机制：七条铁律、坐标语义、预览选型与实测，含 SNBT 自写序列化、取消清理时序与批量排队覆盖即时写 | R:code:docs/dev/pitfalls.md,code:docs/ARCHITECTURE.md | A:第 9 节坐标、第 10 节预览与实测表 | S:与 AGENTS.md 和 docs/ARCHITECTURE.md 重叠，改一处须三处同步
 plugin.md[SG6M]: F:形状包开发须知：文件结构、必须导出的定义、参数与命令生成流程 | R:code:docs/dev/shape.md | A:形状包开发 | S:包必须含一个 js 入口定义包名与形状数组，缺任一字段即不会被加载
 shape.md[SG6L]: F:形状包 API：export_cmd 生成函数与表单函数的签名、参数与示例 | R:code:docs/dev/plugin.md | A:导出函数 | S:签名与 Plugin.ts 的 IPlugin 契约绑定，参数顺序变更属破坏性改动
-pitfalls.md[SG8T]: F:真机台账：A–G 分类症状到根因到验证，含 C31 状态顺序、C32 实体不支持、C33 容器清空顺序 | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式，否则下次仍靠肉眼猜
+pitfalls.md[SG9T]: F:真机台账：A–G 分类症状到根因到验证，含 C31 状态顺序、C32 实体不支持、C33 容器清空、C34 靠近可穿 | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式，否则下次仍靠肉眼猜
 release.md[SG7T]: F:发版规范：触发授权、前置闸门清单（含 check:version）、版本策略、产物约定、单次发布步骤、事故恢复与禁止项 | R:code:scripts/check-version.mjs,code:CHANGELOG.md | A:第 3 节前置清单、第 5 节发布动作、第 8 节禁止项 | S:未获维护者明确指令不得发版；发布包不入库；变更日志顶部段落须等于当前版本
 
 ===E:/code/LL3/Plugins/CALL/docs/other/===
@@ -278,12 +280,12 @@ question.md[SG6S]: F:常见问题：菜单打开方式、选区与快捷键、�
 update.md[SG5T]: F:更新说明：从 release 下载覆盖并保留 userdata 的步骤 | R:code:CHANGELOG.md | A:如何更新 | S:覆盖时必须保留 userdata，否则配置与已存结构全部丢失
 
 ===E:/code/LL3/Plugins/CALL/docs/user/===
-config.md[DG8L]: F:配置参考：键名、默认值、取值范围与影响，含 silentContainerClear 的含义 | R:code:assets/configs.default.jsonc | A:全局/结构/预览各表 | S:新增键必须同时进 check.jsonc 与模板，否则 check:config 失败
+config.md[DG9L]: F:配置参考：键名、默认值、取值范围与影响（含 previewNearRadius/Invisible/Cells） | R:code:assets/configs.default.jsonc | A:全局/结构/预览各表 | S:新增键必须同时进 check.jsonc 与模板，否则 check:config 失败
 format.md[SG6T]: F:文档格式约定：指令参数记法 param:type 与参数类型表 | R:code:docs/user/function/area.md | A:参数类型表 | S:全站命令示例按此记法书写，另立一套会让示例与实现脱节
 install.md[SG7T]: F:安装说明：BDS、LL、LSE 版本矩阵与可选 HologramLib 26.51.11+/26.60.8+ 要求及安装步骤 | R:code:docs/user/tools.md | A:环境要求 | S:库能力按导出面判定（需 450 条），版本矩阵只是安装指引
 introduction.md[DG8L]: F:入门导读：安装后的阅读顺序与功能概览 | R:code:docs/user/install.md,code:docs/user/known-limitations.md | A:阅读顺序列表 | S:新增文档页要同步这里的目录
 migrate.md[SG7T]: F:1.x 与 2.0 升级到 3.x：结论是数据不用迁移，四个数据文件均兼容 | R:code:docs/MIGRATION-2.0.md | A:结论数据不用迁移 | S:升级是覆盖程序并保留 userdata；删 userdata 等于清空全部存档
-tools.md[DG8L]: F:工具与预览说明：各魔杖用法、预览三种模式与"实体不参与"的提示 | R:code:docs/user/known-limitations.md | A:选区/复制/预览/粘贴各节 | S:预览行为变化要同步这里与 config.md
+tools.md[DG8L]: F:工具与预览说明：各魔杖用法、预览三种模式、靠近可穿与"实体不参与" | R:code:docs/user/known-limitations.md | A:选区/复制/预览/粘贴各节 | S:预览行为变化要同步这里与 config.md
 known-limitations.md[DO8T]: F:已知限制：画/展示框与实体为何不支持（含五条实测通路）与手动补放建议 | R:code:docs/user/tools.md,code:AGENTS.md | A:画/展示框、实体两节 | S:改动限制前必须先有新的实测证据，不能凭猜测改文档
 
 ===E:/code/LL3/Plugins/CALL/docs/user/function/===
