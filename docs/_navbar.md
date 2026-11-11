@@ -5,5 +5,5 @@
   * [📥安装说明](user/install.md)
   * [⬆️从 1.x / 2.0 升级](user/migrate.md)
   * [❓常见问题](other/question.md)
-  * [⚠️已知限制](other/limitations.md)
+  * [⚠️已知限制](user/known-limitations.md)
   * [🐛问题反馈](other/debug.md)

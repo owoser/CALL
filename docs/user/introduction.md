@@ -12,7 +12,7 @@
 | LeviLamina（LL3） | 26.51.9+ |
 | legacy-script-engine-nodejs | 0.22.4+ |
 
-当前版本：**3.0.7** ｜ 许可证：**GPL-3.0-or-later**
+当前版本：**4.0.0** ｜ 许可证：**GPL-3.0-or-later**
 
 ## 能做什么
 

@@ -5,6 +5,7 @@
   * [安装说明](user/install.md)
   * [从 1.x / 2.0 升级](user/migrate.md)
   * [文档格式约定](user/format.md)
+  * [工具物品](user/tools.md)
   * [配置参考](user/config.md)
 * [已知限制](user/known-limitations.md)
   * 功能介绍
@@ -24,7 +25,6 @@
   * [发版规范](dev/release.md)
 * 其他
   * [常见问题](other/question.md)
-  * [已知限制](other/limitations.md)
   * [问题反馈](other/debug.md)
   * [更新日志](other/update.md)
   * [更多形状包](other/plugins.md)

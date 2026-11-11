@@ -138,7 +138,7 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 | `saveEntity` | `true` | 是否保存实体 |
 | `areaTextShow` | `true` | 是否显示选区尺寸文字 |
 | `displayArea` | `true` | 是否显示选区 |
-| `displayProgressBar` | `true` | 是否显示进度信息（3.x 是文字提示，不再是 boss 条） |
+| `displayProgressBar` | `true` | 是否显示进度信息（方式由 `previewCountdownHud` 决定：动作栏或 Boss 条） |
 | `loadChuckTip` | `true` | 加载区块时是否提示 |
 | `textureSelectorMode` | `false` | 材质选区模式 |
 | `barReplace` / `barReplaced` | `0` / `1` | 填充时的"替换前 / 后"行为（0–10） |
@@ -149,8 +149,6 @@ Windows 服务器上形如 `F:\SER-01\plugins\CALL\userdata\config\configs.json`
 
 | 键 | 原用途 | 现状 |
 |---|---|---|
-| `autoUpdate` | 自动更新插件 | 2.0 起移除自动更新 |
-| `updateFrom` | 自动更新的下载源（github / minebbs） | 同上 |
 | `maxLoadCheckNum` | 旧的区块加载重试次数 | 已由 `chunkLoadTimeout` 取代 |
 
 ?> 原版文档还提到 `oldCommandType`、`outputCmd` —— 这两个键在 3.x 里完全不存在，写进去会被忽略。

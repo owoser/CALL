@@ -46,7 +46,7 @@ LL3 要求插件目录名与 `manifest.json` 里的 `name` 完全一致，否则
 ~~~text
 [CALL] LegacyScriptEngine ... 版本提示（若过低会警告）
 [CALL] [CALL][command] /call registered (alias: /ca)
-[CALL] 3.0.7 ready (root: <你的路径>/plugins/CALL)
+[CALL] 4.0.0 ready (root: <你的路径>/plugins/CALL)
 [CALL] config: <你的路径>/plugins/CALL/assets/configs.json
 ~~~
 

@@ -24,16 +24,6 @@
         "ru_RU"
       ]
     },
-    "autoUpdate": {
-      "type": "boolean"
-    },
-    "updateFrom": {
-      "type": "enum",
-      "values": [
-        "github",
-        "minebbs"
-      ]
-    },
     "debugMod": {
       "type": "boolean"
     },

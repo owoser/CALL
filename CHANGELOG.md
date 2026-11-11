@@ -11,11 +11,22 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
-## [3.9.5-beta1]
+## [4.0.0]
 
-### Added (3.9.5-beta1, HologramLib 450)
+第一个"预览可以走进去"的正式版。核心四件事：
 
-### Fixed (3.9.5-beta1, "这个工具还没有绑定" when clicking a block)
+- **预览可穿行**：靠近预览的方块会临时变成可穿过的显示体（物品显示方块模式），走进去不再卡顿，
+  离开自动恢复，带状态方块与容器内容都能正确还原；
+- **不再弄脏世界**：撤销/粘贴覆盖带物品的容器前先清空（`silentContainerClear`），物品不再撒一地；
+- **配置与日志清爽**：`configs.json` 从 ~940 行精简到 ~270 行、只绑定 `call:*` 工具物品；
+  控制台不再出现 `[CALL] [CALL]` 重复前缀，调试信息统一走 `[DBG]`；
+- **`/ca reload` 真的会重载配置**（此前会抛 deprecated，改配置必须重启）。
+
+> 兼容性：数据结构与 3.x 相同，配置自动合并（`version` 10），无需手动迁移。
+
+### Added (4.0.0, HologramLib 450)
+
+### Fixed (4.0.0, "这个工具还没有绑定" when clicking a block)
 
 - A click on a **block** arrives as the LEFT kind (`onStartDestroyBlock`) while a click on **air**
   arrives as the RIGHT kind (`onUseItemOn`). The menu / copy / paste wands are only registered in the
@@ -24,7 +35,7 @@ fixes are based on.
 - The lookup now falls back to the other table for CALL's own tools (they are single-purpose) before
   reporting an unbound item.
 
-### Changed (3.9.5-beta1, a tighter config file that only binds CALL's own items)
+### Changed (4.0.0, a tighter config file that only binds CALL's own items)
 
 - `configs.json` went from ~940 lines of bilingual comment blocks to ~270 lines: grouped sections
   (基础 / 结构 / 工具 / 选区 / 预览 / 粘贴), one Chinese line per key, and a compact `default` block.
@@ -35,7 +46,7 @@ fixes are based on.
 - `assets/check.jsonc` is regenerated from the template (one spec per key, enums/ranges kept), so
   the two files can no longer drift into the mixed shape they had.
 
-### Changed (3.9.5-beta1, console log prefixes)
+### Changed (4.0.0, console log prefixes)
 
 - The host already prints `[CALL] ` in front of every line, so our messages no longer repeat it:
   `[CALL] [CALL][preview] …` is now `[CALL] [preview] …`.
@@ -43,7 +54,7 @@ fixes are based on.
   stays silent unless `debugMod` is on. "粘贴前等待清理完成 Nms" is now one of those debug lines
   instead of a normal one.
 
-### Fixed (3.9.5-beta1, rotating the preview left walk-through ghosts behind)
+### Fixed (4.0.0, rotating the preview left walk-through ghosts behind)
 
 - A cell that had been replaced by an item display was invisible to the diff: an unchanged cell got
   no packet, and a "clear" restored a block that was no longer there. Rotating or moving the preview
@@ -53,7 +64,7 @@ fixes are based on.
 - The measured height baseline (-0.09 blocks) is baked into the code, and `previewNearYOffset` is a
   delta on top of it (0 = already flush with the real blocks).
 
-### Fixed (3.9.5-beta1, the walk-through block's height)
+### Fixed (4.0.0, the walk-through block's height)
 
 - Its anchor is the model CENTRE, so it has to be placed at the CELL centre: the create call now uses
   `(x+0.5, y+0.5, z+0.5)` instead of guessing a model-space offset. (The previous attempt treated
@@ -62,7 +73,7 @@ fixes are based on.
 - `previewNearYOffset` is now a plain **block** offset (default 0 = perfectly centred, -1..1 for the
   odd block that still looks off).
 
-### Fixed (3.9.5-beta1, the walk-through block sat half a cell too low)
+### Fixed (4.0.0, the walk-through block sat half a cell too low)
 
 - An item display is anchored at the model's CENTRE, and the library's own default pose is
   `offsetY "-4"` for a floating item; creating it with offsets/rotations set to `0` dropped the
@@ -70,7 +81,7 @@ fixes are based on.
 - The display is now lifted by `previewNearYOffset` model units (1/16 block, **8** = half a cell by
   default, -16..16 tunable), so the walk-through block lines up with the cells around it.
 
-### Fixed (3.9.5-beta1, the walk-through visual is a full block)
+### Fixed (4.0.0, the walk-through visual is a full block)
 
 - The sulfur cube renders its block as a **held item**, so it is always item-sized: measured,
   `sulfurSetScale(id, 3)` returns true and the picture does not change at all (the scale only moves
@@ -80,14 +91,14 @@ fixes are based on.
   `itemDisplaySetVisiblePlayer`), which renders the full block model and honours the scale; it is
   destroyed on leave like before. `previewNearScale` now really changes the size.
 
-### Fixed (3.9.5-beta1, /ca reload silently did nothing)
+### Fixed (4.0.0, /ca reload silently did nothing)
 
 - `/ca reload` threw `this command is deprecated`, so an edited `configs.json` was never re-read
   (LSE caches the file values) - people changed a key, saw no effect, and had to restart.
 - It now calls `Config.reloadAll()` (every config handle) and reports the walk-through radius/scale
   it picked up.
 
-### Fixed (3.9.5-beta1, a walk-through chest looked like a miniature)
+### Fixed (4.0.0, a walk-through chest looked like a miniature)
 
 - `sulfurCreate` was called with an EMPTY `archetype`, which leaves the client on its own default
   model; the library's own near-switch passes `"regular"`. Containers and other furniture therefore
@@ -96,7 +107,7 @@ fixes are based on.
 - New config key `previewNearScale` (0.0625 - 10, default 1) to tune the size if a specific block
   still looks off.
 
-### Fixed (3.9.5-beta1, stateful blocks and containers can be walked through too)
+### Fixed (4.0.0, stateful blocks and containers can be walked through too)
 
 - **`blockBatchSetNear` was the wrong primitive.** It re-sends the whole window through the batch
   path, and a batch state string cannot carry block states: measured,
@@ -112,7 +123,7 @@ fixes are based on.
 - The ENTER scan is throttled to block-boundary movement (or a scene change); the LEAVE pass only
   walks the active cubes, so a 100k-cell preview costs nothing per tick.
 
-### Fixed (3.9.5-beta1, the walk-through window only worked near the drop point)
+### Fixed (4.0.0, the walk-through window only worked near the drop point)
 
 - **The window never followed the player.** The ticker was only started for window/lazy previews, so
   a "full" preview registered the near set once (at build time) and nothing re-registered it while
@@ -124,7 +135,7 @@ fixes are based on.
   near layer re-sends its window through the batch path - a descriptor that differs at all showed up
   as a scrambled orientation. Plain blocks only, until the two paths are made byte-identical.
 
-### Added (3.9.5-beta1, walk through the preview)
+### Added (4.0.0, walk through the preview)
 
 - **Nearby preview blocks can be walked through.** `blockBatchSetNear` turns the cells around the
   player (default 5 blocks) into passable, invisible sulfur cubes and puts the fake block back once
@@ -138,7 +149,7 @@ fixes are based on.
 - Config: `previewNearRadius` (0 = off), `previewNearInvisible`, `previewNearCells`;
   `/ca tools debug` reports the registration count and the library's `nearSets`.
 
-### Fixed (3.9.5-beta1, undoing a chest no longer litters the ground)
+### Fixed (4.0.0, undoing a chest no longer litters the ground)
 
 - Replacing a container block makes the engine treat it as destroyed and spill its contents, so an
   undo (or a paste) over a filled chest left items all over the floor. Rewriting the block entity NBT
@@ -151,7 +162,7 @@ fixes are based on.
   (native-only, exposes no LSE binding here), and LSE's `onMobSpawn` (measured: it does not fire for
   container spills).
 
-### Docs (3.9.5-beta1, paintings are out of scope)
+### Docs (4.0.0, paintings are out of scope)
 
 - **Entity support (paintings, item frames, mobs) is not implemented and will not be.** The capture
   does contain actor identifiers (measured: `armor_stand` shows up in the captured bytes), but the
@@ -164,7 +175,7 @@ fixes are based on.
   `docs/user/known-limitations.md`, so nobody has to rediscover it.
 - The painting/entity code written while investigating was reverted; only the findings remain.
 
-### Fixed (3.9.5-beta1, namespaced states, drop/pickup, waiting)
+### Fixed (4.0.0, namespaced states, drop/pickup, waiting)
 
 - **A namespaced state key was dropped, which is why a chest always faced one way.** `blockSnbtOf()`
   filters keys with `[A-Za-z0-9_.-]`, so `minecraft:cardinal_direction` (what a chest actually
@@ -180,7 +191,7 @@ fixes are based on.
   runs commands through `Player.runcmd`). It is a player-facing tip now, and the tool dispatch
   catches whatever else escapes.
 
-### Fixed (3.9.5-beta1, selections and rollbacks across dimensions)
+### Fixed (4.0.0, selections and rollbacks across dimensions)
 
 - **Changing dimension no longer breaks selecting.** A selection keeps one corner per click; a
   dimension change in between left the two corners in different worlds and `hasSetArea()` threw
@@ -195,7 +206,7 @@ fixes are based on.
 - Snapshots without a dimension (written before dimensions were tracked) are normalised to the
   Overworld with one warning instead of waiting out the chunk gate.
 
-### Fixed (3.9.5-beta1, the Nether / End residues)
+### Fixed (4.0.0, the Nether / End residues)
 
 - **The dimension was read from the wrong object.** LSE exposes `dimid` on `IntPos`/`FloatPos`
   only - a `Player` has no such field - so `Number(player.$.dimid ?? 0)` silently pinned every
@@ -208,7 +219,7 @@ fixes are based on.
 - A restore that cannot read a SINGLE cell now logs an error with the dimension, the counts and
   three sample coordinates instead of quietly doing nothing.
 
-### Fixed (3.9.5-beta1, pasting right after adjusting the preview)
+### Fixed (4.0.0, pasting right after adjusting the preview)
 
 - **A paste no longer races the preview teardown.** Restore packets carry the block the world had
   when they were built - i.e. BEFORE the paste - so a paste that starts while they are still queued
@@ -218,7 +229,7 @@ fixes are based on.
   (4 s cap, then it proceeds and logs a warning). `/ca tools debug`-style log line:
   `粘贴前等待清理完成 Nms`.
 
-### Fixed (3.9.5-beta1, the 16 KB packed-string truncation)
+### Fixed (4.0.0, the 16 KB packed-string truncation)
 
 - **This is the root cause of both the preview holes and the cancel residue.** LSE truncates the
   string it hands to `ll.import` at roughly 16 KB, and `PACK_MAX_BYTES` was 512 KB, so any batch
@@ -230,7 +241,7 @@ fixes are based on.
   segments; `CLEAR_CHUNK` drops to 1024 for the same reason. A unit test pins the budget below the
   measured limit and asserts every cell survives the split.
 
-### Fixed (3.9.5-beta1, cells the packed format cannot carry)
+### Fixed (4.0.0, cells the packed format cannot carry)
 
 - **Restore now reports (and repairs) entries the batch format refuses.** `packCells()` silently
   drops a cell whose descriptor contains `;` (or has non-integer coordinates), and
@@ -241,7 +252,7 @@ fixes are based on.
 - `/ca tools debug` and the cancel report show the library's `dropped`/`bad` counters and a
   `单格补发 N 格` figure, which is what turned this from a guess into a measurement.
 
-### Fixed (3.9.5-beta1, a clear is not a confirmation)
+### Fixed (4.0.0, a clear is not a confirmation)
 
 - **A restored cell is no longer forgotten.** `markCleared` removed the cell from `everApplied` as
   soon as the restore packet was SUBMITTED. The library queues batches and can drop one, so a
@@ -253,7 +264,7 @@ fixes are based on.
 - Together with the plan-level registration this makes the cancel independent of clear reliability,
   which is the last known source of leftovers.
 
-### Fixed (3.9.5-beta1, cancel covers the whole plan)
+### Fixed (4.0.0, cancel covers the whole plan)
 
 - **A cancel now restores every cell the plan asked for**, not only the cells whose packet was
   confirmed. The ledger only recorded successful draws, so any draw path that missed its mark (the
@@ -269,7 +280,7 @@ fixes are based on.
 - `debugMod` adds `[preview] 取消: applied/stale/ever/清理/队列` so the next report shows whether
   the ledger and the plan agree.
 
-### Fixed (3.9.5-beta1, residue after moving or rotating the preview)
+### Fixed (4.0.0, residue after moving or rotating the preview)
 
 - **A rebuild inherits the previous ledger instead of clearing it.** Every nudge/rotate rebuilt the
   scene with `clear()` and discarded the pending teardown, so cells of the old footprint that were
@@ -281,7 +292,7 @@ fixes are based on.
   cells are restored instead.
 - `/ca tools debug` reports `… · 继承 N 格` so the inherited footprint is visible.
 
-### Fixed (3.9.5-beta1, cancel left half a preview behind)
+### Fixed (4.0.0, cancel left half a preview behind)
 
 - **Cancelling during a build no longer leaves fake blocks on the client.** A batch larger than
   `previewBatchImmediate` is queued inside HologramLib and drains over several ticks; the old
@@ -293,7 +304,7 @@ fixes are based on.
   二次还原 / 超时放行 / 失败`, which is what makes a future residue report diagnosable.
 - Cleanup also restores in the scene's own dimension now (it silently defaulted to dimension 0).
 
-### Fixed (3.9.5-beta1, block entity payloads: banners, signs, chests)
+### Fixed (4.0.0, block entity payloads: banners, signs, chests)
 
 - **Banners keep their colour and patterns.** `snbtOf()` converted the parsed tag tree through
   LSE (`toLseTag(...).toSNBT()`) and came back with an EMPTY string whenever the payload contained
@@ -306,7 +317,7 @@ fixes are based on.
 - A pasted banner is no longer lost: with the payload writable, the block survives and keeps
   `Base` + `Patterns` (new live gates `ca.bannerCopyAudit` and `ca.bannerRoundTrip`).
 
-### Fixed (3.9.5-beta1, rotation of the preview and block-entity blocks)
+### Fixed (4.0.0, rotation of the preview and block-entity blocks)
 
 - **The preview now rotates the block STATES, not just the cells.** Both extraction call sites pass
   `0, "none"` and the real angle is applied later by `planCells()`, so the remap added at extract
@@ -322,7 +333,7 @@ fixes are based on.
   `Patterns`/`Base`/`Text`, plus a new live test (`ca.bannerRoundTrip`) that seeds a patterned
   banner, copies and pastes it, and reports `written / dstType / dstStates / dstBE` when it breaks.
 
-### Fixed (3.9.5-beta1, batched vs immediate writes)
+### Fixed (4.0.0, batched vs immediate writes)
 
 - **Block states and block entity contents finally reach the client.** A batch larger than
   `previewBatchImmediate` (default 256) is QUEUED and drained over several ticks, so the immediate
@@ -339,7 +350,7 @@ fixes are based on.
   through `blockFakeResolveNbt` and compares it with the bare-name id, so "the states are in our
   SNBT but the library ignores them" can be told apart from a timing problem.
 
-### Fixed (3.9.5-beta1, rotated pastes)
+### Fixed (4.0.0, rotated pastes)
 
 - **Rotating or mirroring a structure now turns its block states.** `transformLayout()` only
   permuted the cell indices and carried the palette as-is, so a rotated staircase kept its original
@@ -356,7 +367,7 @@ fixes are based on.
   `/ca tools debug`. Screenshots can finally be attributed to a commit (this round started with two
   screenshots from an older deploy).
 
-### Fixed (3.9.5-beta1, HologramLib 450)
+### Fixed (4.0.0, HologramLib 450)
 
 - **Stairs, fences, logs, waterlogged blocks keep their state in the preview.** Measured on
   26.60.8: the library's state STRING resolver (`blockFakeSet`/`blockBatchSet`) returns the block's
@@ -366,7 +377,7 @@ fixes are based on.
 - **State strings must use unquoted keys.** The library parser trims the key but only unquotes the
   value, so the old `["weirdo_direction"=2]` form was refused outright.
 
-### Changed (3.9.5-beta1, HologramLib gate)
+### Changed (4.0.0, HologramLib gate)
 
 - The dependency is now gated on the **exported API surface**, not a release number (442- and
   450-export builds both report ABI 1.37.0). Minimum supported: **v26.60.8 / v26.51.11**; the
@@ -383,12 +394,12 @@ fixes are based on.
   newest `CHANGELOG` section; an untagged version only warns, a disagreement fails. This is what
   caught the drift where the tree said 3.9.x while the last tag was still v3.1.0.
 
-### Changed (3.9.5-beta1, build 36)
+### Changed (4.0.0, build 36)
 
 - The per-burst `[CALL][preview] +N 批 / +M 格` line is `debugMod`-only. It printed about once per
   second during a normal preview session, which is noise on a production console; the counters are
   still kept and the line comes back the moment `debugMod` is on.
-### Fixed (3.9.5-beta1, build 35)
+### Fixed (4.0.0, build 35)
 
 - **`/ca area a|b` with no coordinates now selects the block UNDER the feet.** It used
   `player.pos` minus one, which is the cell the body occupies; the block beneath it is one lower.
@@ -397,7 +408,7 @@ fixes are based on.
   `getBlockStandingOn()`, which on this build answers the FEET cell (measured in the live probe).
 - Air clicks (selection/preview/paste wands) use the same rule, so "click the air = the block under
   my feet" is now literally true (live: `call area a 28 37 28` for a player at y=38).
-### Fixed (3.9.5-beta1, build 34)
+### Fixed (4.0.0, build 34)
 
 - **Every wand was one block off for NEGATIVE coordinates.** Measured with a probe command: LSE
   returns a position argument as the block CENTRE (`x + 0.5`), and `ParamType.BlockPos` truncates
@@ -409,13 +420,13 @@ fixes are based on.
   Measured: `1376 179 -44` -> `1376.5 179 -43.5` -> floor -> `1376 179 -44`.
 - Dropped the experimental "correct the block from the hit point" step: it turned left clicks (where
   the hit point IS the block position and the face is stale) into `y - 1`.
-### Added (3.9.5-beta1, build 33)
+### Added (4.0.0, build 33)
 
 - `ca.areaSetFromCommand` (live): the area handler is fed the exact args the command parser
   produces (`IntPos(1376,179,-44)` / `IntPos(1377,179,-45)`) and the stored corners are asserted to
   be verbatim. Together with the click log and the geometric correction this closes the whole
   chain: event block -> clicked block -> `${block.pos}` -> command -> stored area.
-### Fixed (3.9.5-beta1, build 32)
+### Fixed (4.0.0, build 32)
 
 - **The point is derived from the HIT POINT when the event block disagrees.** A click on a face
   reports a point on that face's plane; the reported block is *supposed* to be the clicked one, but
@@ -424,21 +435,21 @@ fixes are based on.
   (`side` 0/1/2/3/4/5 -> down/up/north/south/west/east). A correction is logged under `debugMod`
   (`block corrected by hit point: event=… -> …`), so the engine's behaviour is visible instead of
   argued about.
-### Changed (3.9.5-beta1, build 31)
+### Changed (4.0.0, build 31)
 
 - The selection label now carries the box origin: `2×1×2(4) @1376,179,-45`. A box that looks
   shifted can then be checked against the numbers that drew it straight from a screenshot.
 - Verified against the library (`ca.shapeBoxAnchor`): `shapeCreateBox(10,20,30, 12,21,32)` reports
   its location as `[11,20.5,31]`, i.e. the CENTRE - so the "same size -> shapeSetLocation(centre)"
   move path in Wireframe is correct and the drawn box follows `start`/`end` exactly.
-### Fixed (3.9.5-beta1, build 30)
+### Fixed (4.0.0, build 30)
 
 - **The `${posf}` migration never ran for players whose configs still used it.** It was wired into
   the "binding missing" branch, but a `${posf}` binding resolves perfectly - it just selects the
   FACE plane, so the second click landed one block higher/off (`posf=1377.58,180,-44.35` for the
   block at `1377,179,-45`). The rewrite now runs on the first click of every session (once per
   player) and persists the settings.
-### Added (3.9.5-beta1, build 29)
+### Added (4.0.0, build 29)
 
 - `debugMod` now logs the commands a click resolves to (`[CALL][tool] cmd call area a 1376 179 -44`),
   so a "one block off" report can be split into *the command was wrong* vs *the drawing was wrong*.
@@ -446,7 +457,7 @@ fixes are based on.
 - `ca.areaLens` (live) pins the exact pair from the report: A=(1376,179,-44), B=(1377,179,-45) must
   normalise to lens 2x1x2 with z -45..-44 - i.e. the stored box is correct even when the second
   click is the minor corner.
-### Fixed (3.9.5-beta1, build 28)
+### Fixed (4.0.0, build 28)
 
 - **Clicking air targets the block under the feet again** (no crosshair). The view ray was added
   while chasing the one-block offset; the operator's rule is simpler: air click = the block you
@@ -454,7 +465,7 @@ fixes are based on.
 - `/ca tools debug` now prints the selection state: display mode, the wireframe anchor /
   placeholder block, the stored `start -> end` and the wireframe counters - so a box that looks
   shifted can be checked against the numbers that produced it instead of a screenshot.
-### Fixed (3.9.5-beta1, build 27)
+### Fixed (4.0.0, build 27)
 
 - **"All wands are one block off" was a `${posf}` binding, not the click routing.** `posf` is the
   raw click point and it lies on the FACE plane: clicking the +Z face of the block at
@@ -465,7 +476,7 @@ fixes are based on.
 - The click diagnostic (`debugMod`) now logs EVERY routed click, not just the preview paste:
   `[CALL][tool] path=block|air item=… block=x,y,z type=… posf=… side=…`. It printed nothing before,
   which is why the report could not be answered from the console.
-### Changed (3.9.5-beta1, build 26)
+### Changed (4.0.0, build 26)
 
 - **The paste wand is now the only way to confirm a preview.** It answers BOTH buttons on both
   targets - a click on a block and a click on air, left and right - because the left side already
@@ -476,7 +487,7 @@ fixes are based on.
   it points at the paste wand instead, at most once every 30 s. `/ca preview confirm` and the menu
   entry keep working.
 
-### Fixed (3.9.5-beta1, build 26)
+### Fixed (4.0.0, build 26)
 
 - **Every wand acted one block off.** A single click can reach the plugin twice - the block event
   (correct coordinates) and the swing/use heuristic - and the second one ran the tool against the
@@ -487,7 +498,7 @@ fixes are based on.
   the operator clicked.
 - `debugMod` logs `[CALL][tool] path=block|air|preview-paste item=… source=…` so a routing report
   can be answered with evidence instead of a guess.
-### Fixed (3.9.5-beta1, build 25)
+### Fixed (4.0.0, build 25)
 
 - **Clears are queued before sets ("先清理再移动").** `diffPlacement` emits sets first, so a move
   drew the whole new window (up to 12 chunks of sets) before restoring the old one - and a restore
@@ -496,7 +507,7 @@ fixes are based on.
 - Restores keep going through the SET path (see build 24): the library's clear reports failure on
   this build even for cells that were faked a moment earlier
   (`restored 8/8 via the set path (blockBatchClear=false)`).
-### Fixed (3.9.5-beta1, build 24)
+### Fixed (4.0.0, build 24)
 
 - **BlockBatchClear is not usable here: a clear is now sent as "set the real block".** The
   library's clear paths (`blockBatchClear` / `blockFakeClear`) report failure - their bodies are
@@ -509,7 +520,7 @@ fixes are based on.
   teardown), so a preview can no longer leave anything behind.
 - The queued-cleanup path (offline player / refused clear) also restores through the set path
   instead of `viewClearBlock`, which only reverts `viewBlock` overrides.
-### Fixed (3.9.5-beta1, build 23)
+### Fixed (4.0.0, build 23)
 
 - **Ghost blocks survived moving, switching and cancelling a preview.** `maybeResend()` cleared the
   whole `applied` map whenever the player crossed a chunk boundary (or the heartbeat came due).
@@ -527,7 +538,7 @@ fixes are based on.
   ghosts before.
 - The burst log now reports THIS burst (`+N 批 / +M 格`) plus `重发 / 回退 / 被拒 / 跳过 / 欠清`,
   so the re-send loop is visible immediately instead of being hidden inside a cumulative counter.
-### Changed (3.9.5-beta1, build 22)
+### Changed (4.0.0, build 22)
 
 - **The preview now sends through HologramLib's batch fake blocks (`blockBatch*`).** One call
   carries up to 1024 cells and the library merges them per sub-chunk into `UpdateSubChunkBlocks`
@@ -543,7 +554,7 @@ fixes are based on.
 - Everything degrades to the old per-cell path: no `blockBatch*` exports, a rejected payload or
   `previewBatchMode: "off"`. `/ca preview info` reports the backend (`viewBlock+batch`), batches,
   cells and the library queue; `/ca tools debug` shows the batch API availability + self-test.
-### Fixed (3.9.5-beta1, build 21)
+### Fixed (4.0.0, build 21)
 
 - **data/nbt no longer grows a folder per server player.** The layout migration called
   `StructureStore.prepare()` (mkdir) for every xuid it found in the old config and only afterwards
@@ -552,7 +563,7 @@ fixes are based on.
   real slice file first, and startup prunes folders that contain no `.mcstructure` at all
   (`_legacy`, `_orphan` and `public` are never touched). Verified on the test server:
   "清理空目录 66 个", leaving only the two folders that hold structures.
-### Fixed (3.9.5-beta1, build 20)
+### Fixed (4.0.0, build 20)
 
 - **"这个工具还没有绑定" appeared at random.** Bindings are keyed by the item's display name, and
   `matchBinding` only accepted an exact name or the unnamed entry - so a renamed tool (anvil), a
@@ -566,7 +577,7 @@ fixes are based on.
   `SwingWatcher.noteHandled()` now marks every use/place as explaining the swing, and a change of
   the held item between two polls re-baselines instead of firing. Counters show up in
   `/ca tools debug` (已触发 / 吞掉右键 / 吞掉切换).
-### Fixed (3.9.5-beta1, build 19)
+### Fixed (4.0.0, build 19)
 
 - **Block entity data was never READ, so banner patterns could never survive a paste.** Parsing a
   real captured structure showed the compound walk inside `structure` stopping right after
@@ -579,7 +590,7 @@ fixes are based on.
   (`viewBlock` returns true) but the client still draws the default variant, i.e.
   `Block::tryGetFromRegistry` ignores the descriptor. Preview stair orientation therefore stays a
   library limitation until `viewBlock` accepts a network id or a states payload.
-### Fixed (3.9.5-beta1, build 18)
+### Fixed (4.0.0, build 18)
 
 - **The preview now sends block states.** `SurfaceExtract` only stored the palette NAME, so every
   stair faced the same way and fences/doors lost their variants while the paste (which writes
@@ -594,14 +605,14 @@ fixes are based on.
   success but drops extra keys). Needs an in-game check with a patterned banner.
 - Banner/sign/chest contents still cannot be shown in the PREVIEW: the per-client block override
   takes a block id only. Documented in docs/user/tools.md.
-### Fixed (3.9.5-beta1, build 17)
+### Fixed (4.0.0, build 17)
 
 - **A freshly placed preview was cancelled by the previous one's timer.** `set()` builds a new
   state object and overwrites the old one, but the old auto-cancel `setTimeout` was left armed;
   it fired at its original deadline and cancelled whatever preview was current - the countdown
   read 50 s and then "预览已超时取消" appeared. The old timer is now cleared when the state is
   replaced, and the timeout callback only acts when its own state is still the current one.
-### Fixed (3.9.5-beta1, build 16)
+### Fixed (4.0.0, build 16)
 
 - **A left click on the preview wand left the ghost full of holes.** A left click re-sets the
   anchor, and `set()` always rebuilt the scene; `PreviewScene.build()` tears the old scene down
@@ -610,7 +621,7 @@ fixes are based on.
   preview now takes the diff path (`PreviewScene.canMove()` + `move()`) instead of rebuilding,
   and `build()` discards that player's stale cleanup tasks before clearing.
 - Rotation / mirroring keep their incremental path, so they were never affected.
-### Fixed (3.9.5-beta1, build 15)
+### Fixed (4.0.0, build 15)
 
 - **HologramLib shape-fix release adopted.** 26.60.6 / 26.51.10 make the remove packet a bare
   network id (`DebugShape::mType` became optional), so `shapeDestroy` finally clears the shape on
@@ -621,13 +632,13 @@ fixes are based on.
   `wireframeParkBeforeDestroy` option now defaults to `false` and merely forces it on or off.
 - Both test servers upgraded (26.51.10 / 26.60.6); start-up reports the version as before.
 - `docs/user/tools.md` and `config.md` state the new minimums.
-### Fixed (3.9.5-beta1, build 14)
+### Fixed (4.0.0, build 14)
 
 - **Clicking air targeted the cell the body occupies, one block above the floor.** The
   selection/preview/paste point of an air click is now the block the player stands ON
   (`player.getBlockStandingOn()`), falling back to one below the feet cell, then to the view
   ray, then to a stand-in - so flying over nothing still works.
-### Fixed (3.9.5-beta1, build 13)
+### Fixed (4.0.0, build 13)
 
 - **A cancelled preview left its box and label on screen.** Verified with `/ca tools debug`: after
   cancelling, the plugin tracked 0 keys and the library held 0 shapes, yet the client still drew
@@ -635,7 +646,7 @@ fixes are based on.
   512 blocks below the world and re-sent before `shapeDestroy`, so a cancel (or a rebuild after a
   size change) clears the screen immediately. New option `wireframeParkBeforeDestroy` (default
   true) documents the workaround and can be turned off once the library removes shapes properly.
-### Fixed (3.9.5-beta1, build 12)
+### Fixed (4.0.0, build 12)
 
 - **Reverted the wireframe lifetime, which was my own regression.** Build 11 set
   `shapeSetDuration` on every shape after concluding the library's remove packet was ignored.
@@ -648,7 +659,7 @@ fixes are based on.
   created, therefore no ghost can appear. Verified: 4 nudges keep the same box id.
 - Labels are still rewritten in place (never recreated), which fixed the stacked text earlier.
 - `/ca tools debug` shows the lifetime state plus per-key in-place-move / text-reuse counters.
-### Fixed (3.9.5-beta1, build 11)
+### Fixed (4.0.0, build 11)
 
 - **Wireframe ghosts are gone, and the cause was in the library, not in our drawing.**
   `shapeDestroy` erases the shape server-side and returns true, but the packet it sends
@@ -660,7 +671,7 @@ fixes are based on.
   (`shapeSetText` + `shapeSetLocation` + `shapeUpdate`), so rotating the preview cannot stack
   labels. Cancelling a preview fades the shapes out in 0.2 s instead of relying on destroy.
 - `/ca tools debug` reports the ttl and each key's text-reuse count.
-### Fixed (3.9.5-beta1, build 10)
+### Fixed (4.0.0, build 10)
 
 - **A left click on a block also fired a "click on air", which rewrote the selection at the
   player's feet** - the reported "选区往外多一格". The dedupe window compared the block event
@@ -673,7 +684,7 @@ fixes are based on.
   `shapeRemove` and a warning names the key and id. `/ca tools debug` now prints every tracked
   shape (key, box id, label id, still-exists) and the library's total shape count, and the new
   `wireframeResetAll` option (default off) can hard-reset the library when something is stuck.
-### Added (3.9.5-beta1, build 9)
+### Added (4.0.0, build 9)
 
 - **Tools respond to a click on air, left and right.** Right-click on air was already wired
   through `onUseItem`; left-click had no event at all (LSE only reports left clicks that hit a
@@ -691,13 +702,13 @@ fixes are based on.
   in that case; nothing else degrades. `/ca tools status` prints the version line.
 - New config keys `toolAirClick` (default `true`) and `toolSwingPollMs` (200 ms, 100-1000),
   schema `version` 2. `tooth.json` now depends on `github.com/Ieckseyr/HologramLib >=26.51.9`.
-### Changed (3.9.5-beta1, build 8)
+### Changed (4.0.0, build 8)
 
 - **Removed the `texturepack-required` warning.** It claimed clients might not receive the
   resource pack (blank item icons) unless the flag was `true` - that was wrong: the pack is
   downloaded regardless, and the advice came from a time when the addon itself failed to load.
   `/ca tools status` still shows the flag, neutrally, for diagnostics.
-### Changed (3.9.5-beta1, build 7)
+### Changed (4.0.0, build 7)
 
 - **The tools respond to a right-click on air.** Only `onUseItemOn` was wired, so the menu and
   the copy wand required a block under the crosshair. `onUseItem` is now listened to as well
@@ -708,14 +719,14 @@ fixes are based on.
   `.mcstructure` in the root would work; it did not, and clicking it only produced a console
   error. Such files are now ignored, and opening the menu says how many were found and where
   they must go (`public/<名字>/`). Loading one by id answers with the same explanation.
-### Fixed (3.9.5-beta1, build 6)
+### Fixed (4.0.0, build 6)
 
 - **The menu's 提交 button produced a syntax error for names with spaces.** The form built
   `call load 233 FF 黑黑 _ 啊啊_ 641 136 6019 ...` unquoted, so the parser read `233` as the id and
   `FF` as a coordinate. Every id interpolated into a command (load / delete / public / private)
   now goes through `quoteArg()`, which wraps it in double quotes - the same form that works when
   typed by hand.
-### Fixed (3.9.5-beta1, build 5)
+### Fixed (4.0.0, build 5)
 
 - **A failed load no longer reports success.** The callback ran inside `StructureService.load`
   before the promise resolved, so the counter was still 0 when the message was printed; the
@@ -725,7 +736,7 @@ fixes are based on.
 - `/ca publiccheck` prints every public structure with per-slice presence and a
   "N 个正常 / M 个缺片" summary; `/ca publicreload` forces a rescan after the files change.
 - Names with spaces work as before in chat: quote the argument (`/ca load "黑黑 FF 好好" 100 64 100`).
-### Fixed (3.9.5-beta1, build 4)
+### Fixed (4.0.0, build 4)
 
 - **A public folder that holds slices of two structures loaded nothing at all.** The folder
   `完整结构test测试` contained `mw53lhiyuc_0_0/_1_0/_2_0` plus a stray `mw53oq4jl7_0_0`; the scan
@@ -738,7 +749,7 @@ fixes are based on.
   folder it looked in, and the per-slice console spam is gone.
 - `/ca publicdebug <id>` prints the scan result, the resolved slice id and the absolute path of
   every slice with a present/missing marker.
-### Fixed (3.9.5-beta1, build 3)
+### Fixed (4.0.0, build 3)
 
 - **`/ca load` on a public folder crashed with `Cannot read properties of null (reading
   'area')`**: `load()` still read the structure out of `saveList`, which never contains a
@@ -751,7 +762,7 @@ fixes are based on.
 - Both of the above were patches that had silently not been applied: the files use CRLF and
   the `String.replace` anchors were LF-only. New `tests/unit/wiring.test.mjs` reads the
   sources and fails when a critical integration point is missing, so that cannot happen again.
-### Fixed (3.9.5-beta1, build 2)
+### Fixed (4.0.0, build 2)
 
 - **Opening the public structure list crashed the whole form** (`StructureForm.ts:169`): the
   code did `Players.getCAPlayer(author).$.name`, but structures scanned from
