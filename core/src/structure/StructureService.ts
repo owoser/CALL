@@ -17,15 +17,6 @@ import { acquire, isLoaded, waitLoaded } from "../game/Chunks";
 import { clipboardMin } from "./Clipboard";
 import StructureStore, { StoreKind, sliceFileName } from "./StructureStore";
 
-/** \`sweepItemDrops\` (default true): collect the items an operation itself spilled. */
-function sweepEnabled(): boolean {
-    try {
-        return Config.get(Config.GLOBAL, "sweepItemDrops", true) !== false;
-    } catch {
-        return true;
-    }
-}
-
 /** One warn is enough when historical snapshots carry no dimension. */
 let warnedUndoDimension = false;
 import { parseStructureLayout } from "../io/NbtCodec";
