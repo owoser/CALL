@@ -49,14 +49,19 @@ export const NearBlocks = {
      * that actually applies: a sulfur cube's held item stays item-sized no matter what
      * (\`sulfurSetScale\` returns true, the visible block does not change - measured).
      */
-    enter(playerName: string, x: number, y: number, z: number, dimid: number, blockItem: string, invisible: boolean, scale = 1): number {
+    enter(playerName: string, x: number, y: number, z: number, dimid: number, blockItem: string, invisible: boolean, scale = 1, yOffset = 8): number {
         if (!NearBlocks.available()) return 0;
         try {
             holo.call("blockFakeClear", playerName, x, y, z);
             const wanted = Number.isFinite(Number(scale)) && Number(scale) > 0 ? Number(scale) : 1;
+            // Offsets are MODEL units (1/16 block). The display's pivot is the MODEL CENTRE, so a
+            // block placed at (x, y) renders half a block low; +8 = +0.5 block puts it back into the
+            // cell. (The library's own default is offsetY "-4" for a floating item, which is what made
+            // the walk-through block sit visibly below the real block.)
+            const lift = Number.isFinite(Number(yOffset)) ? Number(yOffset) : 8;
             const id = Number(holo.call("itemDisplayCreateAdvanced",
                 x + 0.5, y, z + 0.5, dimid, blockItem, 0,
-                "0", "0", "0", "0", "0", "0", String(wanted)));
+                "0", String(lift), "0", "0", "0", "0", String(wanted)));
             if (!Number.isFinite(id) || id < 0) {
                 stats.failures++;
                 return 0;

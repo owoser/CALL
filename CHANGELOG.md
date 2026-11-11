@@ -15,6 +15,14 @@ fixes are based on.
 
 ### Added (3.9.5-beta1, HologramLib 450)
 
+### Fixed (3.9.5-beta1, the walk-through block sat half a cell too low)
+
+- An item display is anchored at the model's CENTRE, and the library's own default pose is
+  `offsetY "-4"` for a floating item; creating it with offsets/rotations set to `0` dropped the
+  block half a cell below the real one (clearly visible next to terrain).
+- The display is now lifted by `previewNearYOffset` model units (1/16 block, **8** = half a cell by
+  default, -16..16 tunable), so the walk-through block lines up with the cells around it.
+
 ### Fixed (3.9.5-beta1, the walk-through visual is a full block)
 
 - The sulfur cube renders its block as a **held item**, so it is always item-sized: measured,

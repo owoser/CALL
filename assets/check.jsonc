@@ -250,6 +250,11 @@
     "default": 1,
     "description": "靠近可穿的硫磺立方体缩放，1 = 正常大小（0.0625 - 10）。方块看着像微缩模型时调大。"
   },
+  "previewNearYOffset": {
+    "type": "number",
+    "default": 8,
+    "description": "可穿方块模型的垂直偏移（模型单位，1/16 格）；8 = 半格，正好落在方块格里。"
+  },
   "previewNearCells": {
     "type": "number",
     "default": 512,

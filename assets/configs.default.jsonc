@@ -686,6 +686,9 @@
   // Size of the walk-through visual (a block-mode item display). 1 = a normal-looking block;
   // if a specific block still looks like a miniature, nudge this (0.5 - 2).
   "previewNearScale": 1,
+  // Vertical offset of the walk-through visual, in MODEL units (1/16 block). 8 = half a block, which
+  // puts the block model back into its own cell. Lower it by 1-2 if it floats, raise it if it sinks.
+  "previewNearYOffset": 8,
 
     /*
     *   ###懒解析缓存切片数###   (3.7.0 新增)
