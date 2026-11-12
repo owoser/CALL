@@ -13,6 +13,15 @@ fixes are based on.
 
 ## [4.0.0]
 
+### Docs (block entity contents ARE saved)
+
+- The limitation page claimed containers/signs are not preserved. That was true in 3.0.x and is not
+  true now: `block_position_data` is parsed and written back, so chest items, sign text and banner
+  patterns travel with copy/paste/undo. The page now says so, and `ca.containerCopyRoundTrip` pins it
+  (seed a chest with diamonds, copy, paste, read them back). Only the LIQUID layer is still dropped,
+  so waterlogged blocks do dry out.
+
+
 第一个"预览可以走进去"的正式版。核心四件事：
 
 - **预览可穿行**：靠近预览的方块会临时变成可穿过的显示体（物品显示方块模式），走进去不再卡顿，

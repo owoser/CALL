@@ -1096,6 +1096,32 @@ async function runSuite() {
         return "capture keeps both payloads: " + detail.slice(0, 120);
     });
 
+    // --- container CONTENTS survive copy -> paste (block entities) --------
+    await checkAsync("ca.containerCopyRoundTrip", async () => {
+        const src = spot(36), dst = spot(37);
+        fillBox(src.x, src.y, src.z, 2, 2, 2, "minecraft:air");
+        fillBox(dst.x, dst.y, dst.z, 2, 2, 2, "minecraft:air");
+        mc.setBlock(src.x, src.y, src.z, DIM, "minecraft:chest", 0);
+        const chest = mc.getBlock(src.x, src.y, src.z, DIM);
+        chest.getBlockEntity().setNbt(NBT.parseSNBT(
+            '{id:"Chest",Items:[{Name:"minecraft:diamond",Count:11b,Slot:3b},{Name:"minecraft:stone",Count:64b,Slot:0b}],Findable:0b}'));
+        const before = String(chest.getBlockEntity().getNbt().toSNBT());
+        assert(/diamond/.test(before), "fixture chest has no items: " + before.slice(0, 120));
+
+        const area = new M.Area3(new M.Pos3(src.x, src.y, src.z, DIM), new M.Pos3(src.x, src.y, src.z, DIM));
+        M.NBTService.save("calltest_be_roundtrip", area);
+        const written = await M.NBTService.loadAsync(fakePlayer(sim), "calltest_be_roundtrip",
+            new M.Pos3(dst.x, dst.y, dst.z, DIM), "none", 0);
+        assert(written > 0, "nothing written to the destination");
+
+        const placed = mc.getBlock(dst.x, dst.y, dst.z, DIM);
+        assert(/chest/.test(String(placed.type)), "destination is not a chest: " + String(placed.type));
+        assert(placed.hasBlockEntity(), "the pasted chest lost its block entity");
+        const after = String(placed.getBlockEntity().getNbt().toSNBT());
+        assert(/diamond/.test(after) && /11/.test(after), "chest contents were not restored: " + after.slice(0, 160));
+        return "chest items survived copy->paste: " + after.slice(0, 100);
+    });
+
     // --- paste sync needs the REAL player enumeration API ------------------
     await checkAsync("ca.pasteSyncEnumeration", async () => {
         // mc.getPlayers() does not exist; the first version of PasteSync used it and every paste
