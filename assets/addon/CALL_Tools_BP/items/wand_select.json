@@ -10,7 +10,7 @@
     "components": {
       "minecraft:icon": "call:wand_select",
       "minecraft:display_name": {
-        "value": "item.call:wand_select"
+        "value": "CALL 选区魔杖"
       },
       "minecraft:max_stack_size": 1,
       "minecraft:hand_equipped": true,

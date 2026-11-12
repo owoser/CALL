@@ -30,7 +30,7 @@ const RP_UUID = "b7c1f2a4-1d3e-4a55-9a10-6c0f5e7d8a03";
 // IDENTITY must change (new item id, new texture the client must re-download): bumping it
 // makes BDS ignore the pack for one start (list says 1.0.0, manifest says 1.1.0), so every
 // upgrade would need two restarts and print a scary "configured pack was not found" warning.
-export const PACK_VERSION = [1, 1, 0];
+export const PACK_VERSION = [1, 2, 0];
 
 export interface AddonResult {
     /** The packs are on disk and enabled for the world. */
@@ -183,6 +183,21 @@ export class AddonInstaller {
         try {
             copied += copyDir(path.join(src, BP_FOLDER), path.join(serverRoot, "behavior_packs", BP_FOLDER));
             copied += copyDir(path.join(src, RP_FOLDER), path.join(serverRoot, "resource_packs", RP_FOLDER));
+
+        // 1.2.0 hotfix: the packs used to ship texts/ (a languages.json listing only en_US and
+        // zh_CN), which made clients drop every other language and render raw keys such as
+        // commands.generic.unknown. copyDir only adds files, so an upgrade would leave the old
+        // texts/ behind and the bug would survive - remove it explicitly.
+        for (const folder of [BP_FOLDER, RP_FOLDER]) {
+            const parent = folder === BP_FOLDER ? "behavior_packs" : "resource_packs";
+            const stale = path.join(serverRoot, parent, folder, "texts");
+            if (!fs.existsSync(stale)) continue;
+            for (const f of fs.readdirSync(stale)) {
+                try { fs.unlinkSync(path.join(stale, f)); } catch { /* keep going */ }
+            }
+            try { fs.rmdirSync(stale); } catch { /* keep going */ }
+            logger.warn("已删除内置包里的旧语言文件（会造成客户端语言表被覆盖）: " + parent + "/" + folder + "/texts");
+        }
         } catch (e) {
             return {
                 ok: false,

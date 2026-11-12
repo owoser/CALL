@@ -10,7 +10,7 @@
     "components": {
       "minecraft:icon": "call:gear",
       "minecraft:display_name": {
-        "value": "item.call:gear"
+        "value": "CALL 建造助手 · 菜单"
       },
       "minecraft:max_stack_size": 1,
       "minecraft:hand_equipped": true,

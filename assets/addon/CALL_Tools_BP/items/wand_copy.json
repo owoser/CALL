@@ -10,7 +10,7 @@
     "components": {
       "minecraft:icon": "call:wand_copy",
       "minecraft:display_name": {
-        "value": "item.call:wand_copy"
+        "value": "CALL 复制魔杖"
       },
       "minecraft:max_stack_size": 1,
       "minecraft:hand_equipped": true,

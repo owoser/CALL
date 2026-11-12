@@ -10,7 +10,7 @@
     "components": {
       "minecraft:icon": "call:wand_paste",
       "minecraft:display_name": {
-        "value": "item.call:wand_paste"
+        "value": "CALL 粘贴魔杖"
       },
       "minecraft:max_stack_size": 1,
       "minecraft:hand_equipped": true,

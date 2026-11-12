@@ -10,7 +10,7 @@
     "components": {
       "minecraft:icon": "call:wand_preview",
       "minecraft:display_name": {
-        "value": "item.call:wand_preview"
+        "value": "CALL 预览魔杖"
       },
       "minecraft:max_stack_size": 1,
       "minecraft:hand_equipped": true,

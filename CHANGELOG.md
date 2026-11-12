@@ -13,6 +13,18 @@ fixes are based on.
 
 ## [4.0.0]
 
+### Fixed (P0: the tool packs wiped every language on the client)
+
+- The bundled resource pack shipped `texts/languages.json` (only `en_US` and `zh_CN`) plus two
+  partial `.lang` files. Bedrock merges a pack's language declaration into the client's table, so
+  every other language lost ALL of its strings - the UI and command names turned into raw keys such
+  as `commands.generic.unknown`. Reported on both a live server and the 26.51 test server.
+- The packs no longer contain `texts/` at all: the item names are literal
+  `minecraft:display_name.value` strings in the behavior-pack item JSONs.
+- Pack version bumped **1.1.0 → 1.2.0** (forces the client to re-download instead of reusing the
+  broken cached copy) and `AddonInstaller` now DELETES a stale `texts/` folder on install, because
+  `copyDir` only adds files and the bug would otherwise survive the upgrade.
+
 ### Changed (more noise moved to [DBG])
 
 - `[dim] <player> -> <dimension>` used to print on every dimension change; it is now a debug line
