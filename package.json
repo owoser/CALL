@@ -1,6 +1,6 @@
 {
   "name": "call",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "Construct Assistant for LeviLamina (LL3 / LegacyScriptEngine port)",
   "main": "index.js",
   "scripts": {

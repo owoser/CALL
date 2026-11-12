@@ -11,6 +11,21 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [4.0.1]
+
+P0 修复版。**4.0.0 的内置资源包会破坏客户端语言表**，请所有 4.0.0 用户升级。
+
+- 内置 BP/RP 之前带 `texts/languages.json`（只声明 `en_US`/`zh_CN`）与两份不完整的 `.lang`；
+  Bedrock 会把包里的语言声明并进客户端语言表，声明外的语言整表失效，界面与指令名变成
+  `commands.generic.unknown` 这类原始 key。
+- 修复：内置包**不再包含任何 `texts/`**，物品名改为行为包物品定义里的
+  `minecraft:display_name.value` 字面量；包版本 `1.1.0 → 1.2.0` 让客户端强制重新下载。
+- `AddonInstaller` 在安装时会**主动删除**旧版本遗留的 `texts/`（`copyDir` 只增不删，
+  否则升级后 bug 会残留）。
+- 文档/台账：`pitfalls` 记为 P0，`AGENTS.md` 增加红线"内置包禁止带 texts/"。
+
+> 升级后请**重启服务器**并让客户端重新进服；若客户端仍显示原始 key，清一次该世界的资源包缓存即可。
+
 ## [4.0.0]
 
 ### Fixed (P0: the tool packs wiped every language on the client)
