@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-10T05:51:09Z",
-  "updated_at": "2026-11-12T05:17:22Z",
+  "updated_at": "2026-11-12T10:02:29Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -47,15 +47,15 @@
     },
     "AGENTS.md": {
       "role": "index",
-      "sha256": "39b23e7c215b9be96a9a8af374c9bbb07818b390df899e7c6392fd6b221e327d",
-      "size": 21433,
-      "normalized_sha256": "39b23e7c215b9be96a9a8af374c9bbb07818b390df899e7c6392fd6b221e327d"
+      "sha256": "6d9d5dcc93d86bc6ba3c842fe8be118f525f81afeb7e091747d9b58efe7fa15a",
+      "size": 21743,
+      "normalized_sha256": "6d9d5dcc93d86bc6ba3c842fe8be118f525f81afeb7e091747d9b58efe7fa15a"
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "5ff0821930c9241b52bc2e8805ed43972393a7925bd6f19c5ef5bb99d1a537f5",
-      "size": 111147,
-      "normalized_sha256": "5ff0821930c9241b52bc2e8805ed43972393a7925bd6f19c5ef5bb99d1a537f5"
+      "sha256": "4c5c9b46bf66666f6a887afbfecc969f035c2669608f12d341d51d4d36aecd52",
+      "size": 112022,
+      "normalized_sha256": "4c5c9b46bf66666f6a887afbfecc969f035c2669608f12d341d51d4d36aecd52"
     },
     "LICENSE": {
       "role": "index",
@@ -71,9 +71,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "1d06912ba8e01cf2cc5c9fe7bdb4add5a2976eff3cf3275976d814c6a8d195fb",
-      "size": 67663,
-      "normalized_sha256": "1d06912ba8e01cf2cc5c9fe7bdb4add5a2976eff3cf3275976d814c6a8d195fb"
+      "sha256": "15e409e68b980447b181f000cba8e532f572eeacfed7b5c79af66b465186e15c",
+      "size": 65603,
+      "normalized_sha256": "15e409e68b980447b181f000cba8e532f572eeacfed7b5c79af66b465186e15c"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -89,45 +89,45 @@
     },
     "assets/addon/CALL_Tools_BP/items/gear.json": {
       "role": "index",
-      "sha256": "cbac4d1b567989995718fb10c02e29bbe2cf75bf08864d471f80ab9205229a65",
-      "size": 568,
-      "normalized_sha256": "cbac4d1b567989995718fb10c02e29bbe2cf75bf08864d471f80ab9205229a65"
+      "sha256": "570f62de0950a9ccb6d95be3c78066fe00c9b1739e94d73cb46aef023422365a",
+      "size": 581,
+      "normalized_sha256": "570f62de0950a9ccb6d95be3c78066fe00c9b1739e94d73cb46aef023422365a"
     },
     "assets/addon/CALL_Tools_BP/items/wand_adjust.json": {
       "role": "index",
-      "sha256": "0544e20504552f6ee8158823d664c02d8418dbce89bca0653dbd17a777652ed6",
-      "size": 589,
-      "normalized_sha256": "0544e20504552f6ee8158823d664c02d8418dbce89bca0653dbd17a777652ed6"
+      "sha256": "41ab34faaa47dda40fe8308dbb9a359222fd2ce1fb5cc638b51690ee81f98743",
+      "size": 585,
+      "normalized_sha256": "41ab34faaa47dda40fe8308dbb9a359222fd2ce1fb5cc638b51690ee81f98743"
     },
     "assets/addon/CALL_Tools_BP/items/wand_copy.json": {
       "role": "index",
-      "sha256": "bd24ecb346f18d8c287f61005d098a96375fa4635b602a13d1dee09631c1d6f5",
-      "size": 583,
-      "normalized_sha256": "bd24ecb346f18d8c287f61005d098a96375fa4635b602a13d1dee09631c1d6f5"
+      "sha256": "8e8746e4ad0584105808bba729530ec145e2329cbee288c7008713650cd5aa7f",
+      "size": 581,
+      "normalized_sha256": "8e8746e4ad0584105808bba729530ec145e2329cbee288c7008713650cd5aa7f"
     },
     "assets/addon/CALL_Tools_BP/items/wand_paste.json": {
       "role": "index",
-      "sha256": "c2bc2294d9bd5f619cdb87dc9ae2bcfb3428b6b59009c500b3529d0eff398515",
-      "size": 586,
-      "normalized_sha256": "c2bc2294d9bd5f619cdb87dc9ae2bcfb3428b6b59009c500b3529d0eff398515"
+      "sha256": "305a6d037f6227507519a002fb55a4e1ea18c7096b4ba2d5896ea2b0cc49af07",
+      "size": 583,
+      "normalized_sha256": "305a6d037f6227507519a002fb55a4e1ea18c7096b4ba2d5896ea2b0cc49af07"
     },
     "assets/addon/CALL_Tools_BP/items/wand_preview.json": {
       "role": "index",
-      "sha256": "193e5ba4a0af214cd40c67ec7a345b1c1acbbd436f8c13a825030740eca8b483",
-      "size": 592,
-      "normalized_sha256": "193e5ba4a0af214cd40c67ec7a345b1c1acbbd436f8c13a825030740eca8b483"
+      "sha256": "2576e1f9294048b2e74c35635932311ae77a1edc0ff2dead9adb13d135a0e21f",
+      "size": 587,
+      "normalized_sha256": "2576e1f9294048b2e74c35635932311ae77a1edc0ff2dead9adb13d135a0e21f"
     },
     "assets/addon/CALL_Tools_BP/items/wand_select.json": {
       "role": "index",
-      "sha256": "04d0f56da908076d4c6470c0622324a762a2d1117358e26804d314bfbc722c9a",
-      "size": 589,
-      "normalized_sha256": "04d0f56da908076d4c6470c0622324a762a2d1117358e26804d314bfbc722c9a"
+      "sha256": "2767d6062adef5f28925a331346e9724b51878952ff3d46d33cb23732bd68448",
+      "size": 585,
+      "normalized_sha256": "2767d6062adef5f28925a331346e9724b51878952ff3d46d33cb23732bd68448"
     },
     "assets/addon/CALL_Tools_BP/manifest.json": {
       "role": "index",
-      "sha256": "a833711271486c134d7c293eee929051c470c8eb58f3e00190054db299f3628e",
+      "sha256": "23344667aed556f451d49a78b9e1191052ac011aad44adfc788ac16bac3dcc41",
       "size": 562,
-      "normalized_sha256": "a833711271486c134d7c293eee929051c470c8eb58f3e00190054db299f3628e"
+      "normalized_sha256": "23344667aed556f451d49a78b9e1191052ac011aad44adfc788ac16bac3dcc41"
     },
     "assets/addon/CALL_Tools_BP/texts/en_US.lang": {
       "role": "index",
@@ -149,9 +149,9 @@
     },
     "assets/addon/CALL_Tools_RP/manifest.json": {
       "role": "index",
-      "sha256": "66bb92655d9e3e3e530d325a687c6fd8644494a97480d255096b70cac47b3402",
+      "sha256": "466f2937331e3a85e1c6b1930d4c5e5831f501f148f3258833e8da80526da2bc",
       "size": 511,
-      "normalized_sha256": "66bb92655d9e3e3e530d325a687c6fd8644494a97480d255096b70cac47b3402"
+      "normalized_sha256": "466f2937331e3a85e1c6b1930d4c5e5831f501f148f3258833e8da80526da2bc"
     },
     "assets/addon/CALL_Tools_RP/texts/en_US.lang": {
       "role": "index",
@@ -418,9 +418,9 @@
     },
     "core/src/addon/AddonInstaller.ts": {
       "role": "index",
-      "sha256": "88b5ca5835ae3f961a75ea7207c409774b7cd797941192a2319829153566fa24",
-      "size": 8632,
-      "normalized_sha256": "88b5ca5835ae3f961a75ea7207c409774b7cd797941192a2319829153566fa24"
+      "sha256": "d0ecdbfa2647152b5cf5f6d2478cb9d34e5f1a64fef7bfcd7864161cb94f53c6",
+      "size": 9636,
+      "normalized_sha256": "d0ecdbfa2647152b5cf5f6d2478cb9d34e5f1a64fef7bfcd7864161cb94f53c6"
     },
     "core/src/app.ts": {
       "role": "index",
@@ -1245,9 +1245,9 @@
     },
     "docs/dev/pitfalls.md": {
       "role": "index",
-      "sha256": "e7de8c1e1814d28c79fa4974f410b405630d5b161a1759970b676aeb56d9cbaf",
-      "size": 30649,
-      "normalized_sha256": "e7de8c1e1814d28c79fa4974f410b405630d5b161a1759970b676aeb56d9cbaf"
+      "sha256": "f8b276c44e3557d21294834a7f353ec62820f16dee93ab5d8b78cdf24e27dad1",
+      "size": 31544,
+      "normalized_sha256": "f8b276c44e3557d21294834a7f353ec62820f16dee93ab5d8b78cdf24e27dad1"
     },
     "docs/dev/plugin.md": {
       "role": "index",

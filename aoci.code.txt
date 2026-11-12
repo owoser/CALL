@@ -4,8 +4,8 @@
 .gitattributes[FC2T]: F:强制全仓文本以 LF 检出（* text=auto eol=lf），保证 AOCI 基线字节跨平台一致 | R:- | A:- | S:改用 CRLF 检出会让 aoci 全树误判 Stale
 .gitignore[FC5T]: F:忽略 node_modules、dist 产物、CALL-CLI 的 bin/obj 与本地草稿日志，并注明 types/lse 是刻意入库 | R:code:package.json | A:- | S:types/lse 虽是 fetch-types 生成却必须入库，忽略它会同时破坏 typecheck 与类型契约
 .prettierrc[FC3T]: F:Prettier 格式约定：双引号、分号、4 空格缩进、80 列 | R:- | A:- | S:只有格式约定无强制 lint；改 tabWidth 会波及全仓 TS 缩进，应单独提交
-AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线、发版门禁、提交闸门、日志前缀约定）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:[CALL] 前缀由宿主加；调试走 util/Log.ts 的 dbg()
-CHANGELOG.md[SC8L]: F:版本史：按版本记录修复与变更，4.0.0 段落含"维度切换日志降级为 DBG" | R:code:README.md | A:顶部 4.0.0 段落与历史 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
+AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线含"资源包禁带 texts/"、发版门禁、日志约定）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:内置包带 texts/languages.json 会让客户端语言整表失效（P0）
+CHANGELOG.md[SC8L]: F:版本史：按版本记录修复与变更，含 4.0.0 的 P0（资源包语言文件导致客户端语言全丢） | R:code:README.md | A:顶部 4.0.0 段落与历史 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
 LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
 README.md[RS9L]: F:仓库门面：功能简介、环境要求表（含 HologramLib 链接）、安装/构建说明与反馈渠道（QQ 群 + Issues） | R:code:docs/user/install.md | A:Requirements/Install/Feedback 各节 | S:环境要求表必须列全前置库；反馈渠道两处保持一致
 build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
@@ -25,28 +25,18 @@ settings.json[XC2T]: F:编辑器搜索与文件树对本机 node_modules、VCS �
 tasks.json[XV3T]: F:默认构建任务：按 tsconfig.json 以 tsc watch 方式监听编译 | R:code:tsconfig.json | A:tasks[0] | S:该任务只做 tsc --watch，不产出可部署包；发版一律走 npm run build
 
 ===E:/code/LL3/Plugins/CALL/assets/addon/CALL_Tools_BP/items/===
-gear.json[FU5T]: F:菜单物品 call:gear 的定义（1 堆叠、手持、附光、不可破坏），点开建造菜单的入口，行为在脚本侧 | R:code:assets/addon/CALL_Tools_BP/texts/zh_CN.lang,code:assets/addon/CALL_Tools_RP/textures/item_texture.json | A:minecraft:item.description.identifier | S:identifier、RP 图集键与 lang 键三处必须同名，改名会静默变成缺失贴图
-wand_adjust.json[FU5T]: F:调整魔杖 call:wand_adjust 的物品定义，hover 文本用金色与其余魔杖区分 | R:code:assets/addon/CALL_Tools_BP/items/wand_select.json | A:minecraft:item.components.minecraft:hover_text_color | S:金色是刻意的视觉区分而非笔误；改名须同步 RP 贴图、图集键与两份 lang
-wand_copy.json[FU5T]: F:复制魔杖 call:wand_copy 的物品定义，点击复制当前选区 | R:code:assets/addon/CALL_Tools_BP/items/wand_select.json | A:minecraft:item.description.identifier | S:与其它魔杖结构完全同构，区别只在 identifier；复制粘贴新增魔杖时务必改 UUID 无关的三处引用
-wand_paste.json[FU5T]: F:粘贴魔杖 call:wand_paste 的物品定义，点击把剪贴板结构粘到目标点 | R:code:assets/addon/CALL_Tools_BP/items/wand_copy.json | A:minecraft:item.description.identifier | S:粘贴路径是对 setStructure 崩溃最敏感的操作，物品定义本身不含逻辑，别在此加兜底
-wand_preview.json[FU5T]: F:预览魔杖 call:wand_preview 的物品定义，点击以粒子预览待粘贴结构 | R:code:assets/addon/CALL_Tools_BP/items/wand_paste.json | A:minecraft:item.description.identifier | S:预览是纯客户端表现，物品定义无需携带渲染字段；表现参数在脚本配置里
-wand_select.json[FU5T]: F:选区魔杖 call:wand_select 的物品定义，两次点击确定区域两个角 | R:code:assets/addon/CALL_Tools_BP/items/gear.json | A:minecraft:item.description.identifier | S:点击坐标经 CACommand.normalisePositions 向下取整，改成 BlockPos 会重现负坐标偏移一格的老问题
+gear.json[FU5T]: F:菜单 call:gear 的物品定义，名称为字面量 display_name（不依赖语言文件） | R:code:assets/addon/CALL_Tools_BP/items/gear.json | A:minecraft:item 描述与组件 | S:禁止改回语言 key，否则会覆盖客户端语言表
+wand_adjust.json[FU5T]: F:调整魔杖 call:wand_adjust 的物品定义，名称为字面量 display_name（不依赖语言文件） | R:code:assets/addon/CALL_Tools_BP/items/gear.json | A:minecraft:item 描述与组件 | S:禁止改回语言 key，否则会覆盖客户端语言表
+wand_copy.json[FU5T]: F:复制魔杖 call:wand_copy 的物品定义，名称为字面量 display_name（不依赖语言文件） | R:code:assets/addon/CALL_Tools_BP/items/gear.json | A:minecraft:item 描述与组件 | S:禁止改回语言 key，否则会覆盖客户端语言表
+wand_paste.json[FU5T]: F:粘贴魔杖 call:wand_paste 的物品定义，名称为字面量 display_name（不依赖语言文件） | R:code:assets/addon/CALL_Tools_BP/items/gear.json | A:minecraft:item 描述与组件 | S:禁止改回语言 key，否则会覆盖客户端语言表
+wand_preview.json[FU5T]: F:预览魔杖 call:wand_preview 的物品定义，名称为字面量 display_name（不依赖语言文件） | R:code:assets/addon/CALL_Tools_BP/items/gear.json | A:minecraft:item 描述与组件 | S:禁止改回语言 key，否则会覆盖客户端语言表
+wand_select.json[FU5T]: F:选区魔杖 call:wand_select 的物品定义，名称为字面量 display_name（不依赖语言文件） | R:code:assets/addon/CALL_Tools_BP/items/gear.json | A:minecraft:item 描述与组件 | S:禁止改回语言 key，否则会覆盖客户端语言表
 
 ===E:/code/LL3/Plugins/CALL/assets/addon/CALL_Tools_BP/===
-manifest.json[FV6T]: F:行为包 manifest：name=CALL Tools、min_engine_version 1.26.0、data 模块，承载内置工具物品定义 | R:code:assets/addon/CALL_Tools_BP/items/gear.json | A:header.uuid 与 modules[0].uuid | S:name 必须与安装目录名一致否则被拒载；BP/RP 四个 UUID 各不同，复制文件时勿复用
-
-===E:/code/LL3/Plugins/CALL/assets/addon/CALL_Tools_BP/texts/===
-en_US.lang[FL4T]: F:六个内置工具的英文名（item.call:* 键） | R:code:assets/addon/CALL_Tools_RP/texts/en_US.lang | A:- | S:键名必须与 items/*.json 的 display_name.value 逐字一致，且 BP/RP 两份文件内容需同步
-languages.json[FL3T]: F:声明行为包只带 en_US 与 zh_CN 两种语言 | R:code:assets/addon/CALL_Tools_BP/texts/en_US.lang | A:- | S:新增语种必须在此登记，否则对应 lang 文件不会被加载，表现为空物品名
-zh_CN.lang[FL4T]: F:六个内置工具的中文名（建造助手·菜单、选区/复制/粘贴/预览/调整魔杖） | R:code:assets/addon/CALL_Tools_BP/texts/en_US.lang | A:- | S:中文名与英文名语义须对应；改 identifier 时两语文件与 RP 侧副本同时改
+manifest.json[FV6T]: F:行为包 manifest：name=CALL Tools、版本 1.2.0、min_engine_version 1.26.0、items 模块，承载内置工具物品定义（不含 texts/） | R:code:assets/addon/CALL_Tools_BP/items/gear.json | A:header/modules | S:版本必须与 AddonInstaller 的 PACK_VERSION 同步
 
 ===E:/code/LL3/Plugins/CALL/assets/addon/CALL_Tools_RP/===
-manifest.json[FV6T]: F:资源包 manifest：CALL Tools 贴图包（resources 模块，1.26.0），与行为包成对安装 | R:code:assets/addon/CALL_Tools_RP/textures/item_texture.json | A:header.uuid | S:与 BP 同名但 UUID 必须不同；只装 BP 不装 RP 会显示缺失贴图
-
-===E:/code/LL3/Plugins/CALL/assets/addon/CALL_Tools_RP/texts/===
-en_US.lang[FL4T]: F:资源包侧英文物品名副本（与行为包同名键重复，供 RP 单独加载） | R:code:assets/addon/CALL_Tools_BP/texts/en_US.lang | A:- | S:与 BP 同名文件内容必须逐字一致，只改一侧会出现部分物品名回退为标识符
-languages.json[FL3T]: F:声明资源包只带 en_US 与 zh_CN 两种语言 | R:code:assets/addon/CALL_Tools_RP/texts/zh_CN.lang | A:- | S:语种登记须与 BP 侧一致，否则两侧回退行为不同
-zh_CN.lang[FL4T]: F:资源包侧中文物品名副本 | R:code:assets/addon/CALL_Tools_BP/texts/zh_CN.lang | A:- | S:与 BP 中文名保持一致；改中文口径需两处同时改
+manifest.json[FV6T]: F:资源包 manifest：CALL Tools 贴图包（resources 模块，版本 1.2.0），与行为包成对安装，不含 texts/ | R:code:assets/addon/CALL_Tools_BP/manifest.json | A:header/modules | S:禁止再添加 texts/，否则会覆盖客户端语言表
 
 ===E:/code/LL3/Plugins/CALL/assets/addon/CALL_Tools_RP/textures/===
 item_texture.json[FV5T]: F:物品图集映射：call:gear 与五个魔杖 identifier → textures/items/*.png | R:code:assets/addon/CALL_Tools_RP/textures/textures_list.json | A:texture_data | S:键是含 call: 前缀的 identifier，值不带 .png；漏登记即显示缺失贴图
@@ -104,7 +94,7 @@ CACommand.ts[CM9L]: F:指令入口：/ca 全部子命令，reload 调 Config.rel
 app.ts[AU9L]: F:插件入口：初始化、事件注册、指令注册、构建戳与周期任务；切维度日志走 dbg | R:code:core/src/CACommand.ts,code:core/src/user/ToolItems.ts | A:load、unload、listen 注册 | S:日志只写模块标签；调试信息走 util/Log 的 dbg
 
 ===E:/code/LL3/Plugins/CALL/core/src/addon/===
-AddonInstaller.ts[IE7M]: F:首次启动把内置 BP/RP 复制进服务器包目录，并用合并方式把包加入世界列表 | R:code:assets/addon/CALL_Tools_BP/manifest.json,code:assets/addon/CALL_Tools_RP/manifest.json | A:BP_UUID/RP_UUID、PACK_VERSION | S:启用包只在世界加载时生效，首次只能提示重启；包列表必须合并，覆盖会清掉管理员已有包
+AddonInstaller.ts[IE7M]: F:内置包安装：拷贝 BP/RP、合并启用世界包列表、清除旧 texts/ 并维护 PACK_VERSION | R:code:core/src/common/Paths.ts | A:install、PACK_VERSION、enablePack、copyDir | S:copyDir 只增不删，删旧文件必须显式做
 
 ===E:/code/LL3/Plugins/CALL/core/src/common/===
 Area3.ts[KG6T]: F:三维区域：两点归一化、整体平移、2D/3D 矩阵变换与包含判定 | R:code:core/src/common/Pos3.ts | A:normalize/transform2D | S:构造默认 normalize 会改写 start/end；需保留原始两角时必须传 normal=false
@@ -270,7 +260,7 @@ index.html[SV5T]: F:文档站外壳：本地化 docsify 资源与初始化配置
 architecture.md[SG8S]: F:平台坑机制：七条铁律、坐标语义、预览选型与实测，含 SNBT 自写序列化、取消清理时序与批量排队覆盖即时写 | R:code:docs/dev/pitfalls.md,code:docs/ARCHITECTURE.md | A:第 9 节坐标、第 10 节预览与实测表 | S:与 AGENTS.md 和 docs/ARCHITECTURE.md 重叠，改一处须三处同步
 plugin.md[SG6M]: F:形状包开发须知：文件结构、必须导出的定义、参数与命令生成流程 | R:code:docs/dev/shape.md | A:形状包开发 | S:包必须含一个 js 入口定义包名与形状数组，缺任一字段即不会被加载
 shape.md[SG6L]: F:形状包 API：export_cmd 生成函数与表单函数的签名、参数与示例 | R:code:docs/dev/plugin.md | A:导出函数 | S:签名与 Plugin.ts 的 IPlugin 契约绑定，参数顺序变更属破坏性改动
-pitfalls.md[SG9T]: F:真机台账：A–G 分类症状到根因到验证，含 C33 容器清空、C34–C41 靠近可穿/绑定、C42 文档过时（方块实体确实会保存） | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:结论必须以代码与真机用例为准，旧结论要回头核对
+pitfalls.md[SG9T]: F:真机台账：A–G 分类症状到根因到验证，含 P0 语言包被覆盖、C33 容器、C34–C41 靠近可穿、C42 文档过时 | R:code:docs/dev/architecture.md,code:AGENTS.md | A:A–G 各表 | S:新增条目必须写可执行的验证方式
 release.md[SG7T]: F:发版规范：触发授权、前置闸门清单（含 check:version）、版本策略、产物约定、单次发布步骤、事故恢复与禁止项 | R:code:scripts/check-version.mjs,code:CHANGELOG.md | A:第 3 节前置清单、第 5 节发布动作、第 8 节禁止项 | S:未获维护者明确指令不得发版；发布包不入库；变更日志顶部段落须等于当前版本
 
 ===E:/code/LL3/Plugins/CALL/docs/other/===
