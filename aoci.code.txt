@@ -5,7 +5,7 @@
 .gitignore[FC5T]: F:忽略 node_modules、dist 产物、CALL-CLI 的 bin/obj 与本地草稿日志，并注明 types/lse 是刻意入库 | R:code:package.json | A:- | S:types/lse 虽是 fetch-types 生成却必须入库，忽略它会同时破坏 typecheck 与类型契约
 .prettierrc[FC3T]: F:Prettier 格式约定：双引号、分号、4 空格缩进、80 列 | R:- | A:- | S:只有格式约定无强制 lint；改 tabWidth 会波及全仓 TS 缩进，应单独提交
 AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线、发版门禁、提交闸门、日志前缀约定）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:[CALL] 前缀由宿主加；调试走 util/Log.ts 的 dbg()
-CHANGELOG.md[SC8L]: F:版本史：按版本记录修复与变更，4.0.0 段落含"方块实体内容其实会保存"的文档纠正 | R:code:README.md | A:顶部 4.0.0 段落与历史 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
+CHANGELOG.md[SC8L]: F:版本史：按版本记录修复与变更，4.0.0 段落含"维度切换日志降级为 DBG" | R:code:README.md | A:顶部 4.0.0 段落与历史 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
 LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
 README.md[RS9L]: F:仓库门面：功能简介、环境要求表（含 HologramLib 链接）、安装/构建说明与反馈渠道（QQ 群 + Issues） | R:code:docs/user/install.md | A:Requirements/Install/Feedback 各节 | S:环境要求表必须列全前置库；反馈渠道两处保持一致
 build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
@@ -101,7 +101,7 @@ index.ts[EG8T]: F:插件入口：注册 onServerStarted，服务器启动后调�
 ===E:/code/LL3/Plugins/CALL/core/src/===
 Activity.ts[AD7T]: F:玩家生命周期编排：创建/开始/停止/销毁时恢复选区显示、清定时器、释放高亮，并按设置决定是否保留撤销与剪贴板 | R:code:core/src/user/Players.ts,code:core/src/structure/AreaDisplayerService.ts | A:onDestroy | S:onDestroy 必须回收每玩家定时器与世界高亮，否则残留逻辑会对失效句柄持续运行
 CACommand.ts[CM9L]: F:指令入口：/ca 全部子命令，reload 调 Config.reloadAll 并回报靠近可穿参数 | R:code:core/src/common/Config.ts,code:core/src/user/ToolItems.ts | A:command_callback、command_consoleCallback、normalisePositions | S:日志不写 [CALL] 前缀（宿主已加）；reload 不能只改内存
-app.ts[AU9L]: F:插件入口：初始化、事件注册、指令注册、构建戳与周期任务 | R:code:core/src/CACommand.ts,code:core/src/user/ToolItems.ts | A:load、unload、listen 注册 | S:日志只写模块标签，控制台前缀由宿主提供
+app.ts[AU9L]: F:插件入口：初始化、事件注册、指令注册、构建戳与周期任务；切维度日志走 dbg | R:code:core/src/CACommand.ts,code:core/src/user/ToolItems.ts | A:load、unload、listen 注册 | S:日志只写模块标签；调试信息走 util/Log 的 dbg
 
 ===E:/code/LL3/Plugins/CALL/core/src/addon/===
 AddonInstaller.ts[IE7M]: F:首次启动把内置 BP/RP 复制进服务器包目录，并用合并方式把包加入世界列表 | R:code:assets/addon/CALL_Tools_BP/manifest.json,code:assets/addon/CALL_Tools_RP/manifest.json | A:BP_UUID/RP_UUID、PACK_VERSION | S:启用包只在世界加载时生效，首次只能提示重启；包列表必须合并，覆盖会清掉管理员已有包
@@ -177,7 +177,7 @@ ShapeService.ts[SM8L]: F:选区形状显示：structure_block 线框的创建/�
 
 ===E:/code/LL3/Plugins/CALL/core/src/structure/===
 AreaDisplayerService.ts[SM9L]: F:选区显示协调：按模式选择 shape/block 显示并处理玩家进出维度 | R:code:core/src/plugin/ShapeService.ts | A:sync、clear、refresh | S:维度变化要清理，避免跨维度残留
-AreaOperation.ts[AU8L]: F:选区操作：两点选区、展开、复制/剪切与输出提示 | R:code:core/src/common/Selection.ts,code:core/src/structure/Clipboard.ts | A:select、expand、copy、dropSelection | S:跨维度不许抛异常，要清空并提示
+AreaOperation.ts[AU8L]: F:选区操作：两点选区、展开、复制/剪切与输出提示；解析阶段的调试输出用 [DBG] | R:code:core/src/common/Selection.ts,code:core/src/structure/Clipboard.ts | A:select、expand、copy、dropSelection | S:跨维度不许抛异常，要清空并提示
 BasicTranslOperation.ts[AD6M]: F:基础平移/翻转/旋转操作：对选区或结构做位移、镜像与旋转并回显结果 | R:code:core/src/structure/StructureService.ts,code:core/src/structure/Rotate.ts | A:transform 与 fillCommand 调用 | S:变换后须先算目标占用区再落块，直接按原尺寸写会覆盖邻区
 BatchSender.ts[MS9L]: F:批量发送节拍器：per-tick 预算、按 owner 取消与排队 | R:code:core/src/holo/BlockView.ts | A:configure、request、cancelOwner | S:全局 8 包/刻，不要另开节流
 BlockEditerOperation.ts[EU4T]: F:/ca block 子命令：编辑器表单入口与按 NBT 写入单方块 | R:code:core/src/view/BlockEditerForm.ts | A:start | S:无子命令即直接编辑，menu 走表单；两条分支的 IntPos 语义相同
@@ -191,7 +191,7 @@ PreviewHud.ts[DU6S]: F:预览 HUD 纯函数：倒计时文案与样式、手势�
 PreviewHudLock.ts[DU5T]: F:动作条占用锁：预览倒计时期间占位，选区提示让出，避免每秒互相覆盖 | R:code:core/src/structure/AreaDisplayerService.ts | A:hold/release | S:锁短时且须成对释放，泄漏会让选区提示长期不显示
 PreviewOperation.ts[AU7L]: F:预览操作：构建/旋转/移动/粘贴前等待清理，取消与命令入口的护栏 | R:code:core/src/structure/PreviewScene.ts | A:start、cancel、cancelFor、rotate、move | S:先停喂再等排空；等待时长走 dbg
 PreviewPlan.ts[DU8M]: F:纯规划：格子到世界坐标的映射与差量，并按真实角度重算带状态方块的 id 与 SNBT | R:code:structure/StateRemap.ts,code:structure/SurfaceExtract.ts | A:planCells、diffPlacement | S:提取恒 0°，状态重映射必须在这里做；每个 palette 条目每角度只算一次
-PreviewScene.ts[AU9L]: F:预览场景：三模式构建、计划即记账、取消先停喂再等排空；靠近可穿自管理并在内容变化前释放显示 | R:code:core/src/holo/NearBlocks.ts,code:core/src/structure/NearWindow.ts | A:build、enqueue、pump、syncNear、releaseCubes、detachScene | S:NEAR_Y_BASELINE=-0.09 为实测基准；releaseCubes 必须早于差分
+PreviewScene.ts[AU9L]: F:预览场景：三模式构建、计划即记账、取消先停喂再等排空；靠近可穿自管理，调试计数用 [DBG] | R:code:core/src/holo/NearBlocks.ts,code:core/src/structure/NearWindow.ts | A:build、enqueue、pump、syncNear、releaseCubes、detachScene | S:NEAR_Y_BASELINE=-0.09 为实测基准；releaseCubes 必须早于差分
 Rotate.ts[KD8M]: F:旋转与镜像数学：偏移变换、枢轴平移与旋转后的目标脚印 | R:code:core/src/structure/Clipboard.ts | A:rotateOffset、rotatedUnion | S:锚点固定在目标盒最小角，旋转只转盒内图案，不翻到反侧
 StructureOperation.ts[CG8L]: F:结构操作：复制/粘贴/保存/撤销/重做，撤销重做按快照记录维度回放并在跨维度时提示 | R:code:structure/StructureService.ts,code:common/Dimension.ts | A:copy、paste、pasteTransformed、undo、redo、warnOtherDimension | S:撤销必须用快照的 area.start（含 dimid），不能取玩家当前位置
 StructurePlacement.ts[IR9L]: F:逐格放置：调色板转 SNBT 写入、方块实体二次应用、容器先清空、越界与不可写校验、批量让出 | R:code:structure/ContainerClear.ts,code:holo/PasteSync.ts | A:placeLayoutAsync、placeBytesAsync、placeNbtAsync | S:容器必须先清空再覆盖（NBT 清空会触发掉落）；写入后必须回读验证
@@ -224,7 +224,7 @@ Players.ts[CA9L]: F:玩家查询与指令分发：按名称/xuid 取玩家、跑
 SettingsOperation.ts[EU7T]: F:/ca setting：读写玩家设置，禁止修改 enable、displayPos、area 三个受保护键 | R:code:core/src/temp/Data.ts | A:forbidModifyKeys | S:受保护键是防呆设计，放开会让启用开关与选区状态被脚本覆盖
 SwingWatcher.ts[SW8L]: F:挥动检测：swing 计数与"工具触发/放置"去重，避免重复触发 | R:code:core/src/holo/HoloCompat.ts | A:noteHandled、count、reset、statsOf | S:与 onDropItem/onTakeItem 联动，不要重复计数
 ToolItems.ts[AU8L]: F:内置工具物品与绑定维护：默认绑定合并、${posf} 迁移、清理非 call:* 绑定、调试输出 | R:code:core/src/holo/HoloCompat.ts,code:core/src/common/Config.ts | A:TOOL_IDS、migrateBindings、stripForeignBindings、healDefaultBindings、debug | S:只认 call:* 物品；原版物品绑定必须被清除而不是保留
-ToolOperation.ts[TU9L]: F:工具点击：绑定查找（两张表互为兜底）、命令翻译与执行、绑定/解绑指令与未绑定提示 | R:code:core/src/user/ToolItems.ts | A:onClick、matchBinding、bind、unbind、warnUnbound、cmdsTranslator | S:点方块=LEFT 表、点空气=RIGHT 表，CALL 工具必须互相兜底否则误报未绑定
+ToolOperation.ts[TU9L]: F:工具点击：绑定查找（两张表互为兜底）、命令翻译与执行、绑定/解绑与未绑定提示；点击调试走 [DBG] | R:code:core/src/user/ToolItems.ts | A:onClick、matchBinding、bind、unbind、warnUnbound | S:点方块=LEFT 表、点空气=RIGHT 表，CALL 工具必须互相兜底
 
 ===E:/code/LL3/Plugins/CALL/core/src/util/===
 Common.ts[CG2T]: F:通用构造器类型别名 Constructor<T>，供 mixin 与反射式构造使用 | R:- | A:- | S:纯类型无运行时实现，改签名会影响所有依赖它的构造调用
