@@ -5,13 +5,13 @@
 .gitignore[FC5T]: F:忽略 node_modules、dist 产物、CALL-CLI 的 bin/obj 与本地草稿日志，并注明 types/lse 是刻意入库 | R:code:package.json | A:- | S:types/lse 虽是 fetch-types 生成却必须入库，忽略它会同时破坏 typecheck 与类型契约
 .prettierrc[FC3T]: F:Prettier 格式约定：双引号、分号、4 空格缩进、80 列 | R:- | A:- | S:只有格式约定无强制 lint；改 tabWidth 会波及全仓 TS 缩进，应单独提交
 AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线含"资源包禁带 texts/"、发版门禁、日志约定）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:内置包带 texts/languages.json 会让客户端语言整表失效（P0）
-CHANGELOG.md[SC8L]: F:版本史：按版本记录修复与变更，含 4.0.0 的 P0（资源包语言文件导致客户端语言全丢） | R:code:README.md | A:顶部 4.0.0 段落与历史 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
+CHANGELOG.md[SC8L]: F:版本史：按版本记录修复与变更，4.0.1 为语言包 P0 修复版 | R:code:README.md | A:顶部 4.0.1/4.0.0 段落与历史 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
 LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
 README.md[RS9L]: F:仓库门面：功能简介、环境要求表（含 HologramLib 链接）、安装/构建说明与反馈渠道（QQ 群 + Issues） | R:code:docs/user/install.md | A:Requirements/Install/Feedback 各节 | S:环境要求表必须列全前置库；反馈渠道两处保持一致
 build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
 package-lock.json[FV3L]: F:npm 依赖锁定树（lockfileVersion 2），固定 acorn、escodegen、estraverse 等运行时依赖的精确版本 | R:code:package.json | A:packages 与 dependencies 节点 | S:顶层 version 仍是 2.0.0 与 package.json 不一致，不能据此判断发行版本
-package.json[PS9L]: F:插件包元数据与脚本入口（构建/部署/闸门/单测） | R:code:tooth.json,code:CHANGELOG.md | A:version、scripts、devDependencies | S:版本号必须与 tooth.json、CHANGELOG 一致，否则 check:version 失败
-tooth.json[PS9L]: F:LeviLamina 插件清单：版本、平台基线、依赖与打包平台 | R:code:package.json | A:version、dependencies、platform | S:版本必须与 package.json、CHANGELOG 一致
+package.json[PS9L]: F:插件包元数据与脚本入口（构建/部署/闸门/单测），当前 4.0.1 | R:code:tooth.json,code:CHANGELOG.md | A:version、scripts、devDependencies | S:版本号必须与 tooth.json、CHANGELOG 一致，否则 check:version 失败
+tooth.json[PS9L]: F:LeviLamina 插件清单：版本 4.0.1、平台基线、依赖与打包平台 | R:code:package.json | A:version、dependencies、platform | S:版本必须与 package.json、CHANGELOG 一致
 tooth_template.json[OV5T]: F:lip 包清单模板，version 处为 {{VERSION}} 占位，由构建脚本替换 | R:code:scripts/build.mjs | A:{{VERSION}} 占位 | S:占位符拼错会让发行清单里出现字面量版本号
 tsconfig.build.json[FV7T]: F:出包编译配置：在基础配置上开启 emit，输出 dist/call，去注释且无 sourcemap | R:code:tsconfig.json | A:outDir 与 removeComments | S:应与 tsconfig.json 只差 emit 相关项，否则 CI 与本地类型口径不一致
 tsconfig.json[FV8T]: F:基础 TS 配置：ES2020、CommonJS、Node 解析，供编辑器与 typecheck 使用且不产包 | R:code:tsconfig.build.json | A:compilerOptions 与 types/lse 引用 | S:只做类型检查，出包由 tsconfig.build.json 决定，改这里不改产物

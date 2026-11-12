@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-10T05:51:09Z",
-  "updated_at": "2026-11-12T10:02:29Z",
+  "updated_at": "2026-11-12T10:08:29Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -53,9 +53,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "4c5c9b46bf66666f6a887afbfecc969f035c2669608f12d341d51d4d36aecd52",
-      "size": 112022,
-      "normalized_sha256": "4c5c9b46bf66666f6a887afbfecc969f035c2669608f12d341d51d4d36aecd52"
+      "sha256": "35b9eb55d12c58ec9b777d513826c7fa85256efe23063bd21b7a210910e797be",
+      "size": 113011,
+      "normalized_sha256": "35b9eb55d12c58ec9b777d513826c7fa85256efe23063bd21b7a210910e797be"
     },
     "LICENSE": {
       "role": "index",
@@ -71,9 +71,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "15e409e68b980447b181f000cba8e532f572eeacfed7b5c79af66b465186e15c",
-      "size": 65603,
-      "normalized_sha256": "15e409e68b980447b181f000cba8e532f572eeacfed7b5c79af66b465186e15c"
+      "sha256": "375ee5846b1cac8ac1aa9b1624f6ebff2ca400f4779938750aa8e12ca847f7da",
+      "size": 65591,
+      "normalized_sha256": "375ee5846b1cac8ac1aa9b1624f6ebff2ca400f4779938750aa8e12ca847f7da"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -1482,9 +1482,9 @@
     },
     "package.json": {
       "role": "index",
-      "sha256": "877c9e50467831856779f78e78e2d23d43906de5bfdce6961b13f49a8f8e7eb2",
+      "sha256": "7198fb86e7da0c2cbbfc26a4cca763f0aa4ad9bd6c532d20d5b20d46c21250f2",
       "size": 1680,
-      "normalized_sha256": "877c9e50467831856779f78e78e2d23d43906de5bfdce6961b13f49a8f8e7eb2"
+      "normalized_sha256": "7198fb86e7da0c2cbbfc26a4cca763f0aa4ad9bd6c532d20d5b20d46c21250f2"
     },
     "scripts/bench-preview.mjs": {
       "role": "index",
@@ -1842,9 +1842,9 @@
     },
     "tooth.json": {
       "role": "index",
-      "sha256": "38d64b941b0e1081900bdad57cb2990f621d8a45b24a2df2c7e449619a9467c5",
+      "sha256": "653f9402a73827f6f957ac55eb6d24f87946eb27e34b3cf9ac75e095d96f5845",
       "size": 1622,
-      "normalized_sha256": "38d64b941b0e1081900bdad57cb2990f621d8a45b24a2df2c7e449619a9467c5"
+      "normalized_sha256": "653f9402a73827f6f957ac55eb6d24f87946eb27e34b3cf9ac75e095d96f5845"
     },
     "tooth_template.json": {
       "role": "index",
