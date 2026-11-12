@@ -377,7 +377,7 @@ export class ToolOperation {
             if (Config.get(Config.GLOBAL, "debugMod", false) !== true) return;
             const bp = block?.pos ?? {};
             const fp = posFloat ?? {};
-            logger.info("[tool] path=" + source + " item=" + String(item?.type ?? "?")
+            logger.info("[DBG][tool] path=" + source + " item=" + String(item?.type ?? "?")
                 + " block=" + String(bp.x) + "," + String(bp.y) + "," + String(bp.z)
                 + " type=" + String(block?.type ?? "?")
                 + " posf=" + String(fp.x) + "," + String(fp.y) + "," + String(fp.z)
@@ -391,7 +391,7 @@ export class ToolOperation {
     private static logPath(caPlayer: CAPlayer, path: string, item: any, source: string): void {
         try {
             if (Config.get(Config.GLOBAL, "debugMod", false) !== true) return;
-            logger.info("[tool] path=" + path + " item=" + String(item?.type ?? "?")
+            logger.info("[DBG][tool] path=" + path + " item=" + String(item?.type ?? "?")
                 + " source=" + source + " player=" + String(caPlayer.$.realName ?? "?"));
         } catch {
             // diagnostics only

@@ -13,6 +13,13 @@ fixes are based on.
 
 ## [4.0.0]
 
+### Changed (more noise moved to [DBG])
+
+- `[dim] <player> -> <dimension>` used to print on every dimension change; it is now a debug line
+  (`[CALL] [DBG][dim] ...`, only with `debugMod`).
+- The remaining debug-only output (tool click paths, area parse stages, preview batch/teardown
+  counters) now carries the same `[DBG][module]` prefix instead of looking like a normal line.
+
 ### Docs (block entity contents ARE saved)
 
 - The limitation page claimed containers/signs are not preserved. That was true in 3.0.x and is not

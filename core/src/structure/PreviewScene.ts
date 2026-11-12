@@ -1244,7 +1244,7 @@ export const PreviewScene = {
         scene.logCells = scene.batchCells;
         try {
             const stats = FakeBlocks.stats();
-            logger.info("[preview] +" + batches + " 批 / +" + cells + " 格"
+            logger.info("[DBG][preview] +" + batches + " 批 / +" + cells + " 格"
                 + (stats != null ? "（库队列 " + stats.queue + " 包）" : "")
                 + (scene.resends > 0 ? " 重发 " + scene.resends : "")
                 + (scene.batchFallbacks > 0 ? " 回退 " + scene.batchFallbacks : "")
@@ -1492,7 +1492,7 @@ export const PreviewScene = {
         const ledger = detached.ledger;
         const cells = teardownCells(ledger);
         if (debugEnabled()) {
-            logger.info("[preview] 取消: applied=" + ledger.applied.size + " stale=" + ledger.stale.size +
+            logger.info("[DBG][preview] 取消: applied=" + ledger.applied.size + " stale=" + ledger.stale.size +
                 " ever=" + ledger.everApplied.size + " 清理=" + cells.length + " 队列=" +
                 (BatchSender.pendingOf("preview:" + xuid)) + " 库队列=" + (FakeBlocks.stats()?.queue ?? -1));
         }
@@ -1549,7 +1549,7 @@ export const PreviewScene = {
                         logger.warn("[preview] 还原载荷被截断: " + result.truncated +
                             " 条没进库（检查 PACK_MAX_BYTES 是否仍低于参数上限）");
                     }
-                    logger.info("[preview] 还原: 请求=" + task.cells.length +
+                    logger.info("[DBG][preview] 还原: 请求=" + task.cells.length +
                         " 可读=" + result.restored.length + " 不可读=" + result.skipped.length +
                         " 段=" + ((result.probe ?? []).length || "?") +
                         " 库丢包+" + dDropped + " 库坏项+" + dBad +

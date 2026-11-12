@@ -64,7 +64,7 @@ export default class AreaOperation {
                 if (Config.get(Config.GLOBAL, "debugMod", false) !== true) return;
                 const rp: any = res?.IntPos ?? {};
                 const a: any = caPlayer.settings?.area ?? {};
-                logger.info("[area] " + stage
+                logger.info("[DBG][area] " + stage
                     + " enum_1=" + String(res?.enum_1)
                     + " IntPos=" + rp.x + "," + rp.y + "," + rp.z
                     + " stored=" + (a.start?.x ?? "-") + "," + (a.start?.y ?? "-") + "," + (a.start?.z ?? "-")

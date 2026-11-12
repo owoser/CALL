@@ -11,6 +11,7 @@ import { Compare } from "./temp/Common";
 import { Pos } from "./temp/Pos";
 import { ToolType } from "./temp/Tool";
 import StrFactory from "./util/StrFactory";
+import { dbg } from "./util/Log";
 import Tr from "./util/Translator";
 import CACommand from "./CACommand";
 import { AddonInstaller } from "./addon/AddonInstaller";
@@ -233,7 +234,8 @@ const UseItem = "onUseItem";
                     } catch {
                         // the preview teardown is best-effort here
                     }
-                    logger.info("[dim] " + String(player.realName ?? player.xuid) + " -> " + String(dimId));
+                    // Per-player noise: only useful when diagnosing cross-dimension bugs.
+                    dbg("dim", String(player.realName ?? player.xuid) + " -> " + String(dimId));
                 });
             });
         } catch {
