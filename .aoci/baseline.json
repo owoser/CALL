@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-10T05:51:09Z",
-  "updated_at": "2026-11-11T15:33:21Z",
+  "updated_at": "2026-11-12T05:01:57Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -53,9 +53,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "7b762a5dbf37a534fb009d157ce083a2ca27fea46a8ef1bf9d924378256cd46f",
-      "size": 110282,
-      "normalized_sha256": "7b762a5dbf37a534fb009d157ce083a2ca27fea46a8ef1bf9d924378256cd46f"
+      "sha256": "550897d3d393da553fdf884d06f1e15a8374468e957c8ca31807fe9cd3f54905",
+      "size": 110766,
+      "normalized_sha256": "550897d3d393da553fdf884d06f1e15a8374468e957c8ca31807fe9cd3f54905"
     },
     "LICENSE": {
       "role": "index",
@@ -71,9 +71,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "e52de6fc9a029f7f37b20fb34593fcf48c04e4826d9940c46bdfbe1194050999",
-      "size": 67540,
-      "normalized_sha256": "e52de6fc9a029f7f37b20fb34593fcf48c04e4826d9940c46bdfbe1194050999"
+      "sha256": "ebfe18e7a15bd444a14ff7b09dac816624958a8b3e9ab9c72e58e6d6be9bc397",
+      "size": 67643,
+      "normalized_sha256": "ebfe18e7a15bd444a14ff7b09dac816624958a8b3e9ab9c72e58e6d6be9bc397"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -1245,9 +1245,9 @@
     },
     "docs/dev/pitfalls.md": {
       "role": "index",
-      "sha256": "a47b8f51b2ca5d9df11d21518e1786f02e36f329180fb33c21d411aa2628c79f",
-      "size": 29872,
-      "normalized_sha256": "a47b8f51b2ca5d9df11d21518e1786f02e36f329180fb33c21d411aa2628c79f"
+      "sha256": "e7de8c1e1814d28c79fa4974f410b405630d5b161a1759970b676aeb56d9cbaf",
+      "size": 30649,
+      "normalized_sha256": "e7de8c1e1814d28c79fa4974f410b405630d5b161a1759970b676aeb56d9cbaf"
     },
     "docs/dev/plugin.md": {
       "role": "index",
@@ -1338,9 +1338,9 @@
     },
     "docs/other/question.md": {
       "role": "index",
-      "sha256": "c6c083136c27b6a78833b22171ad29f30e1acccd9f0e36bac7ca66f0bf34b821",
-      "size": 4922,
-      "normalized_sha256": "c6c083136c27b6a78833b22171ad29f30e1acccd9f0e36bac7ca66f0bf34b821"
+      "sha256": "cbb6af3ea5d6cbda9b4c190dda363766a27dfebab974249d845a2d996a90e611",
+      "size": 4860,
+      "normalized_sha256": "cbb6af3ea5d6cbda9b4c190dda363766a27dfebab974249d845a2d996a90e611"
     },
     "docs/other/update.md": {
       "role": "index",
@@ -1422,21 +1422,21 @@
     },
     "docs/user/known-limitations.md": {
       "role": "index",
-      "sha256": "66a8c3021bf4cf4469a1a3982ae1ea69934b3faab332c491395591688bbcbe3b",
-      "size": 3628,
-      "normalized_sha256": "66a8c3021bf4cf4469a1a3982ae1ea69934b3faab332c491395591688bbcbe3b"
+      "sha256": "1a6066ca53a773f0e40abc3abca9b46742b4c5b373869282e029e6705d67f69c",
+      "size": 4202,
+      "normalized_sha256": "1a6066ca53a773f0e40abc3abca9b46742b4c5b373869282e029e6705d67f69c"
     },
     "docs/user/migrate.md": {
       "role": "index",
-      "sha256": "0aba411e987138f14ee7aa5e0744ddc71829be2c56c37226c2430e71656f4682",
-      "size": 3811,
-      "normalized_sha256": "0aba411e987138f14ee7aa5e0744ddc71829be2c56c37226c2430e71656f4682"
+      "sha256": "c6873db78cf91b5ec15bf3489155660908ec4a08ad9d5f5f778b285e480cd371",
+      "size": 3827,
+      "normalized_sha256": "c6873db78cf91b5ec15bf3489155660908ec4a08ad9d5f5f778b285e480cd371"
     },
     "docs/user/tools.md": {
       "role": "index",
-      "sha256": "09e6998d53d2533a09ab216ba0d2eade775c0df3502f0fb17ede02bbc9c041de",
-      "size": 19418,
-      "normalized_sha256": "09e6998d53d2533a09ab216ba0d2eade775c0df3502f0fb17ede02bbc9c041de"
+      "sha256": "704caea839a7cb6b3b10d3f522e44489a20e110a518902ad2cfa593eb17678ae",
+      "size": 19508,
+      "normalized_sha256": "704caea839a7cb6b3b10d3f522e44489a20e110a518902ad2cfa593eb17678ae"
     },
     "docs/vendor/copy-code.min.js": {
       "role": "observe",
@@ -1566,9 +1566,9 @@
     },
     "tests/live/call-integration.js": {
       "role": "observe",
-      "sha256": "0c36f784a31ccb86e161ea40e55a4610a68d5965b4a71afa7237b24db136f0cf",
-      "size": 122010,
-      "normalized_sha256": "0c36f784a31ccb86e161ea40e55a4610a68d5965b4a71afa7237b24db136f0cf"
+      "sha256": "995cbeeffd1e30f57d163a5fa3f96feef7ac5a866866aeb75d0604898e155d2b",
+      "size": 123735,
+      "normalized_sha256": "995cbeeffd1e30f57d163a5fa3f96feef7ac5a866866aeb75d0604898e155d2b"
     },
     "tests/live/manifest.json": {
       "role": "observe",
