@@ -62,6 +62,55 @@ test('the template is rendered with user values and keeps its comments', () => {
     assert.ok(merged.includes('// leading comment'));
 });
 
+test('the template layout survives a migration of nested objects', () => {
+    const J = load();
+    const { readFileSync } = require('node:fs');
+    const C = require(join(ROOT, 'dist', 'call', 'core', 'src', 'common', 'JsoncConfig.js'));
+    const tpl = readFileSync(join(ROOT, 'assets', 'configs.default.jsonc'), 'utf8');
+    const old = tpl.replace(/"version": \d+,/, '"version": 1,')
+        .replace('"previewNearRadius": 5,', '"previewNearRadius": 7,');
+    const res = C.migrateToTemplate(tpl, old);
+    assert.ok(res.text != null, 'the version moved, so the file is re-rendered');
+    const out = res.text;
+    // `default.items` keeps the template's compact one-line-per-binding layout instead of being
+    // re-serialised as deep JSON, and the user's own value survives.
+    assert.ok(out.includes('{ "cmds": ["call menu"]'), 'compact binding layout kept');
+    assert.equal(J.parseJsonc(out).previewNearRadius, 7, 'user value kept');
+    assert.deepEqual(J.parseJsonc(out).default.items, J.parseJsonc(tpl).default.items, 'bindings unchanged');
+    // Idempotent: a second migration has nothing to do.
+    assert.equal(C.migrateToTemplate(tpl, out).text, null, 'a migrated file is already current');
+});
+
+test('a patched object keeps the indentation of the line it replaces', () => {
+    const J = load();
+    // Patching a NESTED object used to paste JSON.stringify output straight in, so every inner
+    // line started at column 0 - and each migration pushed the block further out. A version bump
+    // that re-renders `default.items` is exactly that case.
+    const text = '{\n    "version": 1,\n    "default": {\n        "items": {\n            "k": 1\n        }\n    }\n}\n';
+    const next = J.patchJsonc(text, ['default', 'items'], { a: { b: 1 } });
+    assert.ok(next != null, 'the path exists');
+    const lines = next.split('\n');
+    const inner = lines.filter((l) => l.includes('"a"') || l.includes('"b"'));
+    assert.ok(inner.length === 2, 'both keys are present: ' + JSON.stringify(lines));
+    for (const line of inner) {
+        assert.ok(line.startsWith('            '), 'inner line keeps the line indent: ' + JSON.stringify(line));
+    }
+    assert.deepEqual(J.parseJsonc(next).default.items, { a: { b: 1 } });
+});
+
+test('the shipped template parses and its items block is shallow', () => {
+    const J = load();
+    const { readFileSync } = require('node:fs');
+    const text = readFileSync(join(ROOT, 'assets', 'configs.default.jsonc'), 'utf8');
+    const value = J.parseJsonc(text);
+    assert.ok(Number(value.version) >= 11, 'schema version moved for the reformat: ' + value.version);
+    const ids = Object.keys(value.default.items.onUseItemOn);
+    assert.ok(ids.every((id) => id.startsWith('call:')), 'only CALL tools are bound: ' + ids.join(','));
+    // No line may be indented deeper than 40 columns - the previous file had 40+ inside items.
+    const deep = text.split('\n').filter((l) => /^ {41,}\S/.test(l));
+    assert.equal(deep.length, 0, 'over-indented lines: ' + deep.slice(0, 2).join(' | '));
+});
+
 test('trailing commas are tolerated', () => {
     const J = load();
     const value = J.parseJsonc('{ "a": 1, "b": [1,2,], }');

@@ -150,6 +150,28 @@ export function serializeValue(value: any, indent = 4): string {
     return JSON.stringify(value, null, indent) ?? "null";
 }
 
+/**
+ * Serialise a value so that its continuation lines line up with the text it replaces.
+ *
+ * `JSON.stringify(…, null, 4)` always starts nested lines at column 4, so patching a value that
+ * sits at depth 2+ (e.g. `default.items`) produced a block whose inner lines were flush against
+ * the left margin - and every migration pushed it further out. Prefixing each continuation line
+ * with the indentation of the line the value starts on keeps the layout readable.
+ */
+function serializeAt(value: any, text: string, start: number, indent = 4): string {
+    // A short list of scalars (a binding's `cmds`) reads better on one line; JSON.stringify
+    // would turn `["call menu"]` into four.
+    if (Array.isArray(value) && value.every((v) => v == null || typeof v !== "object")) {
+        const inline = JSON.stringify(value) ?? "[]";
+        if (inline.length <= 120) return inline;
+    }
+    const body = serializeValue(value, indent);
+    const lineStart = text.lastIndexOf("\n", start - 1) + 1;
+    const leading = /^[ \t]*/.exec(text.slice(lineStart, start))?.[0] ?? "";
+    if (leading === "" || !body.includes("\n")) return body;
+    return body.split("\n").map((line, i) => (i === 0 ? line : leading + line)).join("\n");
+}
+
 /** Replace one value in the text, keeping every comment and every other byte. */
 export function patchJsonc(text: string, path: string[], value: any): string | null {
     const tokens = tokenize(text);
@@ -157,7 +179,7 @@ export function patchJsonc(text: string, path: string[], value: any): string | n
     if (span == null) return null;
     const start = tokens[span[0]].start;
     const end = tokens[span[1] - 1].end;
-    return text.slice(0, start) + serializeValue(value) + text.slice(end);
+    return text.slice(0, start) + serializeAt(value, text, start) + text.slice(end);
 }
 
 /**
@@ -169,17 +191,33 @@ export function patchJsonc(text: string, path: string[], value: any): string | n
  * placed without inventing a location, so they are appended as a `_legacy` block.
  */
 export function renderFromTemplate(templateText: string, user: any): string {
+    const template = parseJsonc(templateText);
     let text = templateText;
-    const apply = (obj: any, prefix: string[]) => {
+    const isPlain = (v: any) => v != null && typeof v === "object" && !Array.isArray(v);
+
+    const apply = (obj: any, tpl: any, prefix: string[]) => {
         if (obj == null || typeof obj !== "object" || Array.isArray(obj)) return;
         for (const key of Object.keys(obj)) {
             const value = obj[key];
+            const templateValue = tpl != null ? tpl[key] : undefined;
             const next = [...prefix, key];
+
+            // Both sides are plain objects with the same keys: descend instead of replacing the
+            // whole subtree, so the template's own layout and comments survive. A user key the
+            // template does not know cannot be placed inside the template's structure, so that
+            // case falls back to replacing the value wholesale (nothing is silently dropped).
+            const descends = isPlain(value) && isPlain(templateValue) &&
+                Object.keys(value).every((k) => k in templateValue);
+            if (descends) {
+                apply(value, templateValue, next);
+                continue;
+            }
+
             const patched = patchJsonc(text, next, value);
             if (patched != null) text = patched;
-            else if (value != null && typeof value === "object" && !Array.isArray(value)) apply(value, next);
+            else if (isPlain(value)) apply(value, templateValue, next);
         }
     };
-    apply(user, []);
+    apply(user, template, []);
     return text;
 }

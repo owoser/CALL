@@ -11,6 +11,21 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [4.0.2]
+
+只改配置文件的排版，行为不变。
+
+- `configs.json` 的 `default.items` 原来每个绑定占 7 行、最深缩进 40+ 空格（184–261 行）；
+  现在每个绑定 3 行，最深处 16 空格，全文 220 行。
+- **升级后旧配置会自动重排版**：模板 `version` 10 → 11，启动时按模板重新渲染并备份到
+  `config/backup/`，用户的取值（含自定义 `cmds`/`describe`）原样保留。
+- 修掉排版被打乱的真正原因：`patchJsonc` 替换嵌套值时用 `JSON.stringify(…, null, 4)` 直接粘贴，
+  续行从第 0 列开始，于是**每迁移一次就深一层**。现在按被替换值所在行的缩进重新对齐，
+  短的基本类型数组（如 `cmds`）保持单行。
+- `renderFromTemplate` 遇到模板里同样存在的嵌套对象时逐层下潜替换，保留模板的紧凑排版与注释；
+  用户新增了模板没有的键时仍整体替换，不会静默丢配置。
+- 单测新增 3 条（缩进、模板 `items` 不再深缩进、迁移保留排版且幂等）。
+
 ## [4.0.1]
 
 P0 修复版。**4.0.0 的内置资源包会破坏客户端语言表**，请所有 4.0.0 用户升级。
