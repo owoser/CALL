@@ -5,13 +5,13 @@
 .gitignore[FC5T]: F:忽略 node_modules、dist 产物、CALL-CLI 的 bin/obj 与本地草稿日志，并注明 types/lse 是刻意入库 | R:code:package.json | A:- | S:types/lse 虽是 fetch-types 生成却必须入库，忽略它会同时破坏 typecheck 与类型契约
 .prettierrc[FC3T]: F:Prettier 格式约定：双引号、分号、4 空格缩进、80 列 | R:- | A:- | S:只有格式约定无强制 lint；改 tabWidth 会波及全仓 TS 缩进，应单独提交
 AGENTS.md[SC9S]: F:工作区指令：项目规范（文档优先、排错协议、平台事实、库红线含"资源包禁带 texts/"、发版门禁、日志约定）加 AOCI 区块 | R:code:docs/dev/pitfalls.md,code:docs/dev/release.md | A:顶部 §0–§6 与 aoci:begin…aoci:end | S:内置包带 texts/languages.json 会让客户端语言整表失效（P0）
-CHANGELOG.md[SC8L]: F:版本史：按版本记录修复与变更，4.0.2 为配置排版修复版（只改排版） | R:code:README.md | A:顶部 4.0.2/4.0.1/4.0.0 段落与历史 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
+CHANGELOG.md[SC8L]: F:版本史：按版本记录修复与变更，4.0.2/4.0.3 为配置排版迭代（只改排版） | R:code:README.md | A:顶部 4.0.3/4.0.2/4.0.1/4.0.0 段落与历史 | S:顶部段落版本必须等于 package.json，否则 check:version 失败
 LICENSE[SC5L]: F:GPL-3.0 全文；项目以 GPL-3.0-or-later 分发并声明对 superx101/CALL 的派生关系 | R:code:README.md | A:- | S:派生自 GPL-3.0 上游，发布二进制必须同时提供对应源码，不得改为闭源许可
 README.md[RS9L]: F:仓库门面：功能简介、环境要求表（含 HologramLib 链接）、安装/构建说明与反馈渠道（QQ 群 + Issues） | R:code:docs/user/install.md | A:Requirements/Install/Feedback 各节 | S:环境要求表必须列全前置库；反馈渠道两处保持一致
 build.json[FC5T]: F:部署目标配置：bdsDir=D:/MCserver/SER-DEV 与 pluginDir=CALL，供 npm run deploy 与 test:live 使用 | R:code:scripts/build.mjs | A:bdsDir、pluginDir | S:bdsDir 为空即禁用部署；deploy 会保留 plugins/<pluginDir> 下 config/ 与 data/，改 pluginDir 等同换服
 package-lock.json[FV3L]: F:npm 依赖锁定树（lockfileVersion 2），固定 acorn、escodegen、estraverse 等运行时依赖的精确版本 | R:code:package.json | A:packages 与 dependencies 节点 | S:顶层 version 仍是 2.0.0 与 package.json 不一致，不能据此判断发行版本
-package.json[PS9L]: F:插件包元数据与脚本入口（构建/部署/闸门/单测），当前 4.0.2 | R:code:tooth.json,code:CHANGELOG.md | A:version、scripts、devDependencies | S:版本号必须与 tooth.json、CHANGELOG 一致
-tooth.json[PS9L]: F:LeviLamina 插件清单：版本 4.0.2、平台基线、依赖与打包平台 | R:code:package.json | A:version、dependencies、platform | S:版本必须与 package.json、CHANGELOG 一致
+package.json[PS9L]: F:插件包元数据与脚本入口（构建/部署/闸门/单测），当前 4.0.3 | R:code:tooth.json,code:CHANGELOG.md | A:version、scripts、devDependencies | S:版本号必须与 tooth.json、CHANGELOG 一致
+tooth.json[PS9L]: F:LeviLamina 插件清单：版本 4.0.3、平台基线、依赖与打包平台 | R:code:package.json | A:version、dependencies、platform | S:版本必须与 package.json、CHANGELOG 一致
 tooth_template.json[OV5T]: F:lip 包清单模板，version 处为 {{VERSION}} 占位，由构建脚本替换 | R:code:scripts/build.mjs | A:{{VERSION}} 占位 | S:占位符拼错会让发行清单里出现字面量版本号
 tsconfig.build.json[FV7T]: F:出包编译配置：在基础配置上开启 emit，输出 dist/call，去注释且无 sourcemap | R:code:tsconfig.json | A:outDir 与 removeComments | S:应与 tsconfig.json 只差 emit 相关项，否则 CI 与本地类型口径不一致
 tsconfig.json[FV8T]: F:基础 TS 配置：ES2020、CommonJS、Node 解析，供编辑器与 typecheck 使用且不产包 | R:code:tsconfig.build.json | A:compilerOptions 与 types/lse 引用 | S:只做类型检查，出包由 tsconfig.build.json 决定，改这里不改产物
@@ -47,8 +47,8 @@ CALL-CLI.deps.json[FV3T]: F:.NET 9 win-x64 运行依赖清单：CALL-CLI 依赖 
 CALL-CLI.runtimeconfig.json[FV2T]: F:CALL-CLI 的 .NET 9 运行时配置（tfm net9.0，关闭二进制序列化与元数据更新） | R:code:assets/bin/CALL-CLI.deps.json | A:runtimeOptions | S:目标机必须装 .NET 9 运行时；升 TFM 需整组重新 publish 所有 bin 资产
 
 ===E:/code/LL3/Plugins/CALL/assets/===
-check.jsonc[FC5T]: F:配置校验模板：一 key 一 spec（type/enum/min/max），与模板同 version（11），供 check:config 与启动自检 | R:code:assets/configs.default.jsonc | A:configs 下 78 条 spec | S:与模板 key 集合、version 必须一致；spec 必须在 configs 内
-configs.default.jsonc[FC5T]: F:默认配置模板（version 11，约 220 行）：分组 + 单行中文注释；items 每绑定 3 行紧凑排版，只绑 call:* | R:code:assets/check.jsonc,code:docs/user/config.md | A:version 与各分组键、default.items | S:行尾不能写 // 注释；改键必须 version+1 才会在启动时自动重排版
+check.jsonc[FC5T]: F:配置校验模板：一 key 一 spec（type/enum/min/max），与模板同 version（12），供 check:config 与启动自检 | R:code:assets/configs.default.jsonc | A:configs 下 78 条 spec | S:与模板 key 集合、version 必须一致；spec 必须在 configs 内
+configs.default.jsonc[FC5T]: F:默认配置模板（version 12，约 247 行）：分组 + 单行中文注释；items 每绑定 6 行（cmds 与 describe 各一行），只绑 call:* | R:code:assets/check.jsonc,code:docs/user/config.md | A:version 与各分组键、default.items | S:行尾不能写 // 注释；改键必须 version+1 才会在启动时自动重排版
 help.json[FC5T]: F:游戏内帮助目录的三级键位映射（help.cN 分类→条目→翻译键），只放引用不放正文 | R:code:assets/lang/zh_CN.lang | A:help.c0…help.c3 | S:值必须是 lang 中存在的 help.*.tN 键；改文案只动语言文件，不必动本文件
 icons.json[FC5T]: F:原版物品图标名白名单（apple、bed_*、chest_boat 等），供菜单与图形界面挑选图标 | R:code:assets/item_texture.json | A:顶层数组 | S:名称须与客户端贴图名一致；此处只是名字清单，缺项会让对应图标显示为空
 item_texture.json[FC5T]: F:原版物品名→textures/items/* 贴图路径映射，供建造菜单显示物品图标 | R:code:assets/icons.json | A:顶层键值 | S:值不带 .png 且指向原版贴图；补图标需同时登记 icons.json
@@ -270,7 +270,7 @@ question.md[DG3L]: F:常见问题：菜单/工具获取、选区、导入导出�
 update.md[DG8L]: F:更新日志页：手动更新步骤与版本速览表 | R:code:CHANGELOG.md | A:如何更新与版本表 | S:版本表要随发版追加
 
 ===E:/code/LL3/Plugins/CALL/docs/user/===
-config.md[DG9L]: F:配置参考：分组说明 + 每键含义（约 220 行、只认 call:*、升级自动重排版并备份） | R:code:assets/configs.default.jsonc | A:基础/结构/预览各表 | S:新增键必须同时进 check.jsonc 与模板；行数说明要随模板更新
+config.md[DG9L]: F:配置参考：分组说明 + 每键含义（约 247 行、只认 call:*、升级自动重排版并备份） | R:code:assets/configs.default.jsonc | A:基础/结构/预览各表 | S:新增键必须同时进 check.jsonc 与模板；行数说明要随模板更新
 format.md[SG6T]: F:文档格式约定：指令参数记法 param:type 与参数类型表 | R:code:docs/user/function/area.md | A:参数类型表 | S:全站命令示例按此记法书写，另立一套会让示例与实现脱节
 install.md[DG2L]: F:安装说明：环境要求（含 HologramLib 及其下载/仓库链接与发布包名）、前置库章节、安装步骤与验证 | R:code:docs/user/introduction.md,code:README.md | A:环境要求/前置库/安装步骤/首次启动 | S:前置库章节必须给出对应平台线的发布包名与 lip 命令
 introduction.md[DG1L]: F:插件介绍：环境要求表（BDS/LL/LSE/HologramLib）、能力概览与 1.x 差异 | R:code:README.md | A:运行环境与功能列表 | S:前置库 HologramLib 必列；版本号随发版更新
