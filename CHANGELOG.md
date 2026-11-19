@@ -11,6 +11,16 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [4.0.3]
+
+继续调整配置文件的排版，**行为不变**。
+
+- `default.items` 的每个绑定原本把 `cmds` 与 `describe` 挤在同一行；现在各自一行，
+  `describe` 里的 `\n`（中文名/英文名两行）在编辑器和差异视图里都看得清了。
+- 每个绑定 6 行、全文 **247 行**，最深缩进 **20 空格**（之前是 33 行/最深 16、更早是 78 行/最深 40+）。
+- 模板 `version` 11 → 12：旧配置启动时自动重排版（备份到 `config/backup/`），取值原样保留。
+  实测 v11 → v12：247 行、最深 20、用户值保留、二次迁移无改动。
+
 ## [4.0.2]
 
 只改配置文件的排版，行为不变。

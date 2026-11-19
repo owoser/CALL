@@ -72,9 +72,10 @@ test('the template layout survives a migration of nested objects', () => {
     const res = C.migrateToTemplate(tpl, old);
     assert.ok(res.text != null, 'the version moved, so the file is re-rendered');
     const out = res.text;
-    // `default.items` keeps the template's compact one-line-per-binding layout instead of being
-    // re-serialised as deep JSON, and the user's own value survives.
-    assert.ok(out.includes('{ "cmds": ["call menu"]'), 'compact binding layout kept');
+    // `default.items` keeps the template's layout (cmds and describe on their own lines, one
+    // indent level each) instead of being re-serialised from column 0, and the user's value survives.
+    assert.ok(out.includes('"cmds": ["call menu"]'), 'binding commands kept');
+    assert.ok(out.includes('"describe": "⚙ 主菜单'), 'binding label kept');
     assert.equal(J.parseJsonc(out).previewNearRadius, 7, 'user value kept');
     assert.deepEqual(J.parseJsonc(out).default.items, J.parseJsonc(tpl).default.items, 'bindings unchanged');
     // Idempotent: a second migration has nothing to do.
@@ -107,6 +108,7 @@ test('the shipped template parses and its items block is shallow', () => {
     const ids = Object.keys(value.default.items.onUseItemOn);
     assert.ok(ids.every((id) => id.startsWith('call:')), 'only CALL tools are bound: ' + ids.join(','));
     // No line may be indented deeper than 40 columns - the previous file had 40+ inside items.
+    // (Now the deepest line is 20: binding -> "" -> cmds/describe.)
     const deep = text.split('\n').filter((l) => /^ {41,}\S/.test(l));
     assert.equal(deep.length, 0, 'over-indented lines: ' + deep.slice(0, 2).join(' | '));
 });
