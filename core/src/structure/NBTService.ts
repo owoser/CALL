@@ -104,6 +104,30 @@ export default class NBTService {
         }
     }
 
+    /** Saveids already reported as missing, so a many-slice paste logs one line each. */
+    private static readonly missingReported = new Set<string>();
+
+    /**
+     * Report where the slice was expected, then throw the translation key.
+     *
+     * The key alone (`dynamic.StructureManager.load.missingFile`) tells an operator nothing: the
+     * interesting part is which file we looked for and in which folder, because a missing slice is
+     * almost always a path problem (folder moved, metadata lost, clipboard older than the store
+     * migration) rather than a broken file.
+     */
+    private static missing(saveid: string): never {
+        try {
+            if (!NBTService.missingReported.has(saveid)) {
+                if (NBTService.missingReported.size > 200) NBTService.missingReported.clear();
+                NBTService.missingReported.add(saveid);
+                logger.warn("[store] 找不到切片文件: " + saveid + " → " + NBTService.filePath(saveid));
+            }
+        } catch {
+            // logging must never hide the real error
+        }
+        throw new Warn("dynamic.StructureManager.load.missingFile");
+    }
+
     /** Raw bytes of a stored structure. */
     public static readBytes(saveid: string): Buffer {
         const file = NBTService.filePath(saveid);
@@ -112,7 +136,7 @@ export default class NBTService {
         } catch {
             // The path matters: a public structure is resolved from a folder name, and the
             // one thing an operator needs to see is where we looked.
-            throw new Warn("dynamic.StructureManager.load.missingFile");
+            NBTService.missing(saveid);
         }
     }
 
@@ -143,7 +167,7 @@ export default class NBTService {
         mirror: string | number = "none",
         rotation: number = 0
     ): Promise<number> {
-        if (!NBTService.exists(saveid)) throw new Warn("dynamic.StructureManager.load.missingFile");
+        if (!NBTService.exists(saveid)) NBTService.missing(saveid);
         const bytes = NBTService.readBytes(saveid);
         const batch = Number(Config_getNum("placeBatchBlocks", 2000));
         return placeBytesAsync(bytes, pos, batch > 0 ? batch : 2000, {

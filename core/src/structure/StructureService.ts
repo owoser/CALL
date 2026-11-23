@@ -456,6 +456,29 @@ export default class StructureService {
             let moved = 0;
             let orphans = 0;
 
+            // Where a structure lives when it is already in its folder. Built once, lazily:
+            // a server with hundreds of structures would otherwise stat the whole tree per id.
+            let indexedFromDisk: Map<string, string> | null = null;
+            let backfilled = 0;
+            const backfill = (sid: string, xSize: number, zSize: number) => {
+                if (StructureStore.dirOf(sid) != null) return;
+                if (indexedFromDisk == null) indexedFromDisk = StructureStore.scanFiles();
+                let base = sid;
+                let sizes: [number, number] = [xSize, zSize];
+                let rel = indexedFromDisk.get(sid);
+                if (rel == null) {
+                    // A single slice can be stored as <sid>_0_0 (an older build wrote the index
+                    // even for 1x1 structures); filePath() then has to be told to expect it.
+                    rel = indexedFromDisk.get(sid + "_0_0");
+                    if (rel == null) return;
+                    base = sid + "_0_0";
+                    sizes = [Math.max(xSize, 2), zSize];
+                }
+                if (base !== sid && xSize * zSize <= 1) sizes = [Math.max(xSize, 2), Math.max(zSize, 1)];
+                StructureStore.register(sid, rel, sizes[0], sizes[1]);
+                backfilled++;
+            };
+
             const moveSlices = (sid: string, st: any, kind: StoreKind, ownerKey: string, displayName: string) => {
                 if (st == null) return;
                 const xSize = Number(st.xSize) || 1;
@@ -469,7 +492,15 @@ export default class StructureService {
                         if (fs.existsSync(path.join(root, sid + "_" + x + "_" + z + ".mcstructure"))) anyFile = true;
                     }
                 }
-                if (!anyFile && !fs.existsSync(path.join(root, sid + ".mcstructure"))) return;
+                if (!anyFile && !fs.existsSync(path.join(root, sid + ".mcstructure"))) {
+                    // Already migrated: the slices sit in <player>/<name>/, <player>/copy/<id>/ …
+                    // Nothing to move, but the id -> folder map still has to be rebuilt. Skipping
+                    // it made NBTService.filePath() fall back to data/nbt, so after the very next
+                    // restart a clipboard or a saved structure could not be found at all
+                    // (dynamic.StructureManager.load.missingFile, slice 0,0 first).
+                    backfill(sid, xSize, zSize);
+                    return;
+                }
                 const ownerName = StructureStore.playerNameOf(ownerKey) ?? ownerKey;
                 StructureStore.prepare(kind, ownerName, displayName ?? st.name ?? sid, sid, xSize, zSize);
                 for (let z = 0; z < zSize; z++) {
@@ -584,6 +615,9 @@ export default class StructureService {
             // migration (and from saves that failed before the first slice landed).
             const pruned = StructureStore.pruneEmptyFolders();
 
+            if (backfilled > 0) {
+                logger.info("[store] 索引回填 " + backfilled + " 个结构（切片已在各自的文件夹里）");
+            }
             if (moved > 0 || orphans > 0 || pruned > 0) {
                 logger.info("[store] 结构目录已整理：移动 " + moved + " 个切片" +
                     (orphans > 0 ? "，未归属 " + orphans + " 个（data/nbt/_orphan/）" : "") +

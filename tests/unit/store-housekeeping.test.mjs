@@ -55,3 +55,23 @@ test('pruneEmptyFolders removes only the folders without data', () => {
         rmSync(dir, { recursive: true, force: true });
     }
 });
+
+test('scanFiles maps every slice to the folder it really sits in', () => {
+    const { StructureStore } = require(STORE_MOD);
+    const dir = mkdtempSync(join(tmpdir(), 'call-scan-'));
+    try {
+        mkdirSync(join(dir, 'alice', 'copy', 'abc'), { recursive: true });
+        writeFileSync(join(dir, 'alice', 'copy', 'abc', 'abc_0_0.mcstructure'), Buffer.from([10, 0, 0, 0]));
+        writeFileSync(join(dir, 'alice', 'copy', 'abc', 'abc_1_0.mcstructure'), Buffer.from([10, 0, 0, 0]));
+        mkdirSync(join(dir, '_orphan'), { recursive: true });
+        writeFileSync(join(dir, '_orphan', 'ghost_0_0.mcstructure'), Buffer.from([10, 0, 0, 0]));
+
+        StructureStore.root = () => dir;
+        const map = StructureStore.scanFiles();
+        assert.equal(map.get('abc_0_0'), 'alice/copy/abc', 'slice folder is recorded');
+        assert.equal(map.get('abc_1_0'), 'alice/copy/abc', 'every slice of the structure is found');
+        assert.equal(map.has('ghost_0_0'), false, '_orphan is not resurrected');
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
+});

@@ -350,6 +350,40 @@ export const StructureStore = {
         return false;
     },
 
+    /**
+     * Every .mcstructure under data/nbt, mapped as file base name -> relative folder.
+     *
+     * Needed to rebuild the id map for structures that already live in their folder: the flat
+     * file the migration keyed on is gone by then, so the only remaining evidence of where a
+     * structure sits is the file itself. `_legacy`/`_orphan` are skipped - those hold files that
+     * the migration could not attribute and must not be resurrected by accident.
+     */
+    scanFiles(): Map<string, string> {
+        const root = StructureStore.root();
+        const out = new Map<string, string>();
+        const walk = (abs: string, rel: string, depth: number) => {
+            if (depth > 4) return;
+            let entries: fs.Dirent[] = [];
+            try {
+                entries = fs.readdirSync(abs, { withFileTypes: true });
+            } catch {
+                return;
+            }
+            for (const entry of entries) {
+                const childRel = rel === "" ? entry.name : rel + "/" + entry.name;
+                if (entry.isDirectory()) {
+                    if (entry.name === "_legacy" || entry.name === "_orphan") continue;
+                    walk(path.join(abs, entry.name), childRel, depth + 1);
+                } else if (/\.mcstructure$/i.test(entry.name)) {
+                    const baseName = entry.name.replace(/\.mcstructure$/i, "");
+                    if (!out.has(baseName)) out.set(baseName, rel);
+                }
+            }
+        };
+        walk(root, "", 0);
+        return out;
+    },
+
     /** Atomic write: a half-written slice must never be visible to a reader. */
     writeAtomic(file: string, bytes: Buffer): void {
         fs.mkdirSync(path.dirname(file), { recursive: true });
