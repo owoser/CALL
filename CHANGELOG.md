@@ -11,6 +11,23 @@ is no longer maintained upstream. The 3.0.0 line targets **LeviLamina 26.51.x** 
 See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the platform behaviour these
 fixes are based on.
 
+## [4.0.4]
+
+修复重启之后旧结构加载不了的问题。**数据没有丢，升级后会自动恢复。**
+
+- 症状：粘贴或加载**上一次会话**做的结构，报 `dynamic.StructureManager.load.missingFile`
+  （控制台 `[StructureService.slice 0,0]`），最新重做的结构反而正常。
+- 根因：结构存进 `data/nbt/<玩家>/copy/<id>/` 这类文件夹之后，启动时重建「结构 id → 文件夹」
+  索引的那段代码只认根目录下的扁平文件，于是这些结构**没有进索引**；
+  查找退回老路径 `data/nbt/<id>.mcstructure`，自然找不到。同一会话内新做的结构在保存时
+  就注册过，所以不受影响。
+- 修法：启动时扫一遍 `data/nbt`（跳过 `_legacy` / `_orphan`）把「文件名 → 文件夹」建出来，
+  对已经没有扁平文件的条目**回填注册**；磁盘上的文件不动、不复制、不删除。
+- 升级后首次启动日志会打印 `[store] 索引回填 N 个结构（切片已在各自的文件夹里）`，
+  N 就是这次恢复的结构数量。
+- 另外：找不到切片时会打印 `[store] 找不到切片文件: <id> → <完整路径>`，以后再遇到就能直接看出
+  是文件真没了还是路径解析错了（以前只给一个翻译键）。
+
 ## [4.0.3]
 
 继续调整配置文件的排版，**行为不变**。
